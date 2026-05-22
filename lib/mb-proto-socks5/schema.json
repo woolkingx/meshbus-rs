@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-proto-socks5/schema.json",
+  "title": "mb-proto-socks5",
+  "description": "Pure SOCKS5 wire codec. L7 protocol facts are decoded only for edge plugins; bus core receives opaque L4 frames.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "properties": {
+    "commands": {
+      "type": "array",
+      "description": "SOCKS5 commands recognized as wire facts by the codec layer. Live-ingress command support is a separate matrix owned by mesh-bus-ingress-socks5.",
+      "items": {
+        "type": "string",
+        "enum": ["Connect", "Bind", "UdpAssociate"]
+      },
+      "default": ["Connect", "Bind", "UdpAssociate"]
+    },
+    "auth_methods": {
+      "type": "array",
+      "description": "SOCKS5 auth method tokens the codec maps from a greeting. Unknown methods are preserved as Method::Unknown and never coerced into NoAuth. Live-ingress acceptance is a separate matrix owned by mesh-bus-ingress-socks5.",
+      "items": {
+        "type": "string",
+        "enum": ["NoAuth", "GssApi", "UserPass"]
+      },
+      "default": ["NoAuth", "GssApi", "UserPass"]
+    },
+    "gssapi_status": {
+      "type": "string",
+      "const": "codec-token-only-never-negotiated",
+      "description": "Method::GssApi (0x01) is decoded as a wire token only. The codec performs no GSSAPI subnegotiation and the bundled mesh-bus-ingress-socks5 adapter never selects it: GSSAPI is gated off behind the adapter's default-off `gssapi` cargo feature. A client offering only GSSAPI receives the RFC1928 0x05 0xff no-acceptable-methods reply from the adapter."
+    },
+    "command_auth_matrix": {
+      "type": "object",
+      "description": "Authoritative four-column separation of SOCKS5 command and auth support across the codec and the two L7 adapters. The codec recognizes wire facts only; live acceptance is owned per adapter. CLAUDE.md files reference this matrix instead of restating it.",
+      "properties": {
+        "codec_recognized_commands": {
+          "const": ["Connect", "Bind", "UdpAssociate"],
+          "description": "mb-proto-socks5 decodes all three as wire facts; it never decides which run live."
+        },
+        "codec_recognized_auth": {
+          "const": ["NoAuth", "GssApi", "UserPass"],
+          "description": "mb-proto-socks5 maps these greeting tokens; unknown methods are Method::Unknown, never coerced to NoAuth."
+        },
+        "live_ingress_commands": {
+          "const": ["Connect", "Bind", "UdpAssociate"],
+          "description": "mesh-bus-ingress-socks5: Connect -> ByteStream bus session, UdpAssociate -> Datagram bus session, Bind -> client-facing local TCP relay (no bus session, policy/pipeline gated)."
+        },
+        "live_ingress_auth": {
+          "const": ["NoAuth", "UserPass"],
+          "description": "mesh-bus-ingress-socks5 negotiates NoAuth (no AuthConfig) or UserPass (AuthConfig set). GssApi is codec-recognized but never negotiated: gated off behind the default-off `gssapi` cargo feature; a GSSAPI-only greeting gets 0x05 0xff."
+        },
+        "live_egress_stream_commands": {
+          "const": ["Connect"],
+          "description": "mesh-bus-egress-socks5 Socks5Egress StreamEgress issues upstream CONNECT only."
+        },
+        "live_egress_datagram_commands": {
+          "const": ["UdpAssociate"],
+          "description": "mesh-bus-egress-socks5 Socks5UdpEgress DatagramEgress issues upstream UDP ASSOCIATE with a retained TCP control connection."
+        },
+        "live_egress_auth": {
+          "const": ["NoAuth", "UserPass"],
+          "description": "mesh-bus-egress-socks5 offers UserPass+NoAuth when Socks5UpstreamAuth credentials are configured, NoAuth only otherwise; an unconfigured user/pass demand is a hard failure."
+        }
+      },
+      "required": [
+        "codec_recognized_commands",
+        "codec_recognized_auth",
+        "live_ingress_commands",
+        "live_ingress_auth",
+        "live_egress_stream_commands",
+        "live_egress_datagram_commands",
+        "live_egress_auth"
+      ]
+    },
+    "reserved_byte": {
+      "type": "string",
+      "const": "reject-nonzero",
+      "description": "Request RSV (byte 2), reply RSV (byte 2), and UDP relay RSV (bytes 0..2) must be zero per RFC1928; a nonzero reserved byte is rejected with CodecError::ReservedNotZero."
+    },
+    "udp_fragmentation": {
+      "type": "string",
+      "const": "reject-frag-nonzero",
+      "description": "SOCKS5 UDP relay parser accepts only FRAG=0 packets."
+    },
+    "address_types": {
+      "type": "array",
+      "description": "ATYP values the request/reply/UDP endpoint codec encodes and decodes.",
+      "items": {
+        "type": "string",
+        "enum": ["0x01-ipv4", "0x03-domain", "0x04-ipv6"]
+      },
+      "default": ["0x01-ipv4", "0x03-domain", "0x04-ipv6"]
+    },
+    "unsupported_command_reply": {
+      "type": "string",
+      "const": "0x07",
+      "description": "Unsupported SOCKS5 commands are represented by the RFC command-not-supported reply code."
+    },
+    "reply_codes": {
+      "type": "array",
+      "description": "Full RFC1928 REP code set exposed by the Reply enum for typed connect-result mapping.",
+      "items": {
+        "type": "string",
+        "enum": ["0x00", "0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07", "0x08"]
+      },
+      "default": ["0x00", "0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07", "0x08"]
+    },
+    "failure_replies": {
+      "type": "array",
+      "description": "RFC1928 failure REP codes exposed by the codec for typed connect-result mapping.",
+      "items": {
+        "type": "string",
+        "enum": ["0x03", "0x04", "0x05", "0x06", "0x08"]
+      },
+      "default": ["0x03", "0x04", "0x05", "0x06", "0x08"]
+    }
+  }
+}

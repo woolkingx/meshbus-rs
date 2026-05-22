@@ -1,0 +1,1201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-runtime/schema.json",
+  "title": "mesh-bus-runtime",
+  "description": "YAML config schema for assembling the bus from ingress/egress plugins.",
+  "x-schema-version": "draft-08",
+  "type": "object",
+  "required": [
+    "ingresses",
+    "egresses"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "node": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "description": "Local Mesh Protocol node_id; must be unique from adjacent peer node_id values."
+        }
+      }
+    },
+    "peers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "node_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "description": "Operator adjacent-peer id referenced by mesh-peer egress peer_id."
+          },
+          "node_id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "description": "Remote Mesh Protocol node_id advertised by this adjacent peer."
+          },
+          "route_groups": {
+            "type": "array",
+            "description": "Allowed route-group labels that this configured adjacent peer may decorate.",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "meshsec": {
+            "type": "object",
+            "required": [
+              "profile"
+            ],
+            "additionalProperties": false,
+            "description": "Optional MeshSec secure UDP envelope material for this adjacent peer. Requires top-level node.id.",
+            "oneOf": [
+              {
+                "required": [
+                  "static_key_hex"
+                ],
+                "not": {
+                  "required": [
+                    "keyring"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "active_key_id",
+                  "keyring"
+                ],
+                "not": {
+                  "required": [
+                    "static_key_hex"
+                  ]
+                }
+              }
+            ],
+            "properties": {
+              "profile": {
+                "type": "string",
+                "enum": [
+                  "MeshSec-0RTT-PSK-XChaCha"
+                ],
+                "description": "MeshSec profile; only the 0-RTT PSK XChaCha20-Poly1305 profile is defined."
+              },
+              "static_key_hex": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{64}$",
+                "description": "Legacy single pre-shared 32-byte static key as exactly 64 lowercase/uppercase hex characters."
+              },
+              "active_key_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Key id used for sealing new MeshSec packets when keyring is configured."
+              },
+              "keyring": {
+                "type": "array",
+                "minItems": 1,
+                "description": "MeshSec keyring. The active key seals new packets; accept keys open packets during rollover.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "static_key_hex",
+                    "role"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "static_key_hex": {
+                      "type": "string",
+                      "pattern": "^[0-9a-fA-F]{64}$"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "accept"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "enum": [
+            "trace",
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "info"
+        },
+        "format": {
+          "enum": [
+            "compact",
+            "pretty",
+            "json"
+          ],
+          "default": "compact"
+        }
+      }
+    },
+    "health": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "failure_threshold": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recovery_window_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "probe_after_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "metrics": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "path"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "PrometheusTextfile"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "labels": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "listen"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "PrometheusHttp"
+            },
+            "listen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "labels": {
+              "type": "object",
+              "propertyNames": {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "operator": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "listen"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "LocalHttp"
+            },
+            "listen": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Loopback TCP endpoint for the local Operator API. Non-loopback bind addresses are rejected by runtime validation."
+            },
+            "auth": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "kind",
+                    "path"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "BearerTokenFile"
+                    },
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Local token file read by the daemon and CLI. Token contents are never printed."
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "scheduler": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "Cake"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "Replicate"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "mode"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "LoadBalance"
+            },
+            "mode": {
+              "enum": [
+                "round-robin",
+                "sticky-sessions",
+                "consistent-hashing"
+              ]
+            },
+            "sticky_ttl_secs": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 600
+            }
+          }
+        }
+      ]
+    },
+    "ingresses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "listen"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "Socks5"
+              },
+              "listen": {
+                "type": "string",
+                "minLength": 1,
+                "description": "host:port to bind the SOCKS5 listener"
+              },
+              "rule_chain_path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Legacy ingress-local RulePolicy chain path; relative paths resolve against the operator config file directory, and actions must project onto the SOCKS5 BusSessionRequest surface."
+              },
+              "auth": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "SOCKS5 ingress auth. With no `users`, the ingress negotiates NoAuth; with `users`, it negotiates RFC1929 UserPass. GSSAPI (method 0x01) is never negotiated regardless of this config: it is gated off behind the mesh-bus-ingress-socks5 default-off `gssapi` cargo feature and a GSSAPI-only client receives RFC1928 0x05 0xff.",
+                "properties": {
+                  "users": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "password"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "password": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "handshake_timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "accept_backoff_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "max_connections": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "udp_forward_concurrency": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "socket_recv_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_RCVBUF size in bytes for accepted SOCKS5 TCP sockets."
+              },
+              "socket_send_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_SNDBUF size in bytes for accepted SOCKS5 TCP sockets."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "listen",
+              "target"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "Tcp"
+              },
+              "listen": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "description": "fixed upstream host:port"
+              },
+              "route_group": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional L4 route-group candidate label projected onto the direct stream session."
+              },
+              "traffic_class": {
+                "type": "string",
+                "enum": [
+                  "Interactive",
+                  "Bulk",
+                  "Control",
+                  "Probe"
+                ],
+                "description": "Optional L4 traffic class for the direct stream session; maps to the core TrafficClass."
+              },
+              "deadline_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional L4 deadline hint in milliseconds for the direct stream session."
+              },
+              "source_label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional opaque source label for observability of this direct stream source."
+              },
+              "socket_recv_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_RCVBUF size in bytes for accepted TCP sockets."
+              },
+              "socket_send_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_SNDBUF size in bytes for accepted TCP sockets."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "listen",
+              "target"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "Udp"
+              },
+              "listen": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1,
+                "description": "fixed upstream host:port for each UDP datagram"
+              },
+              "route_group": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional L4 route-group candidate label projected onto the direct datagram session."
+              },
+              "traffic_class": {
+                "type": "string",
+                "enum": [
+                  "Interactive",
+                  "Bulk",
+                  "Control",
+                  "Probe"
+                ],
+                "description": "Optional L4 traffic class for the direct datagram session; maps to the core TrafficClass."
+              },
+              "deadline_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional L4 deadline hint in milliseconds for the direct datagram session."
+              },
+              "source_label": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional opaque source label for observability of this direct datagram source."
+              },
+              "socket_recv_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_RCVBUF size in bytes for the bound UDP ingress socket."
+              },
+              "socket_send_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_SNDBUF size in bytes for the bound UDP ingress socket."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "listen"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "MeshPeerUdp"
+              },
+              "listen": {
+                "type": "string",
+                "minLength": 1,
+                "description": "host:port to bind raw UDP Mesh Protocol peer ingress. Non-loopback/WAN binds require at least one peers[].meshsec MeshSec entry; bind loopback only for debug-clear local fixtures."
+              },
+              "native_event_mode": {
+                "enum": [
+                  "secure_udp_native",
+                  "mesh_frame"
+                ],
+                "default": "secure_udp_native",
+                "description": "Wire envelope this ingress accepts: secure_udp_native decodes native MeshEvent/DataPackage with per-family reorder legality; mesh_frame keeps the legacy bincode MeshFrame path."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "listen"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "HttpConnect"
+              },
+              "listen": {
+                "type": "string",
+                "minLength": 1,
+                "description": "host:port to bind the HTTP/1.1 CONNECT / absolute-form forward-proxy listener"
+              },
+              "auth": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Optional HTTP Basic Proxy-Authorization user list. With no users the ingress accepts unauthenticated proxy requests.",
+                "properties": {
+                  "users": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name",
+                        "password"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "password": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "handshake_timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "max_header_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Maximum HTTP request-head bytes accepted before returning 400."
+              },
+              "max_connections": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "socket_recv_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_RCVBUF size in bytes for accepted HTTP proxy TCP sockets."
+              },
+              "socket_send_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_SNDBUF size in bytes for accepted HTTP proxy TCP sockets."
+              }
+            }
+          }
+        ]
+      }
+    },
+    "egresses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "id",
+              "timeout_ms"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "Tcp"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "Operator egress identity projected to core SinkId; pipeline assembly injects it into pick_sink may_accept_to."
+              },
+              "wan_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "observability label for metrics/logs; defaults to id when omitted."
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "LoadBalance scheduler weight; higher values increase this egress candidate's share."
+              },
+              "groups": {
+                "type": "array",
+                "description": "route-group candidate labels used by policy-selected route_group filtering.",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "socket_recv_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_RCVBUF size in bytes applied before TCP connect."
+              },
+              "socket_send_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_SNDBUF size in bytes applied before TCP connect."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "id",
+              "upstream",
+              "timeout_ms"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "Socks5"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "Operator egress identity projected to core SinkId; pipeline assembly injects it into pick_sink may_accept_to."
+              },
+              "wan_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "observability label for metrics/logs; defaults to id when omitted."
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "LoadBalance scheduler weight; higher values increase this egress candidate's share."
+              },
+              "groups": {
+                "type": "array",
+                "description": "route-group candidate labels used by policy-selected route_group filtering.",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "upstream": {
+                "type": "string",
+                "minLength": 1,
+                "description": "SOCKS5 proxy host:port"
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "id",
+              "upstream",
+              "timeout_ms"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "Socks5Udp"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "Operator egress identity projected to core SinkId; pipeline assembly injects it into pick_sink may_accept_to."
+              },
+              "wan_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "observability label for metrics/logs; defaults to id when omitted."
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "LoadBalance scheduler weight; higher values increase this egress candidate's share."
+              },
+              "groups": {
+                "type": "array",
+                "description": "route-group candidate labels used by policy-selected route_group filtering.",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "upstream": {
+                "type": "string",
+                "minLength": 1,
+                "description": "SOCKS5 proxy host:port that runs UDP ASSOCIATE for this datagram egress"
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "auth": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "username",
+                  "password"
+                ],
+                "description": "Optional RFC1929 user/pass credentials for the upstream SOCKS5 control connection. Absent means NoAuth only.",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "RFC1929 username octets (1..=255)."
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "RFC1929 password octets (1..=255)."
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "id",
+              "timeout_ms"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "Udp"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "Operator egress identity projected to core SinkId; pipeline assembly injects it into pick_sink may_accept_to."
+              },
+              "wan_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "observability label for metrics/logs; defaults to id when omitted."
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "LoadBalance scheduler weight; higher values increase this egress candidate's share."
+              },
+              "groups": {
+                "type": "array",
+                "description": "route-group candidate labels used by policy-selected route_group filtering.",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "socket_recv_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_RCVBUF size in bytes for UDP egress sockets."
+              },
+              "socket_send_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_SNDBUF size in bytes for UDP egress sockets."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "id",
+              "peer_id",
+              "peer",
+              "timeout_ms"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "MeshPeerUdp"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "Operator egress identity projected to core SinkId; pipeline assembly injects it into pick_sink may_accept_to, and RouteAdvertise may only decorate this configured sink."
+              },
+              "peer_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "peer": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Adjacent peer UDP socket address."
+              },
+              "wan_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "observability label for metrics/logs; defaults to id when omitted."
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "LoadBalance scheduler weight; higher values increase this egress candidate's share."
+              },
+              "groups": {
+                "type": "array",
+                "description": "route-group candidate labels constrained by the referenced peer.route_groups.",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "native_event_mode": {
+                "enum": [
+                  "secure_udp_native",
+                  "mesh_frame"
+                ],
+                "default": "secure_udp_native",
+                "description": "Wire envelope this egress emits: secure_udp_native wraps each frame as a native MeshEvent/DataPackage steered through UdpPacketLoop; mesh_frame keeps the legacy bincode MeshFrame path."
+              },
+              "delivery_mode": {
+                "enum": [
+                  "steer",
+                  "stripe",
+                  "replicate",
+                  "repair",
+                  "probe"
+                ],
+                "default": "steer",
+                "description": "Per-egress native delivery policy. It changes only delivery coordinates (which mouth/how many sends); family id, seq, and ordering stay L5-owned. steer is the default and keeps existing configs unchanged."
+              },
+              "replicate_fanout": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 2,
+                "description": "Replicate-mode bounded duplicate-send count, clamped 1..=4. Ignored unless delivery_mode is replicate."
+              },
+              "probe_budget": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 4,
+                "description": "Probe-mode cap on low-rate sample sends. A probe never creates route truth; an exhausted budget simply skips."
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "id",
+              "service_id",
+              "connect",
+              "timeout_ms"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "ServiceTcp"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "Operator egress identity projected to core SinkId; pipeline assembly injects it into pick_sink may_accept_to."
+              },
+              "service_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Static service identity label exposed to observation. Never derived from payload."
+              },
+              "wan_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "observability label for metrics/logs; defaults to id when omitted."
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "LoadBalance scheduler weight; higher values increase this egress candidate's share."
+              },
+              "route_group": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Operator single-label alias folded into groups at parse time; groups remains the single source of truth."
+              },
+              "groups": {
+                "type": "array",
+                "description": "route-group candidate labels used by policy-selected route_group filtering.",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "connect": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Local TCP endpoint the data plane dials, such as 127.0.0.1:8080; request.target is service-intent metadata only."
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "kind",
+              "id",
+              "service_id",
+              "connect",
+              "timeout_ms"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "ServiceUdp"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "description": "Operator egress identity projected to core SinkId; pipeline assembly injects it into pick_sink may_accept_to."
+              },
+              "service_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Static UDP service identity label exposed to observation. Never derived from payload."
+              },
+              "wan_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "observability label for metrics/logs; defaults to id when omitted."
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1,
+                "description": "LoadBalance scheduler weight; higher values increase this egress candidate's share."
+              },
+              "route_group": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Operator single-label alias folded into groups at parse time; groups remains the single source of truth."
+              },
+              "groups": {
+                "type": "array",
+                "description": "route-group candidate labels used by policy-selected route_group filtering.",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "connect": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Local UDP endpoint the data plane sends datagrams to; request.target is service-intent metadata only."
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "socket_recv_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_RCVBUF size in bytes for the UDP service egress socket."
+              },
+              "socket_send_buffer_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional SO_SNDBUF size in bytes for the UDP service egress socket."
+              }
+            }
+          }
+        ]
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": [
+            "rule_chain_forward"
+          ]
+        },
+        {
+          "required": [
+            "rule_chain_path"
+          ]
+        }
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rule_chain_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Legacy alias for rule_chain_forward; relative paths resolve against the operator config file directory."
+        },
+        "rule_chain_forward": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Forward policy rule chain path; relative paths resolve against the operator config file directory."
+        },
+        "rule_chain_resolver": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional resolver policy rule chain path; relative paths resolve against the operator config file directory."
+        },
+        "geoip": {
+          "type": "object",
+          "required": [
+            "country_path",
+            "asn_path"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "country_path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "GeoIP country database path; relative paths resolve against the operator config file directory."
+            },
+            "asn_path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "GeoIP ASN database path; relative paths resolve against the operator config file directory."
+            }
+          }
+        },
+        "geosite": {
+          "type": "object",
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Geosite database path; relative paths resolve against the operator config file directory."
+            }
+          }
+        },
+        "dns_cache": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "serve_stale_window_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ingress_index": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Configured ingress array index that owns this pipeline source; required by runtime validation when multiple ingresses declare the requested source kind."
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "description": "Optional opaque SourceId instance identity; runtime validates only SourceId shape and never interprets adapter protocol names inside the id."
+            },
+            "kind": {
+              "const": "application/source",
+              "default": "application/source",
+              "description": "protocol-neutral SourceSpec kind for application source adapters; future HTTP and HTTPS adapters use this same kind instead of protocol-specific source kinds."
+            },
+            "initial_writes": {
+              "type": "array",
+              "description": "Metadata keys written by the selected source adapter before the first hook runs; kernel_registry_verify checks these against HookSpec.reads and fails startup on unsatisfied reads.",
+              "items": {
+                "type": "string",
+                "pattern": "^(net|transport|policy|auth|trace|ext)\\.[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$"
+              },
+              "default": [
+                "net.dst_host",
+                "net.dst_port",
+                "net.protocol",
+                "net.src_ip",
+                "auth.user",
+                "trace.flow_id",
+                "ext.operation",
+                "ext.dst_ip_primary"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

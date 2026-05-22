@@ -1,0 +1,456 @@
+id: cli_command_contracts
+owner: mesh-bus-bin.cli
+kind: service-composition
+case: cli.command_table
+schema_ref: schemas/test-runtime.schema.json
+input:
+  commands:
+    - id: check_command_validates_config_without_running
+      command: check
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: true
+        stdout_contains: ["ok"]
+
+    - id: check_command_rejects_duplicate_exit_id
+      command: check
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+        stderr_contains: ["duplicate egress id"]
+
+    - id: check_command_rejects_nonexistent_rule_chain_path
+      command: check
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: /tmp/mesh-bus-definitely-does-not-exist-chain.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+
+    - id: check_command_pipeline_supersedes_missing_legacy_rule_chain_path
+      command: check
+      files:
+        - path: chain.yaml
+          contents: |
+            rules: []
+            default: allow
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: /tmp/mesh-bus-definitely-does-not-exist-legacy-chain.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+        pipeline:
+          rule_chain_path: {{ROOT}}/chain.yaml
+      expect:
+        success: true
+
+    - id: check_command_pipeline_validates_unselected_legacy_rule_chain_path
+      command: check
+      files:
+        - path: chain.yaml
+          contents: |
+            rules: []
+            default: allow
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: /tmp/mesh-bus-definitely-does-not-exist-unselected-chain.yaml
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+        pipeline:
+          rule_chain_path: {{ROOT}}/chain.yaml
+          source:
+            ingress_index: 1
+      expect:
+        success: false
+        stderr_contains: ["rule_chain_path not found"]
+
+    - id: check_command_rejects_ambiguous_pipeline_source
+      command: check
+      files:
+        - path: chain.yaml
+          contents: |
+            rules: []
+            default: allow
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+        pipeline:
+          rule_chain_path: {{ROOT}}/chain.yaml
+      expect:
+        success: false
+        stderr_contains:
+          - "pipeline source ingress_index is required when multiple ingresses declare pipeline source kind application/source"
+
+    - id: check_command_rejects_malformed_rule_chain
+      command: check
+      files:
+        - path: bad-chain.yaml
+          contents: "not: valid: chain: ["
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: {{ROOT}}/bad-chain.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+
+    - id: check_command_rejects_malformed_geosite_datafile
+      command: check
+      files:
+        - path: chain.yaml
+          contents: |
+            rules: []
+            default: allow
+        - path: geosite.txt
+          contents: |
+            missing-colon-line
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+        pipeline:
+          rule_chain_path: {{ROOT}}/chain.yaml
+          geosite:
+            path: {{ROOT}}/geosite.txt
+      expect:
+        success: false
+        stderr_contains: ["open geosite", "invalid geosite entry"]
+
+    - id: check_command_passes_with_valid_rule_chain
+      command: check
+      files:
+        - path: chain.yaml
+          contents: |
+            default: allow
+            rules:
+              - hostname: blocked.example.com
+                action: deny
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: {{ROOT}}/chain.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: true
+        stdout_contains: ["ok"]
+
+    - id: check_command_resolves_legacy_rule_chain_path_relative_to_config_dir
+      command: check
+      files:
+        - path: rules/chain.yaml
+          contents: |
+            default: allow
+            rules: []
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: rules/chain.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: true
+
+    - id: check_command_rejects_missing_local_ruleset_relative_to_chain_file
+      command: check
+      files:
+        - path: chain.yaml
+          contents: |
+            rule_sets:
+              cn_domains:
+                type: local
+                format: domain-suffix
+                field: hostname
+                path: ./rules/missing.txt
+            rules:
+              - { ruleset: cn_domains, action: { set_route_group: cn } }
+            default: allow
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: chain.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+        stderr_contains: ["load rule_sets"]
+
+    - id: check_command_rejects_legacy_rule_chain_with_unsupported_action_surface
+      command: check
+      files:
+        - path: chain.yaml
+          contents: |
+            rules: []
+            default:
+              set_resolver_pool: dns-cn
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: chain.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+        stderr_contains: ["unsupported legacy rule action"]
+
+    - id: status_command_prints_config_summary
+      command: status
+      config_yaml: |
+        logging:
+          level: debug
+          format: compact
+        scheduler:
+          kind: LoadBalance
+          mode: sticky-sessions
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: true
+        stdout_contains: ["scheduler=LoadBalance", "logging=debug/compact", "exit=direct"]
+
+    - id: admin_status_projects_operator_api_json
+      command: admin_status
+      config_yaml: |
+        logging:
+          level: debug
+          format: compact
+        node:
+          id: node-local
+        peers:
+          - id: peer-remote
+            node_id: node-remote
+            route_groups: [mesh]
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: MeshPeerUdp
+            id: peer
+            peer_id: peer-remote
+            peer: 127.0.0.1:19000
+            groups: [mesh]
+            timeout_ms: 1000
+      expect:
+        success: true
+        stdout_contains:
+          - '"kind": "operator.status"'
+          - '"node_id": "node-local"'
+          - '"fingerprint"'
+          - '"peer_id": "peer-remote"'
+        stdout_not_contains:
+          - "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+    - id: admin_config_check_reports_ok_json
+      command: admin_config_check
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: true
+        stdout_contains:
+          - '"kind": "operator.config_check"'
+          - '"ok": true'
+          - '"error": null'
+
+    - id: admin_config_check_fails_with_structured_error
+      command: admin_config_check
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            rule_chain_path: missing.yaml
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+        stdout_contains:
+          - '"kind": "operator.config_check"'
+          - '"ok": false'
+          - "rule_chain_path not found"
+        stderr_contains:
+          - "operator config-check failed"
+
+    - id: admin_config_effective_redacts_secrets
+      command: admin_config_effective
+      config_yaml: |
+        node:
+          id: node-local
+        peers:
+          - id: peer-remote
+            node_id: node-remote
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+            auth:
+              users:
+                - name: alice
+                  password: secret-pass
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: true
+        stdout_contains:
+          - "static_key_hex: <redacted>"
+          - "password: <redacted>"
+        stdout_not_contains:
+          - "secret-pass"
+          - "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+    - id: admin_status_api_reports_connection_failure
+      command: admin_status_api
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+        stderr_contains:
+          - "connect http://"
+
+    - id: admin_metrics_snapshot_requires_live_api
+      command: admin_metrics_snapshot
+      config_yaml: |
+        ingresses:
+          - kind: Socks5
+            listen: 127.0.0.1:0
+        egresses:
+          - kind: Tcp
+            id: direct
+            timeout_ms: 1000
+      expect:
+        success: false
+        stderr_contains:
+          - "admin metrics-snapshot requires --api"
+
+    - id: run_exits_successfully_on_sigterm
+      command: run_sigterm
+      config_yaml: |
+        logging:
+          level: info
+          format: compact
+        node:
+          id: node-local
+        peers:
+          - id: peer-remote
+            node_id: node-remote
+            route_groups: [mesh]
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        ingresses:
+          - kind: Socks5
+            listen: "{{TCP_LISTEN}}"
+        egresses:
+          - kind: MeshPeerUdp
+            id: direct
+            peer_id: peer-remote
+            peer: 127.0.0.1:1
+            groups: [mesh]
+            timeout_ms: 1000
+      expect:
+        success: true
+        stdout_contains:
+          - "mesh_bus_starting"
+          - "version="
+          - "config="
+          - "config_fingerprint="
+          - "startup_peer"
+          - "peer_id=\"peer-remote\""
+          - "node_id=\"node-remote\""
+          - "startup_ingress"
+          - "kind=\"Socks5\""
+          - "listen=\"127.0.0.1"
+          - "startup_egress"
+          - "route_groups=mesh"
+          - "meshsec=true"
+        stdout_not_contains:
+          - "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          - "static_key_hex"
+expect:
+  ok: true
+observations: []
+tags: []

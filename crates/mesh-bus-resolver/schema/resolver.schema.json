@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bus-mesh/schema/resolver.schema.json",
+  "title": "ResolveRequest",
+  "$ref": "#/$defs/ResolveRequest",
+  "$defs": {
+    "ConsumerId": {
+      "type": "string",
+      "description": "Newtype over String identifying the resolution consumer (egress crate, scheduler, ops)."
+    },
+    "QType": {
+      "type": "string",
+      "enum": ["A", "Aaaa", "Ptr", "Cname", "Txt"],
+      "description": "Resolver-local query type subset (A/AAAA/PTR/CNAME/TXT). Maps internally to mb_proto_dns::QType superset."
+    },
+    "ResolveRequest": {
+      "type": "object",
+      "required": ["qname", "qtype", "consumer"],
+      "properties": {
+        "qname":    { "type": "string", "description": "DNS name to resolve (canonical form)" },
+        "qtype":    { "$ref": "#/$defs/QType" },
+        "consumer": { "$ref": "#/$defs/ConsumerId" }
+      },
+      "additionalProperties": false
+    },
+    "ResolveAnswer": {
+      "type": "object",
+      "required": ["records", "source", "truncated", "rtt_ms"],
+      "properties": {
+        "records":   { "type": "array", "items": { "$ref": "#/$defs/AnswerRecord" } },
+        "source":    { "$ref": "#/$defs/ResolverSource" },
+        "truncated": { "type": "boolean" },
+        "rtt_ms":    { "type": "integer", "minimum": 0, "description": "Round-trip time in milliseconds" }
+      },
+      "additionalProperties": false
+    },
+    "AnswerRecord": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["A"],
+          "properties": { "A": { "type": "string", "format": "ipv4", "description": "IPv4 address" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Aaaa"],
+          "properties": { "Aaaa": { "type": "string", "format": "ipv6", "description": "IPv6 address" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Ptr"],
+          "properties": { "Ptr": { "type": "string", "description": "PTR name" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Cname"],
+          "properties": { "Cname": { "type": "string", "description": "CNAME target name" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Txt"],
+          "properties": { "Txt": { "type": "array", "items": { "type": "string" }, "description": "TXT string segments" } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ResolverSource": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["System"],
+          "description": "System resolver (libc getaddrinfo on tokio blocking pool)"
+        },
+        {
+          "type": "object",
+          "required": ["MeshDirect"],
+          "properties": {
+            "MeshDirect": {
+              "type": "object",
+              "required": ["server"],
+              "properties": { "server": { "type": "string", "description": "SocketAddr of the upstream DNS server" } },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Tunneled"],
+          "properties": {
+            "Tunneled": {
+              "type": "object",
+              "required": ["server"],
+              "properties": { "server": { "type": "string", "description": "SocketAddr of the upstream DNS server" } },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ServerPolicy": {
+      "oneOf": [
+        { "type": "string", "enum": ["RoundRobin"], "description": "Cycle through servers in order" },
+        { "type": "string", "enum": ["ConsistentHash"], "description": "Hash qname.lower() to pick server" },
+        {
+          "type": "object",
+          "required": ["FanOut"],
+          "properties": {
+            "FanOut": {
+              "type": "object",
+              "required": ["k"],
+              "properties": { "k": { "type": "integer", "minimum": 1, "maximum": 255, "description": "Number of servers to query in parallel" } },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "PoolMode": {
+      "oneOf": [
+        { "type": "string", "enum": ["SystemMode"], "description": "Use system resolver; server_policy not applicable" },
+        {
+          "type": "object",
+          "required": ["MeshDirect"],
+          "properties": {
+            "MeshDirect": {
+              "type": "object",
+              "required": ["server_policy"],
+              "properties": { "server_policy": { "$ref": "#/$defs/ServerPolicy" } },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Tunneled"],
+          "properties": {
+            "Tunneled": {
+              "type": "object",
+              "required": ["server_policy"],
+              "properties": { "server_policy": { "$ref": "#/$defs/ServerPolicy" } },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Pool": {
+      "type": "object",
+      "required": ["id", "mode", "servers"],
+      "properties": {
+        "id":          { "type": "string", "description": "Pool identifier" },
+        "mode":        { "$ref": "#/$defs/PoolMode" },
+        "servers":     { "type": "array", "items": { "$ref": "#/$defs/UpstreamServer" } },
+        "route_group": { "type": ["string", "null"], "description": "Optional route group tag for L4 dispatch filtering" }
+      },
+      "additionalProperties": false
+    },
+    "UpstreamServer": {
+      "type": "object",
+      "required": ["scheme", "addr"],
+      "properties": {
+        "scheme": { "$ref": "#/$defs/UpstreamScheme" },
+        "addr":   { "type": "string", "description": "SocketAddr of the upstream DNS server (host:port)" }
+      },
+      "additionalProperties": false
+    },
+    "UpstreamScheme": {
+      "type": "string",
+      "enum": ["Udp", "Tcp"],
+      "description": "Transport scheme for upstream DNS queries"
+    },
+    "ResolveError": {
+      "oneOf": [
+        { "type": "string", "enum": ["Denied"], "description": "Denied by policy rule" },
+        { "type": "string", "enum": ["NxDomain"], "description": "Name does not exist" },
+        {
+          "type": "object",
+          "required": ["Timeout"],
+          "properties": { "Timeout": { "type": "integer", "minimum": 0, "description": "Timeout duration in milliseconds" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Io"],
+          "properties": { "Io": { "type": "string", "description": "Upstream IO error message" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["Decode"],
+          "properties": { "Decode": { "type": "string", "description": "Wire decode error from mb_proto_dns::DecodeError" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["PoolNotFound"],
+          "properties": { "PoolNotFound": { "type": "string", "description": "Pool ID that was not found" } },
+          "additionalProperties": false
+        },
+        { "type": "string", "enum": ["NoDatagramPort"], "description": "No datagram-capable bus port available" },
+        { "type": "string", "enum": ["NoStreamPort"], "description": "No stream-capable bus port available" }
+      ]
+    },
+    "ResolutionSignals": {
+      "type": "object",
+      "required": [
+        "qname_key", "pool", "resolver_rtt_ms", "winner_exit",
+        "attempted", "answer_count", "truncated",
+        "default_used", "action", "schedule_hint"
+      ],
+      "properties": {
+        "qname_key":           { "type": "string", "description": "Canonical (ASCII-lower) qname used as cache/log key" },
+        "pool":                { "type": "string", "description": "Pool ID that serviced the query" },
+        "resolver_rtt_ms":     { "type": "integer", "minimum": 0, "description": "End-to-end resolver RTT in milliseconds" },
+        "winner_exit":         { "$ref": "#/$defs/WinnerExit" },
+        "attempted":           { "type": "integer", "minimum": 0, "description": "Number of upstream servers attempted" },
+        "answer_count":        { "type": "integer", "minimum": 0, "description": "Number of answer records returned" },
+        "truncated":           { "type": "boolean", "description": "Whether the DNS response was truncated (TC=1)" },
+        "matched_rule_id":     { "type": ["string", "null"], "description": "Rule ID of the matched rule, if any" },
+        "matched_rule_index":  { "type": ["integer", "null"], "minimum": 0, "description": "Zero-based index of matched rule in chain" },
+        "default_used":        { "type": "boolean", "description": "True if no rule matched and chain default was applied" },
+        "action":              { "type": "string", "description": "String label of the applied action (allow/deny/set_route_group/...)" },
+        "schedule_hint":       { "type": "string", "description": "Schedule hint label used for L4 dispatch (ordered/fanout:k=N)" }
+      },
+      "additionalProperties": false
+    },
+    "WinnerExit": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["SinglePath"],
+          "properties": {
+            "SinglePath": {
+              "type": "object",
+              "required": ["server"],
+              "properties": { "server": { "type": "string", "description": "SocketAddr of the winning upstream server" } },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["FanOut"],
+          "properties": {
+            "FanOut": {
+              "type": "object",
+              "required": ["winner", "losers"],
+              "properties": {
+                "winner": { "type": "string", "description": "SocketAddr of the fastest server" },
+                "losers": { "type": "array", "items": { "type": "string" }, "description": "SocketAddrs of slower servers that also replied" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "string",
+          "enum": ["System"],
+          "description": "System resolver was used; no specific upstream server"
+        }
+      ]
+    }
+  }
+}

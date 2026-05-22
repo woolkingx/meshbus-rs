@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fragment.schema.json",
+  "title": "FragmentMetadata",
+  "type": "object",
+  "required": ["group_id", "fragment_id", "seq", "total", "offset", "checksum"],
+  "properties": {
+    "group_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier of the parent message being fragmented."
+    },
+    "fragment_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifier unique within the group."
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Zero-based fragment sequence; must be less than total."
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total fragment count in the group."
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Byte offset within the reassembled message."
+    },
+    "deadline_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "checksum": {
+      "type": "string",
+      "description": "Opaque per-fragment integrity tag; algorithm is policy-defined."
+    }
+  },
+  "additionalProperties": false
+}

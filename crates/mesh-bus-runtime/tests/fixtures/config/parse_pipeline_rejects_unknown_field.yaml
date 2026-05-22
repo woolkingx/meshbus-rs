@@ -1,0 +1,20 @@
+id: parse_pipeline_rejects_unknown_field
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses: []
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_path: /tmp/chain.yaml
+      bogus: 1
+expect:
+  ok: false
+  error_contains: "bogus"
+observations: []
+tags: []

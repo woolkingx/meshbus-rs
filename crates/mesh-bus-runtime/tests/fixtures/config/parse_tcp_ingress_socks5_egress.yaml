@@ -1,0 +1,23 @@
+id: parse_tcp_ingress_socks5_egress
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Tcp
+        listen: 127.0.0.1:19081
+        target: 127.0.0.1:8080
+    egresses:
+      - kind: Socks5
+        id: upstream
+        upstream: 127.0.0.1:1080
+        timeout_ms: 5000
+expect:
+  ok: true
+  debug_contains:
+    - "Tcp {"
+    - "Socks5 {"
+observations: []
+tags: []

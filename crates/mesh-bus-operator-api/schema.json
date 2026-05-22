@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-operator-api/schema.json",
+  "title": "mesh-bus-operator-api",
+  "description": "Operator Plane M0 read-only and config-check response contract.",
+  "type": "object",
+  "properties": {
+    "operations": {
+      "type": "array",
+      "items": {
+        "enum": ["status", "config-check", "config-effective", "metrics-snapshot", "probe.socks5-connect", "probe.http-connect", "probe.mesh-peer", "diagnose.bundle"]
+      },
+      "default": ["status", "config-check", "config-effective", "metrics-snapshot", "probe.socks5-connect", "probe.http-connect", "probe.mesh-peer", "diagnose.bundle"]
+    },
+    "status_response": {
+      "$ref": "#/$defs/status_response"
+    },
+    "config_check_response": {
+      "$ref": "#/$defs/config_check_response"
+    },
+    "effective_config_response": {
+      "$ref": "#/$defs/effective_config_response"
+    },
+    "live_status_response": {
+      "$ref": "#/$defs/live_status_response"
+    },
+    "metrics_snapshot_response": {
+      "$ref": "#/$defs/metrics_snapshot_response"
+    },
+    "probe_response": {
+      "$ref": "#/$defs/probe_response"
+    },
+    "diagnose_bundle_response": {
+      "$ref": "#/$defs/diagnose_bundle_response"
+    }
+  },
+  "$defs": {
+    "config_identity": {
+      "type": "object",
+      "required": ["path", "fingerprint"],
+      "properties": {
+        "path": { "type": "string" },
+        "fingerprint": { "type": "string" }
+      }
+    },
+    "status_response": {
+      "type": "object",
+      "required": ["kind", "version", "config", "scheduler", "counts"],
+      "properties": {
+        "kind": { "const": "operator.status" },
+        "version": { "type": "string" },
+        "config": { "$ref": "#/$defs/config_identity" },
+        "node_id": { "type": ["string", "null"] },
+        "scheduler": { "type": "string" },
+        "logging": { "type": "string" },
+        "metrics": { "type": "string" },
+        "counts": { "type": "object" },
+        "peers": { "type": "array" },
+        "ingresses": { "type": "array" },
+        "egresses": { "type": "array" }
+      }
+    },
+    "config_check_response": {
+      "type": "object",
+      "required": ["kind", "ok", "config"],
+      "properties": {
+        "kind": { "const": "operator.config_check" },
+        "ok": { "type": "boolean" },
+        "config": { "$ref": "#/$defs/config_identity" },
+        "error": { "type": ["string", "null"] }
+      }
+    },
+    "effective_config_response": {
+      "type": "object",
+      "required": ["kind", "config", "redacted_yaml"],
+      "properties": {
+        "kind": { "const": "operator.config_effective" },
+        "config": { "$ref": "#/$defs/config_identity" },
+        "redacted_yaml": { "type": "string" }
+      }
+    },
+    "live_status_response": {
+      "type": "object",
+      "required": ["kind", "status", "metrics"],
+      "properties": {
+        "kind": { "const": "operator.live_status" },
+        "status": { "$ref": "#/$defs/status_response" },
+        "metrics": { "$ref": "#/$defs/metrics_snapshot_response" }
+      }
+    },
+    "metrics_snapshot_response": {
+      "type": "object",
+      "required": [
+        "kind",
+        "config",
+        "dispatch_success",
+        "dispatch_failure",
+        "bytes_sent",
+        "meshsec_drop_total",
+        "meshsec_auth_drop_total",
+        "meshsec_replay_drop_total",
+        "native_drop_total",
+        "native_queue_overflow_drop_total",
+        "datagram_send_total",
+        "datagram_failure_total",
+        "exits",
+        "flows"
+      ],
+      "properties": {
+        "kind": { "const": "operator.metrics_snapshot" },
+        "config": { "$ref": "#/$defs/config_identity" },
+        "dispatch_success": { "type": "integer", "minimum": 0 },
+        "dispatch_failure": { "type": "integer", "minimum": 0 },
+        "bytes_sent": { "type": "integer", "minimum": 0 },
+        "meshsec_drop_total": { "type": "integer", "minimum": 0 },
+        "meshsec_auth_drop_total": { "type": "integer", "minimum": 0 },
+        "meshsec_replay_drop_total": { "type": "integer", "minimum": 0 },
+        "native_drop_total": { "type": "integer", "minimum": 0 },
+        "native_queue_overflow_drop_total": { "type": "integer", "minimum": 0 },
+        "datagram_send_total": { "type": "integer", "minimum": 0 },
+        "datagram_failure_total": { "type": "integer", "minimum": 0 },
+        "exits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/live_exit_snapshot" }
+        },
+        "flows": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "live_exit_snapshot": {
+      "type": "object",
+      "required": [
+        "exit_id",
+        "protocol",
+        "supports_stream",
+        "supports_datagram",
+        "send_count",
+        "success_count",
+        "failure_count",
+        "last_rtt_ms",
+        "payload_bytes_total"
+      ],
+      "properties": {
+        "exit_id": { "type": "string" },
+        "protocol": { "type": "string" },
+        "supports_stream": { "type": "boolean" },
+        "supports_datagram": { "type": "boolean" },
+        "send_count": { "type": "integer", "minimum": 0 },
+        "success_count": { "type": "integer", "minimum": 0 },
+        "failure_count": { "type": "integer", "minimum": 0 },
+        "last_rtt_ms": { "type": "integer", "minimum": 0 },
+        "payload_bytes_total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "probe_response": {
+      "type": "object",
+      "required": [
+        "kind",
+        "probe",
+        "ok",
+        "target",
+        "route_group",
+        "close_reason",
+        "dispatch_success_before",
+        "dispatch_success_after",
+        "dispatch_failure_before",
+        "dispatch_failure_after",
+        "duration_ms"
+      ],
+      "properties": {
+        "kind": { "const": "operator.probe_result" },
+        "probe": { "enum": ["socks5-connect", "http-connect", "mesh-peer"] },
+        "ok": { "type": "boolean" },
+        "target": { "type": "string" },
+        "route_group": { "type": ["string", "null"] },
+        "close_reason": { "type": "string" },
+        "dispatch_success_before": { "type": "integer", "minimum": 0 },
+        "dispatch_success_after": { "type": "integer", "minimum": 0 },
+        "dispatch_failure_before": { "type": "integer", "minimum": 0 },
+        "dispatch_failure_after": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "diagnose_bundle_response": {
+      "type": "object",
+      "required": ["kind", "status", "metrics", "effective_config"],
+      "properties": {
+        "kind": { "const": "operator.diagnose_bundle" },
+        "status": { "$ref": "#/$defs/live_status_response" },
+        "metrics": { "$ref": "#/$defs/metrics_snapshot_response" },
+        "effective_config": { "$ref": "#/$defs/effective_config_response" }
+      }
+    }
+  }
+}

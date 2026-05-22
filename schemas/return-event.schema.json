@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "return-event.schema.json",
+  "title": "ReturnEvent",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["kind", "exit_id", "rtt_ms"],
+      "properties": {
+        "kind": { "const": "Connected" },
+        "exit_id": { "$ref": "exit-id.schema.json" },
+        "local_endpoint": { "$ref": "endpoint.schema.json" },
+        "rtt_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["kind", "seq", "payload"],
+      "properties": {
+        "kind": { "const": "Data" },
+        "seq": { "type": "integer", "minimum": 0 },
+        "payload": { "type": "string", "contentEncoding": "base64" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["kind"],
+      "properties": { "kind": { "const": "Idle" } },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["kind", "reason"],
+      "properties": {
+        "kind": { "const": "Closed" },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "TtlExpired",
+                "SessionClosed",
+                "NoUsableExit",
+                "ConnectionRefused",
+                "NetworkUnreachable",
+                "HostUnreachable",
+                "TimedOut",
+                "NotConnected",
+                "ConnectionReset",
+                "UpstreamEof",
+                "ReaderClosed",
+                "AddressNotSupported"
+              ]
+            },
+            {
+              "type": "object",
+              "required": ["kind", "message"],
+              "properties": {
+                "kind": { "const": "Other" },
+                "message": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

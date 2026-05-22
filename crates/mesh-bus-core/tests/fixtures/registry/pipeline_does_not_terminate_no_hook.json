@@ -1,0 +1,16 @@
+{
+  "name": "pipeline_does_not_terminate_no_hook",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "log", "kind": "SideEffect", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": false, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [{ "id": "main", "hooks": ["log"] }],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "cannot terminate" }
+}

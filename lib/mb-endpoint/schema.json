@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-endpoint/schema.json",
+  "title": "mb-endpoint",
+  "description": "See /schemas/endpoint.schema.json for the wire format. This crate provides the Endpoint parser and type; data types are imported from /schemas/ via mesh-bus-schema.",
+  "type": "object"
+}

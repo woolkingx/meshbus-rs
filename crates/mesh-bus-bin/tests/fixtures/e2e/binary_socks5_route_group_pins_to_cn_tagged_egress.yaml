@@ -1,0 +1,43 @@
+id: binary_socks5_route_group_pins_to_cn_tagged_egress
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  rule_chain_yaml: |
+    default: allow
+    rules:
+      - dst_cidr: 127.0.0.0/8
+        action:
+          set_route_group: cn
+  probe:
+    kind: socks5_tcp
+    payload: "route-group-smoke"
+  yaml: |
+    metrics:
+      kind: PrometheusHttp
+      listen: "{{METRICS_LISTEN}}"
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+        rule_chain_path: "{{RULE_CHAIN}}"
+    egresses:
+      - kind: Tcp
+        id: direct
+        wan_id: wan-default
+        timeout_ms: 1000
+      - kind: Tcp
+        id: cn
+        wan_id: wan-cn
+        groups: [cn]
+        timeout_ms: 1000
+expect:
+  ok: true
+  metrics:
+    dispatch_total:
+      cn:
+        min: 1
+      direct:
+        exact: 0
+observations: []
+tags: []

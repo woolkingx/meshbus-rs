@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-ingress-http-connect/schema.json",
+  "title": "mesh-bus-ingress-http-connect",
+  "description": "HTTP/1.1 proxy ingress adapter. It parses request-head syntax, opens a bus stream, and then relays opaque bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "listen": {
+      "type": "string",
+      "description": "TCP listen socket address for the HTTP proxy ingress."
+    },
+    "handshake_timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 5000
+    },
+    "max_header_bytes": {
+      "type": "integer",
+      "minimum": 256,
+      "default": 16384
+    },
+    "max_connections": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1024
+    },
+    "auth": {
+      "type": "string",
+      "const": "optional-basic-proxy-authorization"
+    },
+    "rfc_contract": {
+      "type": "string",
+      "const": "rfc9110-connect-rfc9112-http11-proxy"
+    }
+  },
+  "required": ["listen", "rfc_contract"]
+}

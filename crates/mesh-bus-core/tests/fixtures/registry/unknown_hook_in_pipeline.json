@@ -1,0 +1,14 @@
+{
+  "name": "unknown_hook_in_pipeline",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [],
+      "pipelines": [{ "id": "main", "hooks": ["ghost"] }],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "references unknown hook" }
+}

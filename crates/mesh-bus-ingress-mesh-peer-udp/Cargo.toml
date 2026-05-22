@@ -1,0 +1,20 @@
+[package]
+name = "mesh-bus-ingress-mesh-peer-udp"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+bytes = { workspace = true }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-proto-mesh = { path = "../../lib/mb-proto-mesh" }
+mb-reorder = { path = "../../lib/mb-reorder" }
+mesh-bus-core = { path = "../mesh-bus-core" }
+rand = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+mesh-bus-egress-tcp = { path = "../mesh-bus-egress-tcp" }
+mesh-bus-egress-udp = { path = "../mesh-bus-egress-udp" }

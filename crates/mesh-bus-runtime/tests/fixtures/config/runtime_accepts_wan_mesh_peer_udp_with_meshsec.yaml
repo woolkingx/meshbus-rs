@@ -1,0 +1,28 @@
+id: runtime_accepts_wan_mesh_peer_udp_with_meshsec
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-b
+    peers:
+      - id: parent-a
+        node_id: node-a
+        meshsec:
+          profile: MeshSec-0RTT-PSK-XChaCha
+          static_key_hex: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    ingresses:
+      - kind: MeshPeerUdp
+        listen: 0.0.0.0:29000
+    egresses:
+      - kind: Udp
+        id: udp
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "MeshPeerUdp {"
+observations: []
+tags: []

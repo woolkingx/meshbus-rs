@@ -1,0 +1,32 @@
+id: runtime_accepts_meshsec_peer_and_builds_contexts
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    peers:
+      - id: parent-a
+        node_id: node-b
+        route_groups: [wan-us]
+        meshsec:
+          profile: MeshSec-0RTT-PSK-XChaCha
+          static_key_hex: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      - id: plain-c
+        node_id: node-c
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "MeshSec0RttPskXChaCha"
+    - "parent-a"
+observations: []
+tags: []

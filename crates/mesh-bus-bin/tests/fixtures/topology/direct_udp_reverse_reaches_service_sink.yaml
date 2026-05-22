@@ -1,0 +1,34 @@
+id: direct_udp_reverse_reaches_service_sink
+owner: mesh-bus-bin.product-topology
+kind: service-composition
+case: e2e.product_topology
+schema_ref: schemas/test-runtime.schema.json
+input:
+  resources:
+    - name: NODE_A_UDP
+      kind: udp_addr
+    - name: UDP_ECHO
+      kind: udp_echo
+  nodes:
+    - name: node-a
+      start_after_ms: 150
+      config_yaml: |
+        ingresses:
+          - kind: Udp
+            listen: "{{NODE_A_UDP}}"
+            target: "198.51.100.10:53"
+        egresses:
+          - kind: ServiceUdp
+            id: local-udp-service
+            service_id: local-echo
+            connect: "{{UDP_ECHO}}"
+            timeout_ms: 1000
+  probe:
+    kind: udp_roundtrip
+    target: "{{NODE_A_UDP}}"
+    payload: "direct-udp-reverse-service"
+    timeout_ms: 1000
+expect:
+  echo_payload: "direct-udp-reverse-service"
+observations: []
+tags: []

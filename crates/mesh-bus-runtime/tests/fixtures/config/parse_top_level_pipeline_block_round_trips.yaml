@@ -1,0 +1,23 @@
+id: parse_top_level_pipeline_block_round_trips
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19198
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_path: /etc/mesh-bus/chain.yaml
+expect:
+  ok: true
+  debug_contains:
+    - "/etc/mesh-bus/chain.yaml"
+    - "geoip: None"
+observations: []
+tags: []

@@ -1,0 +1,14 @@
+id: validate_rejects_empty_ingress_or_egress
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses: []
+    egresses: []
+expect:
+  ok: false
+  error_contains: "at least one ingress"
+observations: []
+tags: []

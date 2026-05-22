@@ -1,0 +1,50 @@
+id: direct_tcp_reverse_does_not_use_l7_route_table
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  rule_chain_yaml: |
+    default: allow
+    rules:
+      - dst_cidr: 10.255.255.0/24
+        action:
+          set_route_group: ga
+  probe:
+    kind: direct_tcp
+    payload_hex: "00017261772d6e6f6e2d68747470ff"
+  yaml: |
+    metrics:
+      kind: PrometheusHttp
+      listen: "{{METRICS_LISTEN}}"
+    ingresses:
+      - kind: Tcp
+        listen: "{{TCP_LISTEN}}"
+        target: 10.255.255.1:9
+    egresses:
+      - kind: ServiceTcp
+        id: svc-a
+        service_id: svc-a
+        route_group: ga
+        connect: "{{TCP_ECHO}}"
+        timeout_ms: 1000
+      - kind: ServiceTcp
+        id: svc-b
+        service_id: svc-b
+        route_group: gb
+        connect: 10.255.255.2:9
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: "{{RULE_CHAIN}}"
+      source:
+        ingress_index: 0
+expect:
+  ok: true
+  metrics:
+    dispatch_total:
+      svc-a:
+        min: 1
+      svc-b:
+        exact: 0
+observations: []
+tags: []

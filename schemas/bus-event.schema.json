@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bus-event.schema.json",
+  "title": "BusEvent",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["kind", "session_id"],
+      "properties": {
+        "kind": { "const": "SessionOpened" },
+        "session_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["kind", "session_id", "reason"],
+      "properties": {
+        "kind": { "const": "SessionClosed" },
+        "session_id": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["kind", "event_type"],
+      "properties": {
+        "kind": { "const": "Core" },
+        "event_type": {
+          "enum": ["FlowOpened", "FlowPathChanged", "FlowClosed", "PathIoError"]
+        },
+        "flow_id": { "type": ["integer", "null"], "minimum": 0 },
+        "flow_id_text": { "type": ["string", "null"] },
+        "session_id_text": { "type": ["string", "null"] },
+        "exit_id": { "type": ["string", "null"] },
+        "selected_exit": { "type": ["string", "null"] },
+        "route_group": { "type": ["string", "null"] },
+        "target_sink": { "type": ["string", "null"] },
+        "packet_id": { "type": ["integer", "null"], "minimum": 0 },
+        "bytes_in": { "type": "integer", "minimum": 0 },
+        "bytes_out": { "type": "integer", "minimum": 0 },
+        "payload_bytes": { "type": "integer", "minimum": 0 },
+        "rtt_ms": { "type": "integer", "minimum": 0 },
+        "success": { "type": ["boolean", "null"] },
+        "close_reason": { "type": ["string", "null"] },
+        "at_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

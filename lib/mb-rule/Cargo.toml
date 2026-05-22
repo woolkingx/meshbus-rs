@@ -1,0 +1,17 @@
+[package]
+name = "mb-rule"
+version = "0.1.6"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ipnet = "2.9"
+regex = "1"
+
+[dev-dependencies]
+serde_json = { workspace = true }

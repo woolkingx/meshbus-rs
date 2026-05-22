@@ -1,0 +1,23 @@
+id: parse_replicate_scheduler
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    scheduler:
+      kind: Replicate
+    ingresses:
+      - kind: Udp
+        listen: 127.0.0.1:19085
+        target: 127.0.0.1:5353
+    egresses:
+      - kind: Udp
+        id: udp
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "Replicate"
+observations: []
+tags: []

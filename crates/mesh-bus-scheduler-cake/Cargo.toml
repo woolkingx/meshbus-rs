@@ -1,0 +1,17 @@
+[package]
+name = "mesh-bus-scheduler-cake"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mesh-bus-core = { path = "../mesh-bus-core" }
+mb-cake = { path = "../../lib/mb-cake" }
+mb-cost = { path = "../../lib/mb-cost" }
+mb-health = { path = "../../lib/mb-health" }
+arc-swap = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+tokio = { workspace = true }

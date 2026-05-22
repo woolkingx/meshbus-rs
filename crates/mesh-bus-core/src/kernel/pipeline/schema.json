@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mesh-bus-core.kernel.pipeline",
+  "$ref": "#/$defs/Pipeline",
+  "$defs": {
+    "Pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id":    { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "hooks": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" } }
+      },
+      "required": ["id", "hooks"]
+    },
+    "Wiring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source":   { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "pipeline": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" }
+      },
+      "required": ["source", "pipeline"]
+    },
+    "PipelineRunError": {
+      "type": "string",
+      "enum": [
+        "UnknownHook",
+        "UnknownPipeline",
+        "FellOffEnd",
+        "JumpDepthExceeded",
+        "UndeclaredAcceptTarget",
+        "UndeclaredJumpTarget"
+      ]
+    }
+  }
+}

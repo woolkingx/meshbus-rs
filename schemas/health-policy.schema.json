@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "health-policy.schema.json",
+  "title": "HealthPolicy",
+  "type": "object",
+  "required": ["failure_threshold", "recovery_window_ms", "probe_after_ms"],
+  "properties": {
+    "failure_threshold": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Consecutive failed dispatches before an exit becomes unhealthy."
+    },
+    "recovery_window_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Time window for keeping health outcomes before decay."
+    },
+    "probe_after_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Delay before an unhealthy exit can be tried again for recovery probing."
+    }
+  },
+  "additionalProperties": false
+}

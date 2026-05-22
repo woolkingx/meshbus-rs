@@ -1,0 +1,24 @@
+id: runtime_rejects_duplicate_node_id
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    peers:
+      - id: parent-a
+        node_id: node-a
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "duplicate node_id"
+observations: []
+tags: []

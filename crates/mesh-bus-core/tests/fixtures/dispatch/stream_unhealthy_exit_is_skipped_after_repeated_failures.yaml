@@ -1,0 +1,38 @@
+id: dispatch.stream.unhealthy_exit_is_skipped_after_repeated_failures
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.unhealthy_exit_is_skipped_after_repeated_failures
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: bad
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups: []
+    - id: good
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups: []
+  scenario:
+    flow_count: 3
+    frames_per_flow:
+      count: 1
+    note: after two failures on bad exit, third flow should still prefer good exit
+expect:
+  open_ok: true
+  calls:
+    bad: 2
+    good: 3
+  assertions:
+    - kind: health_filter
+      expected:
+        bad_exit: bad
+        good_exit: good
+        skip_after_failures: true
+observations: []
+tags: []

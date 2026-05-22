@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus.config.schema.json",
+  "title": "mesh-bus config samples",
+  "description": "Repository-owned runtime YAML samples.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "properties": {
+    "multi_wan": {
+      "type": "string",
+      "const": "config/multi-wan.yaml"
+    }
+  }
+}

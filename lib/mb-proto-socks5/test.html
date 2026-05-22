@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-proto-socks5 - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-proto-socks5 - Owner Proof Contract</h1>
+    <p>Classification: <strong>lib/protocol</strong>. Pure SOCKS5 wire codec only, no socket ownership.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-proto-socks5</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Tests</td><td><a href="tests/codec.rs">tests/codec.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-proto-socks5</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Proofed contract</th></tr>
+        <tr><td><code>Method</code>, <code>Command</code>, <code>Reply</code></td><td>Typed SOCKS5 wire enums and unknown-method preservation.</td></tr>
+        <tr><td><code>Greeting</code>, <code>Request</code>, <code>ReplyFrame</code>, <code>UdpDatagram</code></td><td>Pure protocol DTOs, decoded from bytes and used by L7 adapters.</td></tr>
+        <tr><td><code>CodecError</code></td><td>In-band decode failures (version, reserved, atyp, fragment, length, etc.) as explicit errors.</td></tr>
+        <tr><td><code>reply_frame_total_len</code></td><td>Length helper from frame prefix without re-deriving per-ATYP wire arithmetic.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-fixture">
+      <h2>Schema / Fixture Source</h2>
+      <table>
+        <tr><th>Source</th><th>Proof</th></tr>
+        <tr><td><a href="schema.json">schema.json</a></td><td>Command/auth matrix and framing invariants are the schema source.</td></tr>
+        <tr><td><a href="tests/codec.rs">tests/codec.rs</a></td><td>Roundtrip/incomplete/error-path contracts for connect/udp/user-pass/greeting/reply.</td></tr>
+      </table>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mb-proto-socks5</code></td><td>All owner proofs.</td></tr>
+        <tr><td><code>cargo test -p mb-proto-socks5 -- reply_roundtrip</code></td><td>Reply REP mapping and RSV guards.</td></tr>
+        <tr><td><code>cargo test -p mb-proto-socks5 -- reply_frame_total_len_domain_uses_length_octet</code></td><td>Length-prefix helper correctness.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>SOCKS5 version/reserved enforcement</td><td>Non-0x05 version and non-zero RSV reject with explicit codec errors.</td></tr>
+        <tr><td>Command and address coverage</td><td><code>CONNECT</code>, <code>BIND</code>, <code>UDP ASSOCIATE</code> and ATYP IPv4/IPv6/domain decode/encode.</td></tr>
+        <tr><td>User/pass auth</td><td>FRAGMENT-free, bounded username/password, wrong-version and empty-length rejection paths are enforced.</td></tr>
+        <tr><td>UDP helper behavior</td><td>FRAG must be 0; malformed datagrams reject; payload preserves target mapping.</td></tr>
+        <tr><td>Reply-frame length</td><td><code>reply_frame_total_len</code> handles IPv4/IPv6/domain and incomplete prefixes.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td><code>mesh-bus-ingress-socks5</code>, <code>mesh-bus-egress-socks5</code></td><td>Use this crate only for byte codecs; policy/session ownership remains in adapters.</td></tr>
+        <tr><td>Auth/transport layers</td><td>Not implemented here; unknown methods are passed through only as codec facts.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Adapters map parsed DTOs into L7 session actions; codec must stay transport-neutral.</li>
+        <li>Reply endpoint parsing and <code>reply_frame_total_len</code> are shared by egress stream readers.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Socket connect/listen or runtime policy tests</td><td>No async I/O or policy logic is owned here.</td></tr>
+        <tr><td>Routing graph/state ownership</td><td>Module boundary is codec DTOs only.</td></tr>
+        <tr><td>Cross-crate performance tuning</td><td>Not part of this ownership surface.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

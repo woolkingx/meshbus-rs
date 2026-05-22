@@ -1,0 +1,27 @@
+id: runtime_rejects_meshsec_non_hex_key
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    peers:
+      - id: parent-a
+        node_id: node-b
+        meshsec:
+          profile: MeshSec-0RTT-PSK-XChaCha
+          static_key_hex: zzzz56789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "must be exactly 64 hex characters"
+observations: []
+tags: []

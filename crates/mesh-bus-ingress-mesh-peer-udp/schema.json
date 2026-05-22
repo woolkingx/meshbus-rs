@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-ingress-mesh-peer-udp/schema.json",
+  "title": "mesh-bus-ingress-mesh-peer-udp",
+  "description": "Adjacent MeshPeer raw UDP ingress. Decodes Mesh Protocol stream/datagram events and re-enters the local bus without parsing L7 payload.",
+  "type": "object",
+  "required": ["listen"],
+  "additionalProperties": false,
+  "properties": {
+    "listen": {
+      "type": "string",
+      "minLength": 1,
+      "description": "host:port raw UDP Mesh Protocol ingress listener"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+id: parse_pipeline_source_projection_round_trips
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      source:
+        ingress_index: 0
+        id: edge-0
+        kind: application/source
+        initial_writes:
+          - net.dst_host
+          - net.dst_port
+          - net.protocol
+          - net.src_ip
+          - auth.user
+          - trace.flow_id
+          - ext.operation
+          - ext.dst_ip_primary
+expect:
+  ok: true
+  debug_contains:
+    - "ingress_index: Some(0)"
+    - "edge-0"
+    - "net.dst_host"
+observations: []
+tags: []

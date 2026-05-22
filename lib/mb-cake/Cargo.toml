@@ -1,0 +1,10 @@
+[package]
+name = "mb-cake"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mb-cost = { path = "../mb-cost" }
+mb-loadbalance = { path = "../mb-loadbalance" }
+fxhash = "0.2"

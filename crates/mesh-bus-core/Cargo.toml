@@ -1,0 +1,30 @@
+[package]
+name = "mesh-bus-core"
+version = "0.2.1"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+mesh-bus-schema = { path = "../mesh-bus-schema" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-health = { path = "../../lib/mb-health" }
+arc-swap = { workspace = true }
+dashmap = { workspace = true }
+bitvec = { workspace = true }
+futures = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+[features]
+forwarder-probe = []

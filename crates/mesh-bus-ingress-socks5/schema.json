@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-ingress-socks5/schema.json",
+  "title": "mesh-bus-ingress-socks5",
+  "description": "Config for a SOCKS5 ingress listener. Constructed by mesh-bus-runtime from IngressCfg::Socks5.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["listen"],
+  "properties": {
+    "listen": {
+      "type": "string",
+      "description": "host:port to bind the SOCKS5 listener (0 for ephemeral port)."
+    },
+    "client_eof_semantics": {
+      "type": "string",
+      "const": "stream-session-shutdown-write",
+      "description": "After client write EOF, ingress calls StreamSendHalf::shutdown_write and keeps reading upstream returns until FIN."
+    },
+    "connect_semantics": {
+      "type": "string",
+      "const": "stream-session-connect-then-byte-stream",
+      "description": "SOCKS5 CONNECT opens a StreamSession first and only replies Succeeded after the upstream open result is visible; post-open bytes try Linux TCP splice when the session exposes it, otherwise use split send/recv halves."
+    },
+    "udp_associate_semantics": {
+      "type": "string",
+      "const": "datagram-session-packet-dedup",
+      "description": "SOCKS5 UDP ASSOCIATE opens the relay; target-bearing relay packets are adapted through DatagramSession with PacketDedup return semantics."
+    },
+    "pipeline_udp_decision_scope": {
+      "type": "string",
+      "const": "per-relay-packet",
+      "description": "When PipelineRuntime is attached, the forward pipeline evaluates UDP relay packets, not the UDP ASSOCIATE control request, because only relay packets carry the target."
+    },
+    "udp_peer_binding": {
+      "type": "string",
+      "const": "declared-peer-only",
+      "description": "UDP ASSOCIATE accepts relay packets only from the UDP peer declared by the control request."
+    },
+    "udp_session_affinity": {
+      "type": "string",
+      "const": "per-association-target",
+      "description": "Within one UDP ASSOCIATE control connection, datagrams for the same target reuse one bus session and flow_id."
+    },
+    "udp_async_pump_status": {
+      "type": "string",
+      "const": "core-datagram-split",
+      "description": "High-throughput asynchronous UDP response pumping is active: per-target BusDatagramSendHalf held in UdpAssocTargetState; spawned recv pump task holds BusDatagramRecvHalf and encodes SOCKS5 UDP relay frames back to the client socket without blocking the forward send path."
+    },
+    "bind_semantics": {
+      "type": "string",
+      "const": "local-listener-two-reply-relay",
+      "description": "SOCKS5 BIND is a client-facing local-relay command, not a bus egress session: the adapter opens a local TCP listener, sends the listener endpoint as the first RFC1928 reply, accepts exactly one inbound peer (v1 single-accept), sends the accepted peer endpoint as the second reply, then bidirectionally copies bytes between the SOCKS5 control TCP and the accepted peer TCP. No BusSessionRequest is opened; BIND is policy/pipeline gated for Allow/Deny/Drop/Fail only. Wrong-peer rejection is IP-only; accept timeout reuses handshake_timeout and replies REP 0x06 TtlExpired."
+    },
+    "auth_methods": {
+      "type": "array",
+      "description": "Auth methods the live ingress will negotiate. NoAuth when no AuthConfig is set; UserPass (RFC1929) when an AuthConfig is set. GSSAPI is never negotiated.",
+      "items": {
+        "type": "string",
+        "enum": ["NoAuth", "UserPass"]
+      },
+      "default": ["NoAuth", "UserPass"]
+    },
+    "gssapi_gate": {
+      "type": "string",
+      "const": "feature-gated-off-no-backend",
+      "description": "GSSAPI (SOCKS5 method 0x01) is codec-recognized but never negotiated by this adapter. It is gated behind the default-off `gssapi` cargo feature and has no authenticator backend in any shipped build (GSSAPI_SUPPORTED reflects the build feature). A client whose greeting offers only GSSAPI receives the RFC1928 0x05 0xff no-acceptable-methods reply and the connection closes; a greeting that also offers a supported method negotiates that method normally. This is the documented full-RFC posture: full except an explicit, reserved, feature-gated GSSAPI capability."
+    }
+  }
+}

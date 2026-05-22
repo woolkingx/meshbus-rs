@@ -1,0 +1,55 @@
+name: Feature request
+description: Propose a new capability while preserving owner boundaries.
+title: "feature: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem does this solve?
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Primary layer
+      options:
+        - L7 adapter / application participant
+        - L6 transform / codec / MeshSec
+        - L5 session / lifecycle / reorder
+        - L4 routing / scheduler / transport evidence
+        - Operator / deploy / observability
+        - Documentation / tests
+        - unknown
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: Data shape
+      description: What data, PCI, state, schema, or event family is being added or changed?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Boundary rule
+      description: Which layer owns the data, and what remains opaque?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance gates
+      description: Which owner/module/integration/e2e/live tests should prove this?
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This does not require core to parse L7 payload.
+        - label: This can be represented in handbook/schema before code.
+        - label: This can be tested at the owner module before product e2e.

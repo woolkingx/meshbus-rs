@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus.deploy.service.schema.json",
+  "title": "mesh-bus service deployment adapter",
+  "description": "Machine contract for installing, restarting, verifying, and rolling back a mesh-bus systemd service on a deployment host.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "required": [
+    "remote_ssh",
+    "local_bin",
+    "remote_bin",
+    "local_config",
+    "remote_config",
+    "service"
+  ],
+  "properties": {
+    "remote_ssh": {
+      "type": "string",
+      "description": "SSH target used by ssh/scp, for example root@198.51.100.36.",
+      "default": "root@198.51.100.36",
+      "minLength": 1
+    },
+    "local_bin": {
+      "type": "string",
+      "description": "Local release binary path.",
+      "default": "target/release/mesh-bus",
+      "minLength": 1
+    },
+    "remote_bin": {
+      "type": "string",
+      "description": "Installed binary path on the remote host.",
+      "default": "/opt/mesh-bus/bin/mesh-bus",
+      "minLength": 1
+    },
+    "local_config": {
+      "type": "string",
+      "description": "Local runtime YAML config path.",
+      "default": "config/example.yaml",
+      "minLength": 1
+    },
+    "remote_config": {
+      "type": "string",
+      "description": "Installed runtime YAML config path on the remote host.",
+      "default": "/etc/mesh-bus/config.yaml",
+      "minLength": 1
+    },
+    "service": {
+      "type": "string",
+      "description": "systemd service unit name.",
+      "default": "mesh-bus.service",
+      "pattern": "^[A-Za-z0-9_.@-]+\\.service$"
+    },
+    "rollback": {
+      "type": "boolean",
+      "description": "When true, restore the latest or explicitly supplied backup paths instead of deploying local artifacts.",
+      "default": false
+    },
+    "preserve_remote_config": {
+      "type": "boolean",
+      "description": "When true, do not upload local_config; preflight and restart with the existing remote_config.",
+      "default": false
+    },
+    "rollback_bin": {
+      "type": "string",
+      "description": "Optional remote binary backup path to restore."
+    },
+    "rollback_config": {
+      "type": "string",
+      "description": "Optional remote config backup path to restore."
+    }
+  },
+  "additionalProperties": false
+}

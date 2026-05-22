@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-reorder/schema.json",
+  "title": "mb-reorder",
+  "description": "This crate provides a sequenced byte-stream reorder buffer; data types are imported from /schemas/ via mesh-bus-schema.",
+  "type": "object"
+}

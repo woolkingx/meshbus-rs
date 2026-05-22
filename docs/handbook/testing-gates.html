@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testing Gates - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Testing Gates</h1>
+    <p>A module test proves only the module contract. A feature is complete only when the affected handbook gate, schema contract, codec, adapter, core/session/runtime, hooks, observers, schedulers, binary e2e, and live smoke gates pass.</p>
+  </header>
+  <main>
+    <section id="thesis">
+      <h2>Testing Thesis</h2>
+      <ul>
+        <li>Passing `cargo test -p one-crate` is never a system-complete claim.</li>
+        <li>Test evidence must name exact command, scope, and live environment.</li>
+        <li>Schema or handbook wording that carries contract meaning needs a test or boundary guard.</li>
+        <li>Schema is the natural data boundary. A test proves that an owner legally transforms schema-valid data.</li>
+        <li>E2e proves that multiple already-proven owner transforms compose into user-visible behavior.</li>
+        <li>Tests are owned by module data. A module that owns data owns the schema and the lowest contract tests for that data.</li>
+        <li>Root e2e tests compose module contracts; they must not duplicate codec, algorithm, reorder, crypto, or schema edge-case tests already owned by a module.</li>
+        <li>Handbook HTML defines the gate, docs/plan orders the work, CLAUDE.md governs execution, schema.json makes it machine-checkable, and tests prove it.</li>
+        <li>WAN/live tests are explicit and env-gated; missing env means local verified, live not verified.</li>
+      </ul>
+    </section>
+
+    <section id="module-owned-testing">
+      <h2>Module-Owned Testing</h2>
+      <p>The testing shape follows the data chain: data contract, schema contract, module owner test, cross-module integration test, then product e2e. A test belongs at the lowest owner layer that can prove the contract without importing higher-layer behavior.</p>
+      <p>The canonical test sentence is: <strong>a test proves that an owner legally transforms schema-valid data</strong>. The e2e variant is: <strong>e2e proves that multiple proven owner transforms compose</strong>.</p>
+      <p>Each module owner directory carries four local surfaces: <code>CLAUDE.md</code> for agent entry, <code>schema.json</code> for owned data, <code>test.html</code> for the proof contract, and code for legal transforms. The generated <a href="testing-index.html">module test index</a> scans these files and reports gaps; it is navigation only, not a second source of truth.</p>
+      <table>
+        <tr><th>Layer</th><th>Owns</th><th>Example</th></tr>
+        <tr><td>Data contract</td><td>The named data shape and owner boundary.</td><td><code>LinkEvidence</code>, <code>MeshEvent</code>, <code>FamilyState</code>.</td></tr>
+        <tr><td>Schema contract</td><td>Legal fields, constants, ownership tags, and forbidden shape.</td><td>Module-local <code>schema.json</code> or handbook-owned <code>docs/handbook/spec/*.schema.json</code>.</td></tr>
+        <tr><td>Module owner test</td><td>The owner module mutates only its own data and rejects illegal input.</td><td><code>mb-proto-mesh</code> codec tests, <code>mb-reorder</code> family-state tests.</td></tr>
+        <tr><td>Cross-module integration</td><td>One boundary between two tested module contracts.</td><td>mesh-peer UDP ingress consuming MeshSec + MeshEvent + UdpPacketLoop.</td></tr>
+        <tr><td>Product e2e</td><td>Composition of already-tested modules into user-visible behavior.</td><td>Two-node Secure UDP mesh path, SOCKS5 CONNECT through configured exits.</td></tr>
+      </table>
+      <p>Module tests live with the module code and schema: Rust unit tests beside owner code when private invariants are tested, crate <code>tests/</code> when the public module contract is tested. The workspace root <code>tests/</code> directory is for cross-module test guidance and shared composition policy only; it must not become a second owner for module data.</p>
+    </section>
+
+    <section id="test-code-budget">
+      <h2>Test Code Budget</h2>
+      <p>Test code must stay smaller than runtime code because it proves the system rather than becoming another implementation. The target budget is test Rust LOC at or below one tenth of production Rust LOC after e2e consolidation. Temporary excess is allowed only while a reduction plan is active and each large test file has an owner and shrink path.</p>
+      <table>
+        <tr><th>Surface</th><th>Budget Rule</th><th>Rationale</th></tr>
+        <tr><td>Module owner tests</td><td>Small, data/table-driven, colocated with the owner.</td><td>One module proves one data contract once.</td></tr>
+        <tr><td>Integration tests</td><td>One boundary per test file or focused group.</td><td>Failures identify the boundary, not a hidden product scenario.</td></tr>
+        <tr><td>Product e2e</td><td>Few hard user-visible paths only.</td><td>E2e proves composition; it must not retest internals.</td></tr>
+        <tr><td>Perf/live</td><td>Env-gated and reported separately from correctness.</td><td>Numbers and live reachability are not module correctness.</td></tr>
+      </table>
+      <p>A test that requires a large fake runtime, fake mesh, fake protocol, or fake scheduler is a boundary smell. The fix is to move the assertion to the data owner, expose a smaller public contract, or add one narrow integration seam.</p>
+    </section>
+
+    <section id="phases">
+      <h2>Verification Phases</h2>
+      <table>
+        <tr><th>Phase</th><th>Scope</th><th>Purpose</th></tr>
+        <tr><td>1 Codec and pure libs</td><td>`mb-proto-*`, `mb-rule`, `mb-health`, `mb-cake`, related `lib/mb-*`.</td><td>Wire format, parsing, ranking, health, rule evaluation, pure structures.</td></tr>
+        <tr><td>2 Core substrate</td><td>`mesh-bus-core` plus focused kernel/session/registry/observer tests.</td><td>Registry verification, metadata legality, sessions, return semantics, observation bus, dispatch invariants.</td></tr>
+        <tr><td>3 Adapter contracts</td><td>Affected ingress/egress crates.</td><td>Protocol stitching without leaking protocol details into core.</td></tr>
+        <tr><td>4 Pipeline hooks and resolver</td><td>`mesh-bus-pipeline-hooks`, `mesh-bus-resolver`.</td><td>Metadata enrichment, DNS policy, route_group, schedule_hint, rule_chain, fail-closed behavior.</td></tr>
+        <tr><td>5 Scheduler and observers</td><td>Scheduler and observer crates.</td><td>Algorithm correctness, feedback observers, metrics, presentation.</td></tr>
+        <tr><td>6 Runtime assembly</td><td>`mesh-bus-runtime`.</td><td>YAML config, schema exposure, source/sink kind projection, candidate capabilities, wiring.</td></tr>
+        <tr><td>7 Binary local e2e</td><td>`mesh-bus-bin --test e2e`.</td><td>Real process shape boots from config and moves traffic across configured modules.</td></tr>
+        <tr><td>8 Performance</td><td>Ignored release benches and relay matrices.</td><td>Numbers only, not correctness claims.</td></tr>
+        <tr><td>9 Live WAN smoke</td><td>Env-gated upstream and mesh-peer live tests.</td><td>Real upstream exits or remote peers, real targets, intended path metrics.</td></tr>
+      </table>
+    </section>
+
+    <section id="feature-matrix">
+      <h2>Feature Matrix</h2>
+      <table>
+        <tr><th>Feature</th><th>Minimum gate chain</th></tr>
+        <tr><td>SOCKS5 CONNECT</td><td>SOCKS5 codec, ingress SOCKS5, stream egress, runtime, binary e2e, optional live upstream.</td></tr>
+        <tr><td>SOCKS5 UDP ASSOCIATE</td><td>SOCKS5 codec, ingress UDP associate tests, datagram egress, runtime, binary SOCKS5 UDP e2e, live upstream when real UDP exit is claimed.</td></tr>
+        <tr><td>SOCKS5 BIND</td><td>SOCKS5 codec BIND request/reply, ingress BIND, binary BIND e2e. It is client-facing local relay, not bus egress.</td></tr>
+        <tr><td>Raw UDP ingress/egress</td><td>Ingress UDP, egress UDP, core datagram session tests, runtime config, binary UDP e2e.</td></tr>
+        <tr><td>Mesh peer raw UDP</td><td>Mesh codec, raw UDP peer crates, runtime config, two-node debug-clear raw UDP e2e. Secure UDP MeshSec AEAD/KDF/replay tests, raw UDP seal/open integration, and the two-node packet-capture no-cleartext + tamper/replay fail-closed e2e (<code>mesh_peer_secure_udp_two_node_datagram_e2e</code>) are green at local functional level; live WAN secure UDP remains required before any deployment claim.</td></tr>
+        <tr id="GATE-L7-MESH-DGRAM-01"><td>L7 datagram over MeshPeer</td><td><code>GATE-L7-MESH-DGRAM-01</code>: SOCKS5 UDP ASSOCIATE and direct UDP can choose MeshPeer as upstream egress, cross Mesh Protocol as opaque datagram events, re-enter the remote bus, exit through remote UDP egress, and preserve payload plus source endpoint semantics.</td></tr>
+        <tr id="GATE-L7-MESH-STREAM-01"><td>L7 stream over MeshPeer</td><td><code>GATE-L7-MESH-STREAM-01</code>: SOCKS5 CONNECT and direct TCP can choose MeshPeer as upstream egress, cross Mesh Protocol as opaque stream events, re-enter the remote bus, exit through remote TCP or SOCKS5 stream egress, preserve byte stream order, and propagate close semantics.</td></tr>
+        <tr><td>QUIC protocol library</td><td>`mb-quic` owns QUIC packet/crypto/recovery/stream/datagram data shapes as protocol-library proof only. It is not a native mesh peer runtime gate and must not carry Mesh Protocol as the production substrate.</td></tr>
+        <tr><td>Rule routing</td><td>`mb-rule`, pipeline hooks, adapter rule_ctx tests, runtime assembly, binary e2e showing selected sink metrics.</td></tr>
+        <tr><td>Observer/metrics</td><td>Core observation tests, observer crate tests, binary metrics e2e proving exported counters and labels.</td></tr>
+        <tr><td>Data-plane speed</td><td>`mb-splice` relay matrix, SOCKS5 throughput bench, and comparison against current perf backlog guidance.</td></tr>
+        <tr><td>Direct forward/reverse</td><td>Handbook direct-proxy gate, direct TCP/UDP source runtime schema, pipeline deny/accept tests, route_group e2e, service sink reverse e2e, direct-vs-SOCKS5 comparison record.</td></tr>
+        <tr><td>Dataplane observation</td><td>Core event surface guard, forwarder lifecycle tests, no async Drop guard, observation boundary scan, scheduler-feedback ownership tests, observer overflow isolation.</td></tr>
+        <tr><td>UDP packet architecture</td><td>Raw UDP one-send-one-datagram tests, own-QUIC no-Quinn gate, path stats projection checks, MeshSec AEAD/KDF/replay codec, raw-UDP seal/open integration, and the two-node packet-capture no-cleartext + tamper/replay fail-closed e2e are green at local functional level; live WAN secure UDP and release throughput matrix run before performance or deployment claims.</td></tr>
+        <tr><td>Native mesh event package + delivery policy</td><td>Local functional gates: `mb-proto-mesh` codec (MeshEvent/DataPackage, LinkSample, AckNack, DeliveryMode policy-id, one-XOR-parity), `mb-reorder` FamilyReorderState, `mesh-bus-core --test udp_loop` (LinkEvidence projection + evidence-expiry-keeps-configured-identity), `mesh-bus-egress/ingress-mesh-peer-udp` (mouth rotation/registry, EgressPolicy), and e2e `mesh_peer_secure_udp_{ordered_family,replicate_dedup,stripe_reorder,repair_gap}` (all 0 failed at functional-verification level). Release throughput gate: seven env-gated `#[ignore]` rows in `crates/mesh-bus-bin/tests/throughput_transport.rs` (native UDP steer/replicate/stripe/reference rows only) plus a non-ignored `matrix_skips_clean_without_env` build-skip-clean guard; live policy throughput stays directive-deferred until the release run.</td></tr>
+      </table>
+    </section>
+
+    <section id="completion">
+      <h2>Completion Rules</h2>
+      <p>Feature-complete requires the narrow test, owning module test, runtime assembly if config/wiring changed, binary e2e if traffic path changed, and live WAN smoke if the claim includes deployment or WAN readiness.</p>
+      <p>Production-ready requires all relevant phases plus `cargo fmt --check`, `cargo test --workspace`, and `git diff --check`.</p>
+      <p>A skipped ignored test is not a pass unless the skip reason is explicitly named.</p>
+      <p>Loopback e2e can prove functional correctness. It cannot prove WAN readiness, throughput under real path variance, or remote-peer deployment safety.</p>
+    </section>
+
+    <section id="evidence-reporting">
+      <h2>Evidence Reporting</h2>
+      <table>
+        <tr><th>Claim</th><th>Required wording</th></tr>
+        <tr><td>Local functional green</td><td>Name the exact crate/binary commands and the passing scope. State that live WAN was not exercised when env-gated tests skipped.</td></tr>
+        <tr><td>Workspace green</td><td>Include `cargo fmt --check`, `cargo test --workspace`, and `git diff --check`, or name the missing gate and why it was not run.</td></tr>
+        <tr><td>Deployment ready</td><td>Include the relevant live upstream or mesh-peer WAN smoke command, environment variables, target path, and observed metrics.</td></tr>
+        <tr><td>Performance ready</td><td>Include release-mode benchmark or relay matrix, baseline comparison, host/env notes, and whether the result is loopback or WAN.</td></tr>
+      </table>
+    </section>
+
+    <section id="anti-patterns">
+      <h2>Anti-Patterns</h2>
+      <ul>
+        <li>Do not claim system completion from one crate's unit tests.</li>
+        <li>Do not call loopback e2e a WAN live smoke.</li>
+        <li>Do not let tests build a second runtime, mock mesh, mock protocol stack, or duplicate scheduler.</li>
+        <li>Do not add an e2e test to compensate for a missing module owner test.</li>
+        <li>Do not hide skipped env-gated live tests inside "all tests pass".</li>
+        <li>Do not add protocol parsing tests to core to make adapter tests easier.</li>
+        <li>Do not update contract docs without a corresponding test or a reason why the text is non-contract commentary.</li>
+        <li>Do not use old Markdown plan/spec text as the proof source after the handbook has absorbed the contract.</li>
+      </ul>
+    </section>
+
+    <section id="env">
+      <h2>Live Environment Gates</h2>
+      <p>SOCKS5 upstream live smoke uses `MESH_BUS_LIVE_SOCKS5_UPSTREAMS`, with optional target host and port variables. Native mesh WAN smoke uses the Secure UDP / MeshSec peer topology and records absent env as not live-verified.</p>
+      <p><span class="warn">Report absent env as not live-verified.</span></p>
+    </section>
+  </main>
+</body>
+</html>

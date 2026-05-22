@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-operator-api - Owner Proof Contract</title>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-operator-api - Owner Proof Contract</h1>
+    <p>Classification: <strong>Operator API data owner</strong>. This module owns management response data for M0 read-only/config-check operations.</p>
+  </header>
+  <main>
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Data</th><th>Contract</th></tr>
+        <tr><td>StatusResponse</td><td>Redacted node/config/listener/egress status projection from runtime config.</td></tr>
+        <tr><td>ConfigCheckResponse</td><td>Structured config preflight result over the runtime owner check path.</td></tr>
+        <tr><td>EffectiveConfigResponse</td><td>Redacted effective config for CLI/Web clients.</td></tr>
+      </table>
+    </section>
+    <section id="runner">
+      <h2>Runner</h2>
+      <p><code>cargo test -p mesh-bus-operator-api</code></p>
+    </section>
+    <section id="proofs">
+      <h2>Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Read-only</td><td>Handlers consume config data and never start runtime or mutate dispatch state.</td></tr>
+        <tr><td>Shared check</td><td>Config-check uses <code>mesh-bus-runtime::preflight_config</code>.</td></tr>
+        <tr><td>Redaction</td><td>Static keys and passwords are absent from effective config output.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,12 @@
+[package]
+name = "mesh-bus-scheduler-loadbalance"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mesh-bus-core = { path = "../mesh-bus-core" }
+mb-loadbalance = { path = "../../lib/mb-loadbalance" }
+
+[dev-dependencies]
+mb-endpoint = { path = "../../lib/mb-endpoint" }

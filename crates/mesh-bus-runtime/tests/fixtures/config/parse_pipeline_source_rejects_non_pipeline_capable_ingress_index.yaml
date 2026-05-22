@@ -1,0 +1,23 @@
+id: parse_pipeline_source_rejects_non_pipeline_capable_ingress_index
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: MeshPeerUdp
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      source:
+        ingress_index: 0
+expect:
+  ok: false
+  error_contains: "ingress_index 0 does not declare pipeline source kind application/source"
+observations: []
+tags: []

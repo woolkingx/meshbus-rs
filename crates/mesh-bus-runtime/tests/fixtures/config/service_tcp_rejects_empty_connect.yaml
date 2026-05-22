@@ -1,0 +1,21 @@
+id: service_tcp_rejects_empty_connect
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19091
+    egresses:
+      - kind: ServiceTcp
+        id: svc
+        service_id: echo-service
+        connect: ""
+        timeout_ms: 3000
+expect:
+  ok: false
+  error_contains: "connect"
+observations: []
+tags: []

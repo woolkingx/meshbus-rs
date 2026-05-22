@@ -1,0 +1,16 @@
+{
+  "name": "invalid_metadata_key_bare_namespace",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": ["net"] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "reader", "kind": "Net", "allowed_namespaces": ["net.*"], "reads": ["net"], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [{ "id": "main", "hooks": ["reader"] }],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "invalid metadata key" }
+}

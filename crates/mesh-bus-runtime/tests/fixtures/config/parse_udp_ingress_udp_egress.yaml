@@ -1,0 +1,21 @@
+id: parse_udp_ingress_udp_egress
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Udp
+        listen: 127.0.0.1:19083
+        target: 127.0.0.1:5353
+    egresses:
+      - kind: Udp
+        id: udp
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "Udp {"
+observations: []
+tags: []

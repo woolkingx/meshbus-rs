@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bus-mesh/schema/ruleset.schema.json",
+  "title": "Ruleset",
+  "type": "object",
+  "required": ["type", "format"],
+  "additionalProperties": false,
+  "properties": {
+    "type":   { "type": "string", "enum": ["inline", "local"] },
+    "format": { "type": "string", "enum": ["domain-suffix", "ip-cidr", "classical"] },
+    "field":  { "type": "string", "enum": ["hostname", "src_ip", "dst_ip"] },
+    "values": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "path":   { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    { "if": { "properties": { "type": { "const": "inline" } } }, "then": { "required": ["values"], "not": { "required": ["path"] } } },
+    { "if": { "properties": { "type": { "const": "local" } } },  "then": { "required": ["path"], "not": { "required": ["values"] } } },
+    { "if": { "properties": { "format": { "const": "domain-suffix" } } }, "then": { "required": ["field"], "properties": { "field": { "const": "hostname" } } } },
+    { "if": { "properties": { "format": { "const": "ip-cidr" } } },       "then": { "required": ["field"], "properties": { "field": { "enum": ["src_ip", "dst_ip"] } } } },
+    { "if": { "properties": { "format": { "const": "classical" } } },     "then": { "not": { "required": ["field"] } } }
+  ]
+}

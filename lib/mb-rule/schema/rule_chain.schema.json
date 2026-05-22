@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bus-mesh/schema/rule_chain.schema.json",
+  "title": "RuleChain",
+  "type": "object",
+  "required": ["rules", "default"],
+  "additionalProperties": false,
+  "properties": {
+    "rules":   { "type": "array", "items": { "$ref": "#/definitions/Rule" } },
+    "default": { "$ref": "action.schema.json#" },
+    "rule_sets": { "type": "object", "additionalProperties": { "$ref": "ruleset.schema.json#" } }
+  },
+  "definitions": {
+    "Rule": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "id":     { "type": "string", "minLength": 1, "description": "operator-supplied label for decision-trace logs" },
+        "match":  { "$ref": "#/definitions/MatchExpr" },
+        "action": { "$ref": "action.schema.json#" },
+        "src_cidr": { "$ref": "#/definitions/Term/properties/src_cidr" },
+        "dst_cidr": { "$ref": "#/definitions/Term/properties/dst_cidr" },
+        "src_ip": { "$ref": "#/definitions/Term/properties/src_ip" },
+        "dst_ip": { "$ref": "#/definitions/Term/properties/dst_ip" },
+        "dst_port": { "$ref": "#/definitions/Term/properties/dst_port" },
+        "dst_port_range": { "$ref": "#/definitions/Term/properties/dst_port_range" },
+        "network": { "$ref": "#/definitions/Term/properties/network" },
+        "session_shape": { "$ref": "#/definitions/Term/properties/session_shape" },
+        "operation": { "$ref": "#/definitions/Term/properties/operation" },
+        "socks5_command": { "$ref": "#/definitions/Term/properties/socks5_command" },
+        "hostname": { "$ref": "#/definitions/Term/properties/hostname" },
+        "hostname_suffix": { "$ref": "#/definitions/Term/properties/hostname_suffix" },
+        "hostname_keyword": { "$ref": "#/definitions/Term/properties/hostname_keyword" },
+        "hostname_regex": { "$ref": "#/definitions/Term/properties/hostname_regex" },
+        "fragment_group": { "$ref": "#/definitions/Term/properties/fragment_group" },
+        "traffic_class": { "$ref": "#/definitions/Term/properties/traffic_class" },
+        "transform_kind": { "$ref": "#/definitions/Term/properties/transform_kind" },
+        "ruleset": { "$ref": "#/definitions/Term/properties/ruleset" },
+        "consumer": { "$ref": "#/definitions/Term/properties/consumer" },
+        "dns_qtype": { "$ref": "#/definitions/Term/properties/dns_qtype" },
+        "authenticated_user": { "$ref": "#/definitions/Term/properties/authenticated_user" },
+        "dst_geo": { "$ref": "#/definitions/Term/properties/dst_geo" },
+        "asn": { "$ref": "#/definitions/Term/properties/asn" },
+        "geosite_tag": { "$ref": "#/definitions/Term/properties/geosite_tag" }
+      },
+      "propertyNames": {
+        "enum": [
+          "id",
+          "match",
+          "action",
+          "src_cidr",
+          "dst_cidr",
+          "src_ip",
+          "dst_ip",
+          "dst_port",
+          "dst_port_range",
+          "network",
+          "session_shape",
+          "operation",
+          "socks5_command",
+          "hostname",
+          "hostname_suffix",
+          "hostname_keyword",
+          "hostname_regex",
+          "fragment_group",
+          "traffic_class",
+          "transform_kind",
+          "ruleset",
+          "consumer",
+          "dns_qtype",
+          "authenticated_user",
+          "dst_geo",
+          "asn",
+          "geosite_tag"
+        ]
+      },
+      "oneOf": [
+        {
+          "required": ["match"],
+          "not": {
+            "anyOf": [
+              { "required": ["src_cidr"] },
+              { "required": ["dst_cidr"] },
+              { "required": ["src_ip"] },
+              { "required": ["dst_ip"] },
+              { "required": ["dst_port"] },
+              { "required": ["dst_port_range"] },
+              { "required": ["network"] },
+              { "required": ["session_shape"] },
+              { "required": ["operation"] },
+              { "required": ["socks5_command"] },
+              { "required": ["hostname"] },
+              { "required": ["hostname_suffix"] },
+              { "required": ["hostname_keyword"] },
+              { "required": ["hostname_regex"] },
+              { "required": ["fragment_group"] },
+              { "required": ["traffic_class"] },
+              { "required": ["transform_kind"] },
+              { "required": ["ruleset"] },
+              { "required": ["consumer"] },
+              { "required": ["dns_qtype"] },
+              { "required": ["authenticated_user"] },
+              { "required": ["dst_geo"] },
+              { "required": ["asn"] },
+              { "required": ["geosite_tag"] }
+            ]
+          }
+        },
+        {
+          "not": { "required": ["match"] },
+          "anyOf": [
+            { "required": ["src_cidr"] },
+            { "required": ["dst_cidr"] },
+            { "required": ["src_ip"] },
+            { "required": ["dst_ip"] },
+            { "required": ["dst_port"] },
+            { "required": ["dst_port_range"] },
+            { "required": ["network"] },
+            { "required": ["session_shape"] },
+            { "required": ["operation"] },
+            { "required": ["socks5_command"] },
+            { "required": ["hostname"] },
+            { "required": ["hostname_suffix"] },
+            { "required": ["hostname_keyword"] },
+            { "required": ["hostname_regex"] },
+            { "required": ["fragment_group"] },
+            { "required": ["traffic_class"] },
+            { "required": ["transform_kind"] },
+            { "required": ["ruleset"] },
+            { "required": ["consumer"] },
+            { "required": ["dns_qtype"] },
+            { "required": ["authenticated_user"] },
+            { "required": ["dst_geo"] },
+            { "required": ["asn"] },
+            { "required": ["geosite_tag"] }
+          ]
+        }
+      ],
+      "additionalProperties": false,
+      "description": "Flat form: parser-supported predicate keys become an implicit-AND Term. Explicit form: use `match`."
+    },
+    "MatchTrace": {
+      "type": "object",
+      "required": ["matched", "default_used"],
+      "properties": {
+        "matched":      { "type": "boolean" },
+        "rule_index":   { "type": ["integer", "null"], "minimum": 0 },
+        "rule_id":      { "oneOf": [ { "type": "null" }, { "type": "string", "minLength": 1 } ] },
+        "default_used": { "type": "boolean" }
+      },
+      "description": "Decision trace; rule_index/rule_id are null when default_used=true."
+    },
+    "RuleDecision": {
+      "type": "object",
+      "required": ["action", "trace"],
+      "properties": {
+        "action": { "$ref": "action.schema.json#" },
+        "trace":  { "$ref": "#/definitions/MatchTrace" }
+      }
+    },
+    "MatchExpr": {
+      "oneOf": [
+        { "$ref": "#/definitions/Term" },
+        { "type": "object", "required": ["all"],     "properties": { "all":     { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/MatchExpr" } } }, "additionalProperties": false },
+        { "type": "object", "required": ["any"],     "properties": { "any":     { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/MatchExpr" } } }, "additionalProperties": false },
+        { "type": "object", "required": ["not"],     "properties": { "not":     { "$ref": "#/definitions/MatchExpr" } }, "additionalProperties": false },
+        { "type": "object", "required": ["ruleset"], "properties": { "ruleset": { "type": "string", "minLength": 1 } }, "additionalProperties": false }
+      ]
+    },
+    "Term": {
+      "type": "object",
+      "description": "Explicit match predicate object keyed by parser-supported field+op names. Multiple predicate keys are implicit AND.",
+      "minProperties": 1,
+      "properties": {
+        "src_cidr": { "type": "string", "minLength": 1 },
+        "dst_cidr": { "type": "string", "minLength": 1 },
+        "src_ip": { "type": "string", "minLength": 1 },
+        "dst_ip": { "type": "string", "minLength": 1 },
+        "dst_port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "dst_port_range": { "type": "string", "pattern": "^[0-9]+-[0-9]+$" },
+        "network": { "type": "string", "enum": ["tcp", "udp"] },
+        "session_shape": { "type": "string", "enum": ["stream", "datagram"] },
+        "operation": { "type": "string", "minLength": 1 },
+        "socks5_command": {
+          "type": "string",
+          "enum": ["connect", "bind", "udp_associate"],
+          "description": "legacy compatibility predicate for existing SOCKS5 RulePolicy users; future adapters should match protocol-neutral operation instead of adding protocol-named fields"
+        },
+        "hostname": { "type": "string", "minLength": 1 },
+        "hostname_suffix": { "type": "string", "minLength": 1 },
+        "hostname_keyword": { "type": "string", "minLength": 1 },
+        "hostname_regex": { "type": "string", "minLength": 1 },
+        "fragment_group": { "type": "string", "minLength": 1 },
+        "traffic_class": { "type": "string", "enum": ["interactive", "bulk", "control"] },
+        "transform_kind": { "type": "string", "enum": ["fragment", "compress", "encrypt", "checksum", "parity"] },
+        "consumer": { "type": "string", "minLength": 1 },
+        "dns_qtype": { "type": "string", "minLength": 1 },
+        "authenticated_user": { "type": "string", "minLength": 1 },
+        "dst_geo": { "type": "string", "minLength": 1 },
+        "asn": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+            { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }
+          ]
+        },
+        "geosite_tag": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

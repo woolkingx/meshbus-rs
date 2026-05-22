@@ -1,0 +1,17 @@
+{
+  "name": "side_effect_mutates_verdict",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "logger", "kind": "SideEffect", "allowed_namespaces": ["policy.*"], "reads": [], "writes": ["policy.route_group"], "may_terminate": false, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": true },
+        { "id": "allow", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [{ "id": "main", "hooks": ["logger", "allow"] }],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "side-effect hook" }
+}

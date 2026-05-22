@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dataplane and Observation - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Dataplane and Observation</h1>
+    <p>Dataplane shape follows the accepted flow contract. Observation samples lifecycle, path health, and pull telemetry at the right cadence; it never turns byte movement into per-chunk control-plane work.</p>
+  </header>
+  <main>
+    <section id="problem">
+      <h2>Problem</h2>
+      <p>Per-chunk routing makes an L4 stream look like L3 packet dispatch. That adds channel wakeups, locks, observer wakeups, and broadcast fan-out on every chunk. The bottleneck is control-plane churn, not memcpy.</p>
+      <p>The retired T0 userspace fastpath bypassed the control plane to escape inline algorithms. The restoration removed that escape hatch: the hot path became pick, send, emit; scheduler feedback, metrics, health, and logging moved behind observer-owned subscriptions.</p>
+      <p>The correct replacement is not another bypass. Core derives a dataplane shape at open, commits eligible flows to direct halves, and keeps observers and schedulers in their own ownership domains.</p>
+    </section>
+
+    <section id="observation-first-principle">
+      <h2>Observation First Principle</h2>
+      <p>Observation facts are data. Owners emit typed facts or expose declared pull sources; observers derive projections. Metrics are projections, not owner state.</p>
+      <p>An owner fact is born where the owner can prove it. The MeshSec ingress owner can prove an authentication, replay, or native decode drop. FlowCounters can prove byte deltas. PathStats can prove RTT, loss, PMTU, pacing, and queue evidence. Projection observers can count, summarize, and export these facts, but they do not become the original owner.</p>
+    </section>
+
+    <section id="observation-topology">
+      <h2>Observation Topology</h2>
+      <div class="flow">owner fact -> obs.* event or pull source -> ObservationRegistry -> ObservationBus -> projection observer -> Operator / Prometheus / diagnose</div>
+      <table>
+        <tr><th>Node</th><th>Owned fact</th><th>Writer / owner</th><th>Reader</th></tr>
+        <tr><td><code>core.*</code></td><td>Kernel lifecycle/path facts.</td><td>kernel</td><td>metrics, health, scheduler, prometheus</td></tr>
+        <tr><td><code>obs.meshsec.drop</code></td><td>MeshSec envelope reject.</td><td>mesh-peer ingress</td><td>metrics, prometheus, operator, diagnose</td></tr>
+        <tr><td><code>obs.native.drop</code></td><td>Native event package reject.</td><td>mesh-peer ingress</td><td>metrics, prometheus, operator, diagnose</td></tr>
+        <tr><td><code>pull.flow_counters</code></td><td>Lock-free byte counters.</td><td>FlowCounters</td><td>sampler observers</td></tr>
+        <tr><td><code>pull.path_stats</code></td><td>RTT, loss, PMTU, pacing evidence.</td><td>PathStatsProvider</td><td>sampler observers</td></tr>
+        <tr><td><code>projection.metrics</code></td><td>Derived counters and snapshots.</td><td>observer</td><td>Operator, Prometheus, diagnose</td></tr>
+      </table>
+      <p>Wrong: owner counter -&gt; private snapshot -&gt; metrics. Right: owner fact -&gt; declared event or pull source -&gt; observer projection.</p>
+      <p>The observation graph is a topology contract. A fact may move across modules only through a declared event, pull source, or projection edge. Logs are evidence for humans; they are not the first source of product metrics.</p>
+    </section>
+
+    <section id="contracts">
+      <h2>Contracts</h2>
+      <p>Machine-readable event ids, payload fields, projections, and pull-source names are defined in <a href="spec/observation-graph.schema.json">observation-graph.schema.json</a>. This chapter owns the topology; the schema owns the data shape.</p>
+      <table>
+        <tr><th>Contract</th><th>Rule</th></tr>
+        <tr><td>Dataplane shape</td><td>Derived from flow semantics, return semantics, realized path count at open, sink capability, and transform requirements.</td></tr>
+        <tr><td>Core event surface</td><td>Core emits irreducible lifecycle and IO events. Bytes moved are pull counters, not push events.</td></tr>
+        <tr><td>Observation bus</td><td>Observers declare typed reads/writes/pulls. Registry verifies the graph. Cross-observer direct imports are forbidden.</td></tr>
+        <tr><td>Algorithm boundary</td><td>Core may consume derived state such as a health snapshot, but core must not compute scheduler EWMA, path scoring, metrics aggregation, or observer fan-out inline.</td></tr>
+      </table>
+    </section>
+
+    <section id="correctness-before-speed">
+      <h2>Substrate Correctness Before Speed</h2>
+      <p>Dataplane optimization may only run on a correct L5/L4 substrate. A faster path that leaks session state, drops datagrams silently, misroutes observer events, or bypasses return semantics is rejected even when throughput improves.</p>
+      <table>
+        <tr><th>Gate</th><th>Required truth</th></tr>
+        <tr><td>L5 lifecycle</td><td>Forwarder close, session drop, eviction, and abort clean flow pins, flow states, counters, pending returns, and pumps exactly once.</td></tr>
+        <tr><td>Return semantics</td><td>Direct datagram is eligible only when return semantics can be preserved; reorder, reassembly, replicate, and multi-target flows stay FrameRouter.</td></tr>
+        <tr><td>Demux ownership</td><td>Shared transport connections use one reader per connection and demux by session id; session recv halves must not consume another session's event.</td></tr>
+        <tr><td>Backpressure</td><td>Oversize, queue full, PMTU violation, observer lag, and budget exhaustion return typed errors or observable drops, never silent success.</td></tr>
+        <tr><td>Observation accuracy</td><td>Metrics count the event they name. Lifecycle, dispatch attempts, failures, and path samples are separate projections.</td></tr>
+      </table>
+      <p><span class="ok">Status (2026-05-17):</span> the core substrate correctness plan (M1-M7) proves every gate at functional-verification level. L5 lifecycle: M1 forwarder close + M5 evicted-session pump teardown. Return semantics: M2 datagram return-semantics derive gate (SequenceReorder/reassembly/replicate stay FrameRouter). Demux ownership: M3 one-reader-per-QUIC-connection demux by session id. Backpressure: M4 typed PMTU/queue-full failures. Observation accuracy: M6 wires <code>MetricsObserver</code> to <code>PathIoError</code> so path I/O failures increment the failure snapshot, and <code>PrometheusTextfileObserver::on_event</code> forwards only <code>FlowOpened|PathIoError</code> so <code>mesh_bus_dispatch_total</code> counts dispatch attempts (<code>dispatch_total == success_total + failure_total</code>); <code>FlowClosed</code> is the terminal lifecycle of an already-counted attempt and is no longer double-counted. Six package suites pass with 0 failed; <code>cargo check --workspace</code> clean. Live WAN and transport throughput remain directive-deferred.</p>
+      <p><span class="ok">Status (2026-05-17):</span> the schema-compiled event-core optimization plan (M0-M6) proves the speed layer on top of that correct substrate without behavior change. Compiled lookup beats registry lookup (pipeline compiled 1030.9 vs registry 2415.5 ns/event, ~2.3x); the compiled candidate table beats the dyn-egress scan at 8, 32, and 128 egresses; routed observer fan-out beats unconditional fan-out from 8 observers upward (1145.4 vs 3539.6 ns/event at 32). Scheduler dispatch no longer waits on the observer-update mutex: <code>SchedulerPlugin</code> is <code>Send + Sync</code> with <code>&self</code> feedback, <code>Bus</code>/<code>DispatchRuntime</code> hold a lock-free <code>Arc&lt;dyn SchedulerPlugin&gt;</code>, and <code>CakeScheduler</code> moves synchronization inside itself (a write-path-only <code>Mutex&lt;windows&gt;</code> plus an <code>ArcSwap</code> metric snapshot republished each feedback and read lock-free by <code>schedule</code>/<code>score_for</code>/<code>goodput_bps_for</code>). <span class="warn">Threshold gate:</span> the compiled-route win is observer-count-gated, not universal — at a single observer, unconditional fan-out (120.4 ns/event) is cheaper than routed dispatch (244.0 ns/event) because routing-dispatch overhead dominates with one subscriber; the routed path wins from 8 observers upward, which is the regime every wired deployment runs in. mesh-bus-core / mesh-bus-pipeline-hooks / mesh-bus-scheduler-cake suites pass with 0 failed; <code>cargo fmt --all --check</code> clean.</p>
+    </section>
+
+    <section id="shapes">
+      <h2>Dataplane Shapes</h2>
+      <table>
+        <tr><th>Shape</th><th>When</th><th>Hot path</th></tr>
+        <tr><td>Forwarder</td><td>ByteStream, Direct return, one realized path, no transform, stream-capable sink.</td><td>Tight read/write loop on committed sink. Lifecycle events and atomic counters only.</td></tr>
+        <tr><td>DatagramForwarder</td><td>Datagram, fixed target, one realized path, no transform, datagram-capable sink.</td><td>Direct datagram send/recv halves preserve source endpoint. No per-packet scheduler.</td></tr>
+        <tr><td>FrameRouter</td><td>Replicate, Stripe, transform, multi-target datagram, per-frame policy, or unsupported direct egress.</td><td>Existing per-frame dispatch with scheduler/return routing semantics.</td></tr>
+      </table>
+      <p>Mid-flow shape switching is forbidden. Shape follows the contract at open, not momentary load.</p>
+      <p>Stripe-with-standby, Replicate, fan-out datagrams, route-changing sessions, and any L6 transform stay on FrameRouter even when a single path is carrying traffic right now.</p>
+    </section>
+
+    <section id="forwarder">
+      <h2>Forwarder Lifecycle</h2>
+      <p>A supervisor owns exactly-once lifecycle emission. Direction tasks report EndOfStream, IoError, Cancelled, panic, or protocol violation. First terminal error wins and cancels the peer direction. Half-close is internal state; FlowClosed emits only when both directions finish.</p>
+      <p>Per-chunk production cost target is one relaxed atomic byte-counter update per direction plus normal IO wakeup: no mutex, no observation publish, no broadcast, no channel send.</p>
+      <p>Direct stream forwarding is expressed through committed stream halves. The first accepted path opens the egress once; split session halves move bytes directly while lifecycle and counters remain visible to observers.</p>
+    </section>
+
+    <section id="datagram-forwarder">
+      <h2>Datagram Forwarder</h2>
+      <p>Fixed-target datagram sessions mirror the stream Forwarder handoff. Dispatch performs one approved direct-probe open, stores direct send/recv halves, and the L5 datagram session consumes those halves for later send_to and recv_from calls.</p>
+      <table>
+        <tr><th>Rule</th><th>Reason</th></tr>
+        <tr><td>One realized path and no transform.</td><td>Direct mode bypasses per-packet scheduling after open.</td></tr>
+        <tr><td>Fixed target only.</td><td>A different target must fail or use FrameRouter before bypassing policy.</td></tr>
+        <tr><td>Recv returns the real source endpoint.</td><td>The direct path must not fake a response through seq=0 or ReturnEvent::Data.</td></tr>
+        <tr><td>Unsupported direct open uses a typed fallback.</td><td>Fallback is a one-shot control result, not ordinary idle polling.</td></tr>
+      </table>
+      <p>UDP, QUIC datagram, and DTLS-style datagram egresses may use this surface through protocol-neutral datagram halves. Multi-target SOCKS5 UDP associations and fan-out semantics remain FrameRouter-owned.</p>
+    </section>
+
+    <section id="events">
+      <h2>Core Event Surface</h2>
+      <table>
+        <tr><th>Event</th><th>Payload intent</th><th>Delivery</th></tr>
+        <tr><td>FlowOpened</td><td>flow_id, session_id, initial_path, shape, timestamp.</td><td>Reliable total deadline.</td></tr>
+        <tr><td>FlowPathChanged</td><td>flow_id, old path, new path, reason, timestamp.</td><td>Reliable total deadline.</td></tr>
+        <tr><td>FlowClosed</td><td>flow_id, close reason, timestamp.</td><td>Reliable total deadline.</td></tr>
+        <tr><td>PathIoError</td><td>flow_id, sink, direction, error kind, terminal flag, timestamp.</td><td>Lossy; terminal errors are followed by reliable close.</td></tr>
+      </table>
+      <p>`BytesMoved` must not exist as a core event. Throughput derives from pulled `FlowCounters` deltas.</p>
+      <p>Lifecycle events are reliable with a total publish deadline. Path IO errors and derived samples are lossy; terminal IO errors are followed by reliable FlowClosed so observers can reconcile state.</p>
+    </section>
+
+    <section id="pull">
+      <h2>Pull Telemetry</h2>
+      <p>`FlowCounters` owns bytes_in and bytes_out as lockless atomics. Samplers derive throughput windows by comparing snapshots.</p>
+      <p>`PathStatsProvider` is separate from egress plugin. TCP may provide RTT, rttvar, cwnd, send buffer usage, retransmits, and sample time. Non-socket transports may expose their own equivalent path telemetry.</p>
+      <p>Sampler observers use a fixed cadence and skip publication when counters did not change. RTT and path capacity never come from successful write completion; they come only from a declared path stats provider.</p>
+    </section>
+
+    <section id="observation">
+      <h2>Observation Registry and Bus</h2>
+      <table>
+        <tr><th>Piece</th><th>Contract</th></tr>
+        <tr><td>ObservationRegistry</td><td>Verifies event types, core write violations, duplicate exclusive writers, graph cycles, undeclared publish/subscribe, scopes, pull sources, and schema hash mismatches.</td></tr>
+        <tr><td>ObservationBus</td><td>Routed fan-out by EventTypeId, not tokio broadcast. Lossy publish is sync. Reliable publish uses one total deadline across all subscribers.</td></tr>
+        <tr><td>Scope lifecycle</td><td>Plugin observers register under one scope and can be unwired together.</td></tr>
+        <tr><td>No-penetration</td><td>Observers consume declared pins; they do not import another observer's internal state.</td></tr>
+      </table>
+      <p>Registered event namespaces are split between core.* and obs.*. Core writes only core events. Observers can publish obs events only when their ObserverSpec declares the write, and registry verification fails closed on unknown events, duplicate exclusive writers, cycles, undeclared subscriptions, unknown pull sources, schema mismatches, or missing scopes.</p>
+      <p>Reliable delivery means enqueue acceptance into the observer's bounded local queue, not completion of disk, network, or remote side effects. Subscribers that repeatedly miss lifecycle deadlines are durably marked unwired and removed from routing.</p>
+    </section>
+
+    <section id="drop-observation-contract">
+      <h2>Drop Observation Contract</h2>
+      <table>
+        <tr><th>Drop site</th><th>Observation classification</th><th>Contract</th></tr>
+        <tr><td>MeshSec auth failure</td><td><code>observable_event</code></td><td>Publish <code>obs.meshsec.drop</code> with <code>reason=auth</code>, source address, transport mode, and secure flag. Do not expose ciphertext or decrypted payload.</td></tr>
+        <tr><td>MeshSec replay</td><td><code>observable_event</code></td><td>Publish <code>obs.meshsec.drop</code> with <code>reason=replay</code> or <code>reason=replay_too_old</code>. Replay cache details remain owner-private.</td></tr>
+        <tr><td>MeshSec malformed envelope</td><td><code>observable_event</code></td><td>Publish <code>obs.meshsec.drop</code> with a typed reason such as <code>truncated</code>, <code>unsupported_version</code>, or <code>payload_too_large</code>.</td></tr>
+        <tr><td>Native event decode failure after a valid transport receive</td><td><code>observable_event</code></td><td>Publish <code>obs.native.drop</code> with a typed native reason such as <code>event_decode</code>, <code>control_frame_decode</code>, or <code>queue_overflow</code>.</td></tr>
+        <tr><td>Flow bytes moved</td><td><code>declared_pull_source</code></td><td>Expose through <code>pull.flow_counters</code>; never emit a per-chunk push event.</td></tr>
+        <tr><td>Path RTT/loss/PMTU</td><td><code>declared_pull_source</code></td><td>Expose through <code>pull.path_stats</code>; successful write completion is not RTT evidence.</td></tr>
+        <tr><td>Verbose packet trace during local debugging</td><td><code>debug_trace_only_allowed</code></td><td>Allowed only for developer diagnosis and must not become the source of metrics, operator state, or release gates.</td></tr>
+      </table>
+    </section>
+
+    <section id="drift-audit-classification">
+      <h2>Drift Audit Classification</h2>
+      <p>The audit command is <code>rg -n "dropp|drop|fail-closed|continue;|tracing::trace!" crates/mesh-bus-* lib/mb-* -S</code>. Every match must land in exactly one classification row before it becomes a release concern.</p>
+      <table>
+        <tr><th>Code family</th><th>Classification</th><th>Observation edge</th><th>Reason</th></tr>
+        <tr><td><code>mesh-bus-ingress-mesh-peer-udp</code> MeshSec open failure</td><td><code>observable_event</code></td><td><code>obs.meshsec.drop</code></td><td>The ingress owner can prove auth, replay, epoch, truncation, version, and payload-size rejects at the fail-closed edge.</td></tr>
+        <tr><td><code>mesh-bus-ingress-mesh-peer-udp</code> native decode, control decode, package decode, and queue overflow</td><td><code>observable_event</code></td><td><code>obs.native.drop</code></td><td>The native packet owner can prove a received packet was rejected before session state was created or mutated.</td></tr>
+        <tr><td><code>mesh-bus-core::transport::udp_loop</code> PMTU and packet-loop queue-full accounting</td><td><code>declared_pull_source</code></td><td><code>pull.path_stats</code></td><td>PMTU, drops, and queue fullness are path evidence sampled from <code>PathStats</code>, not per-packet push metrics.</td></tr>
+        <tr><td><code>mesh-bus-core</code> dispatch TTL, no-candidate, and egress failure outcomes</td><td><code>observable_event</code></td><td><code>core.*</code> lifecycle/path events</td><td>Dispatch failures remain kernel-owned lifecycle/path facts and are already counted by dispatch projections and owner tests.</td></tr>
+        <tr><td><code>ObservationBus</code> subscriber queue overflow, scope unwire, and observer lag</td><td><code>debug_trace_only_allowed</code></td><td>Internal bus health</td><td>These are observer-delivery health facts, not data-plane packet drops. They may later get their own obs event family, but must not be mixed with MeshSec/native drop counters.</td></tr>
+        <tr><td>Codec parser loops, malformed fixture cases, and test-only synthetic drops</td><td><code>not_observation_relevant</code></td><td>None</td><td>Library parsers and tests prove local input/output contracts; product observation begins at an owner boundary with a real received packet or declared pull source.</td></tr>
+        <tr><td>TCP/UDP ingress <code>Verdict::Drop</code> policy outcomes</td><td><code>not_observation_relevant</code></td><td>Policy verdict contract</td><td>A policy drop is a pipeline decision outcome, not a MeshSec/native packet-owner failure. A future policy observation family must be defined separately.</td></tr>
+      </table>
+    </section>
+
+    <section id="closed-loop">
+      <h2>CAKE Closed Loop</h2>
+      <p>CAKE feedback is scheduler-owned, not kernel-owned. Metrics and health observers consume core lifecycle and path events, pull FlowCounters and PathStats, publish obs.path.rtt_sample, obs.path.throughput_sample, and obs.health.degraded, and the CAKE plugin consumes those derived signals on its own observer task.</p>
+      <p>The kernel may read the latest health snapshot while choosing candidates, but it does not update EWMA, jitter, goodput windows, saturation penalties, or hysteresis inline. That keeps the adaptive loop closed without making the dataplane hot path an algorithm host.</p>
+    </section>
+
+    <section id="gates">
+      <h2>Acceptance Gates</h2>
+      <ul>
+        <li>Forwarder qualifies single-path ByteStream flows and preserves full-duplex, half-close, cancellation, panic, and exactly-once lifecycle behavior.</li>
+        <li>Core event surface stays exactly four variants.</li>
+        <li>Metrics and health observers use core events and pull surfaces; scheduler feedback lives in scheduler plugin crates.</li>
+        <li>MeshSec and native packet drops publish typed <code>obs.*</code> events; metrics, Prometheus, Operator, and diagnose consume observer projections.</li>
+        <li>Observation registry verifies all graph and declaration errors at boot.</li>
+        <li>Datagram flows use DatagramForwarder only for fixed-target, single-path, transform-free sessions; Replicate and multi-target flows stay FrameRouter.</li>
+        <li>Observer overflow does not block forwarding, and lifecycle reconciliation balances opened and closed flows under load.</li>
+        <li>The retired T0 fastpath, FastpathSend promotion/demotion, per-frame scheduler feedback calls, and BytesMoved push events do not return.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

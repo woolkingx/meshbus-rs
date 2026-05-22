@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-egress-mesh-peer-udp - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-egress-mesh-peer-udp - Owner Proof Contract</h1>
+    <p>Classification: <strong>L7 mesh peer upstream egress adapter</strong>. Owns raw UDP Mesh Protocol stream/datagram forwarding at peer boundary.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-egress-mesh-peer-udp</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-egress-mesh-peer-udp</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td>Config</td><td>MeshPeer sink config: <code>id</code>, <code>peer_id</code>, <code>peer</code>, <code>groups</code>, <code>timeout_ms</code>.</td></tr>
+        <tr><td>Stream session</td><td>One logical stream session per peer mapping carrying Mesh Protocol stream frames and opaque byte payload.</td></tr>
+        <tr><td>Datagram session</td><td>One UDP session per peer mapping carrying Mesh Protocol datagram frames.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-fixtures">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema.json">schema.json</a> defines the constructor surface and rejects extra fields. Unit behavior is covered by <a href="tests/egress.rs">tests/egress.rs</a>.</p>
+      <ul>
+        <li>Stream open/data/shutdown/close exchange, byte-order preservation, and same-drain multi-packet receive preservation.</li>
+        <li>Datagram exchange and source endpoint preservation.</li>
+        <li>MeshSec path handling and budget assertions.</li>
+        <li>Oversize payload failure path.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-egress-mesh-peer-udp</code></td><td>Adapter owner tests only.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Stream boundary</td><td>One logical stream open maps to Mesh Protocol <code>StreamOpen</code>, followed by ordered opaque <code>StreamData</code> and explicit close/half-close frames. Multiple return packets drained from one socket-read batch must remain visible to later <code>recv()</code> calls.</td></tr>
+        <tr><td>Datagram boundary</td><td>One logical <code>send_to</code> maps to one Mesh frame datagram in/out with endpoint metadata.</td></tr>
+        <tr><td>Mesh peer contract</td><td>Own config required keys are enforced and no unknown config keys are accepted.</td></tr>
+        <tr><td>Fail-safe policy</td><td>Unsupported payload/secret-size conditions are rejected and reported by tests in <code>tests/egress.rs</code>.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-runtime</td><td>Builds this sink from <code>EgressCfg::MeshPeerUdp</code> only.</td></tr>
+        <tr><td>mesh-bus-core</td><td>Provides stream and datagram sink plugin interfaces.</td></tr>
+        <tr><td>mb-proto-mesh</td><td>Provides frame encoding/decoding; transport semantics and routing remain this module.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Runtime plugin assembly enables raw peer stream/datagram forwarding through this sink.</li>
+        <li>Mesh peer transport behavior appears as stream/datagram success/failure at bus sink dispatch boundaries.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>L7 payload parsing</td><td>HTTP, SOCKS5, TLS, QUIC, DNS, and app syntax belong to edge adapters, never this MeshPeer egress.</td></tr>
+        <tr><td>Core policy/routing tests</td><td>Routing logic is owned by core and schedulers.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,80 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mesh-bus-schema",
+    "crates/mesh-bus-core",
+    "crates/mesh-bus-ingress-tcp",
+    "crates/mesh-bus-ingress-udp",
+    "crates/mesh-bus-ingress-mesh-peer-udp",
+    "crates/mesh-bus-ingress-socks5",
+    "crates/mesh-bus-ingress-http-connect",
+    "crates/mesh-bus-egress-tcp",
+    "crates/mesh-bus-egress-service",
+    "crates/mesh-bus-egress-udp",
+    "crates/mesh-bus-egress-mesh-peer-udp",
+    "crates/mesh-bus-egress-socks5",
+    "crates/mesh-bus-scheduler-cake",
+    "crates/mesh-bus-scheduler-replicate",
+    "crates/mesh-bus-scheduler-loadbalance",
+    "crates/mesh-bus-observer-metrics",
+    "crates/mesh-bus-observer-prometheus",
+    "crates/mesh-bus-operator-api",
+    "crates/mesh-bus-resolver",
+    "crates/mesh-bus-pipeline-hooks",
+    "crates/mesh-bus-runtime",
+    "crates/mesh-bus-bin",
+    "lib/mb-endpoint",
+    "lib/mb-cost",
+    "lib/mb-health",
+    "lib/mb-loadbalance",
+    "lib/mb-cake",
+    "lib/mb-reorder",
+    "lib/mb-chunker",
+    "lib/mb-pool",
+    "lib/mb-proto-socks5",
+    "lib/mb-proto-http-proxy",
+    "lib/mb-proto-dns",
+    "lib/mb-proto-mesh",
+    "lib/mb-quic",
+    "lib/mb-rule",
+    "lib/mb-splice",
+    "lib/mb-socket-tune",
+    "lib/mb-geoip",
+    "lib/mb-geosite",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+tokio = { version = "1.40", features = ["full"] }
+async-trait = "0.1"
+bytes = "1.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+schemars = "0.8"
+jsonschema = "0.18"
+typify = "0.1"
+anyhow = "1"
+serde_yaml = "0.9"
+rand = "0.8"
+arc-swap = "1"
+dashmap = "6"
+bitvec = "1"
+futures = "0.3"
+libc = "0.2"
+socket2 = "0.6.3"
+bincode = "1.3"
+rcgen = "=0.14.7"
+ring = "0.17"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+x509-parser = "0.18"
+chacha20poly1305 = "0.10"
+hkdf = "0.12"
+hmac = "0.12"
+sha2 = "0.10"

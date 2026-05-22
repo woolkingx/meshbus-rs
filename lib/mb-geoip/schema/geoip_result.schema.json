@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GeoIpResult",
+  "type": "object",
+  "required": ["country", "asn", "asn_org"],
+  "properties": {
+    "country": { "type": "string", "minLength": 2, "maxLength": 2 },
+    "asn":     { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "asn_org": { "type": "string" }
+  }
+}

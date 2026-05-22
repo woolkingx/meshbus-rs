@@ -1,0 +1,25 @@
+id: service_udp_egress_is_datagram_capable
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Udp
+        listen: 127.0.0.1:19092
+        target: 198.51.100.1:53
+    egresses:
+      - kind: ServiceUdp
+        id: dns-service
+        service_id: local-dns
+        route_group: reverse
+        connect: 127.0.0.1:53
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "ServiceUdp {"
+    - "groups: [\"reverse\"]"
+observations: []
+tags: []

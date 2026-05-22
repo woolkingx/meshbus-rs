@@ -1,0 +1,19 @@
+[package]
+name = "mesh-bus-ingress-http-connect"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mesh-bus-pipeline-hooks = { path = "../mesh-bus-pipeline-hooks" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-proto-http-proxy = { path = "../../lib/mb-proto-http-proxy" }
+mb-socket-tune = { path = "../../lib/mb-socket-tune" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+mesh-bus-egress-tcp = { path = "../mesh-bus-egress-tcp" }

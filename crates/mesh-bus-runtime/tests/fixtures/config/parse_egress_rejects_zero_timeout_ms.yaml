@@ -1,0 +1,19 @@
+id: parse_egress_rejects_zero_timeout_ms
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 0
+expect:
+  ok: false
+  error_contains: "egress direct timeout_ms must be >= 1"
+observations: []
+tags: []

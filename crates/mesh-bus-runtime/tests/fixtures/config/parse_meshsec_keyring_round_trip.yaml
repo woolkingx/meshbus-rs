@@ -1,0 +1,40 @@
+id: parse_meshsec_keyring_round_trip
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    peers:
+      - id: parent-a
+        node_id: node-b
+        route_groups: [wan-us]
+        meshsec:
+          profile: MeshSec-0RTT-PSK-XChaCha
+          active_key_id: k1
+          keyring:
+            - id: k1
+              static_key_hex: 1111111111111111111111111111111111111111111111111111111111111111
+              role: active
+            - id: k0
+              static_key_hex: 0000000000000000000000000000000000000000000000000000000000000000
+              role: accept
+    ingresses:
+      - kind: MeshPeerUdp
+        listen: 0.0.0.0:19000
+    egresses:
+      - kind: MeshPeerUdp
+        id: peer-udp
+        peer_id: parent-a
+        peer: 127.0.0.1:29001
+        timeout_ms: 1000
+        groups: [wan-us]
+expect:
+  ok: true
+  debug_contains:
+    - "active_key_id"
+    - "<2 redacted>"
+observations: []
+tags: []

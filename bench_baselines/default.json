@@ -1,0 +1,6 @@
+{
+  "_comment": "Loopback SOCKS5 throughput baselines (MiB/s). Lowest of 4 serial runs, 2026-05-14. Ratio gate at 0.90 (see throughput_socks5.rs). Override host via MESH_BUS_BENCH_HOST=<host> + bench_baselines/<host>.json.",
+  "LOOPBACK_1CONN": 58.0,
+  "LOOPBACK_STREAM_1CONN": 68.0,
+  "LOOPBACK_8CONN": 78.0
+}

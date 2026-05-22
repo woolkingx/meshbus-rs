@@ -1,0 +1,369 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mesh-bus.local/schemas/mb-proto-mesh.schema.json",
+  "title": "mb-proto-mesh wire contracts",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "meshsec_envelope_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": { "const": "MeshSec-0RTT-PSK-XChaCha" },
+        "aead": { "const": "XChaCha20-Poly1305" },
+        "kdf": { "const": "HKDF-SHA256" },
+        "header_size_bytes": { "const": 22 },
+        "tag_size_bytes": { "const": 16 },
+        "fixed_overhead_bytes": { "const": 38 },
+        "receiver_hint_bytes": { "const": 8 },
+        "boot_salt_bytes": { "const": 4 },
+        "counter_bytes": { "const": 8 },
+        "epoch_seconds": { "const": 600 },
+        "accepted_epoch_skew_slots": { "const": 1 },
+        "replay_window_bits": { "const": 1024 },
+        "padding_buckets_bytes": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "const": [128, 384, 1024]
+        },
+        "layout": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LayoutField" },
+          "minItems": 7,
+          "maxItems": 7
+        },
+        "kdf_chain": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 3
+        },
+        "invariants": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 5
+        }
+      },
+      "required": [
+        "profile",
+        "aead",
+        "kdf",
+        "header_size_bytes",
+        "tag_size_bytes",
+        "fixed_overhead_bytes",
+        "receiver_hint_bytes",
+        "boot_salt_bytes",
+        "counter_bytes",
+        "epoch_seconds",
+        "accepted_epoch_skew_slots",
+        "replay_window_bits",
+        "padding_buckets_bytes",
+        "layout",
+        "kdf_chain",
+        "invariants"
+      ]
+    },
+    "mesh_event_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Protocol PDU. MeshSec encrypts the encoded MeshEvent; lower owners read PCI only.",
+      "properties": {
+        "owner_layer": { "const": "L6" },
+        "event_id": { "type": "string", "minLength": 1, "description": "Globally unique event identity; receiver dedup key before family semantics." },
+        "family_id": { "type": "string", "minLength": 1, "description": "L5 EventFamily scope this event belongs to." },
+        "semantic": { "type": "string", "enum": ["stream", "datagram", "control", "observation"] },
+        "reliability": { "type": "string", "enum": ["best_effort", "reliable", "repairable"] },
+        "ordering": { "type": "string", "enum": ["unordered", "ordered_within_family"] },
+        "delivery_policy_id": { "type": "string", "minLength": 1 },
+        "path_epoch": { "type": "integer", "minimum": 0 },
+        "ttl": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "pci": { "type": "object", "description": "Event protocol control info readable by the lower owner; opaque otherwise." },
+        "package": { "oneOf": [{ "$ref": "#/properties/data_package_v1" }, { "type": "null" }] }
+      },
+      "required": ["owner_layer", "event_id", "family_id", "semantic", "reliability", "ordering", "delivery_policy_id", "path_epoch", "ttl"]
+    },
+    "data_package_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Opaque carried SDU. Lower layers move/encrypt/split/repair/reorder via declared PCI only.",
+      "properties": {
+        "owner_layer": { "const": "L6" },
+        "package_id": { "type": "string", "minLength": 1 },
+        "seq": { "type": "integer", "minimum": 0, "description": "Family-scoped delivery sequence; FamilyState restores order by this." },
+        "offset": { "type": "integer", "minimum": 0 },
+        "len": { "type": "integer", "minimum": 0 },
+        "fragment_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "fragment_count": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "payload": { "type": "string", "description": "Opaque SDU bytes; carried as bytes::Bytes in Rust, base64 in JSON projection." }
+      },
+      "required": ["owner_layer", "package_id", "seq", "offset", "len", "fragment_id", "fragment_count", "payload"]
+    },
+    "event_family_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "L5 owner scope for stream/datagram/control/observation reliability, ordering, dedup, reassembly, repair, close.",
+      "properties": {
+        "owner_layer": { "const": "L5" },
+        "family_id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "enum": ["stream", "datagram", "control", "observation"] },
+        "session_id": { "type": "string", "minLength": 1 },
+        "reliability": { "type": "string", "enum": ["best_effort", "reliable", "repairable"] },
+        "ordering": { "type": "string", "enum": ["unordered", "ordered_within_family"] }
+      },
+      "required": ["owner_layer", "family_id", "kind", "reliability", "ordering"]
+    },
+    "receiver_mouth_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Delivery receiver. UDP addr/port are coordinates, never session, route, or channel truth.",
+      "properties": {
+        "owner_layer": { "const": "L4" },
+        "mouth_id": { "type": "string", "minLength": 1 },
+        "udp_addr": { "type": "string", "minLength": 1 },
+        "family_filter": { "type": "array", "items": { "type": "string" } },
+        "advertised_capacity": { "type": "integer", "minimum": 0 },
+        "epoch": { "type": "integer", "minimum": 0, "description": "Stale-epoch close is ignored; make-before-break rotation gate." }
+      },
+      "required": ["owner_layer", "mouth_id", "udp_addr", "epoch"]
+    },
+    "link_evidence_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "L4 scheduler evidence for one sender-to-mouth relation. Observation, not route truth.",
+      "properties": {
+        "owner_layer": { "const": "L4" },
+        "srtt": { "type": "number", "minimum": 0 },
+        "rttvar": { "type": "number", "minimum": 0 },
+        "delivery_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "loss_burst": { "type": "integer", "minimum": 0 },
+        "reorder_score": { "type": "number", "minimum": 0 },
+        "pmtu": { "type": "integer", "minimum": 0 },
+        "queue_delay": { "type": "number", "minimum": 0 },
+        "cost_weight": { "type": "number", "minimum": 0 }
+      },
+      "required": ["owner_layer", "srtt", "rttvar", "delivery_ratio", "loss_burst", "reorder_score", "pmtu", "queue_delay", "cost_weight"]
+    },
+    "ack_nack_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "L5 family feedback. Confirms or requests DataPackages, not transport streams.",
+      "properties": {
+        "owner_layer": { "const": "L5" },
+        "family_id": { "type": "string", "minLength": 1 },
+        "cumulative_seq": { "type": "integer", "minimum": 0 },
+        "received_bitmap": { "type": "string", "description": "Bitmap of received seq relative to cumulative_seq; hex/base of u128 window." },
+        "missing_ranges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "start": { "type": "integer", "minimum": 0 },
+              "end": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["start", "end"]
+          }
+        }
+      },
+      "required": ["owner_layer", "family_id", "cumulative_seq", "received_bitmap", "missing_ranges"]
+    },
+    "repair_fec_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "L5/L6 repair data for loss-sensitive families. One-XOR-parity per generation.",
+      "properties": {
+        "owner_layer": { "const": "L6" },
+        "generation_id": { "type": "string", "minLength": 1 },
+        "data_count": { "type": "integer", "minimum": 1 },
+        "parity_count": { "type": "integer", "minimum": 0 },
+        "fragment_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "repair_timeout": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["owner_layer", "generation_id", "data_count", "parity_count", "fragment_id", "repair_timeout"]
+    },
+    "family_state_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "L5 endpoint reconstruction and legality state. No transport-channel state.",
+      "properties": {
+        "owner_layer": { "const": "L5" },
+        "family_id": { "type": "string", "minLength": 1 },
+        "next_expected_seq": { "type": "integer", "minimum": 0 },
+        "received_bitmap": { "type": "string", "description": "u128 sliding window over seq after next_expected_seq." },
+        "reorder_window": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "pending_packages": { "type": "integer", "minimum": 0 },
+        "repair_deadline_ms": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["owner_layer", "family_id", "next_expected_seq", "received_bitmap", "reorder_window", "repair_deadline_ms"]
+    },
+    "delivery_policy_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "L5 event-level delivery contract. Changes delivery coordinates only; preserves EventFamily identity.",
+      "properties": {
+        "owner_layer": { "const": "L5" },
+        "delivery_policy_id": { "type": "string", "minLength": 1 },
+        "mode": { "type": "string", "enum": ["steer", "stripe", "replicate", "repair", "probe"] },
+        "receiver_set": { "type": "array", "items": { "type": "string" } },
+        "budget": { "type": "integer", "minimum": 0 },
+        "reorder_window": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "repair_timeout": { "type": "integer", "minimum": 0 },
+        "epoch": { "type": "integer", "minimum": 0 },
+        "expiry_ms": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["owner_layer", "delivery_policy_id", "mode", "epoch"]
+    }
+  },
+  "required": ["meshsec_envelope_v1"],
+  "$defs": {
+    "LayoutField": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "offset": { "type": "integer", "minimum": 0 },
+        "size": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "const": "var" }
+          ]
+        },
+        "field": {
+          "type": "string",
+          "enum": [
+            "version_flags",
+            "receiver_hint",
+            "epoch_low",
+            "boot_salt",
+            "counter",
+            "ciphertext",
+            "tag"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["u8", "bytes", "u64", "var-bytes"]
+        },
+        "endian": {
+          "type": "string",
+          "enum": ["be", "le", "none"]
+        },
+        "aad": { "type": "boolean" }
+      },
+      "required": ["offset", "size", "field", "type", "endian", "aad"]
+    }
+  },
+  "examples": [
+    {
+      "meshsec_envelope_v1": {
+        "profile": "MeshSec-0RTT-PSK-XChaCha",
+        "aead": "XChaCha20-Poly1305",
+        "kdf": "HKDF-SHA256",
+        "header_size_bytes": 22,
+        "tag_size_bytes": 16,
+        "fixed_overhead_bytes": 38,
+        "receiver_hint_bytes": 8,
+        "boot_salt_bytes": 4,
+        "counter_bytes": 8,
+        "epoch_seconds": 600,
+        "accepted_epoch_skew_slots": 1,
+        "replay_window_bits": 1024,
+        "padding_buckets_bytes": [128, 384, 1024],
+        "layout": [
+          { "offset": 0, "size": 1, "field": "version_flags", "type": "u8", "endian": "none", "aad": true },
+          { "offset": 1, "size": 8, "field": "receiver_hint", "type": "bytes", "endian": "none", "aad": true },
+          { "offset": 9, "size": 1, "field": "epoch_low", "type": "u8", "endian": "none", "aad": true },
+          { "offset": 10, "size": 4, "field": "boot_salt", "type": "bytes", "endian": "none", "aad": true },
+          { "offset": 14, "size": 8, "field": "counter", "type": "u64", "endian": "le", "aad": true },
+          { "offset": 22, "size": "var", "field": "ciphertext", "type": "var-bytes", "endian": "none", "aad": false },
+          { "offset": 22, "size": 16, "field": "tag", "type": "bytes", "endian": "none", "aad": false }
+        ],
+        "kdf_chain": [
+          "K_hint = HKDF-SHA256(static_key, info=meshsec/v1/hint)",
+          "receiver_hint = HMAC-SHA256(K_hint, LE64(epoch_number))[0..8]",
+          "K_epoch = HKDF-SHA256(static_key, salt=LE64(epoch_number), info=meshsec/v1/epoch)",
+          "K_tx = HKDF-SHA256(K_epoch, salt=sender_id, info=meshsec/v1/dir/ || direction || boot_salt)"
+        ],
+        "invariants": [
+          "static_key is pairwise peer material and is never used directly as an AEAD traffic key",
+          "per-sender traffic key derivation is mandatory for N:N delivery",
+          "boot_salt prevents counter reuse after process restart without persistent counters",
+          "receiver allocates replay state only after AEAD authentication succeeds",
+          "envelope counter is crypto nonce material, not channel sequence or session identity",
+          "L5 event_id dedup is separate from envelope replay protection",
+          "WAN deployment must not use Debug-clear MeshEvents"
+        ]
+      }
+    },
+    {
+      "meshsec_envelope_v1": {
+        "profile": "MeshSec-0RTT-PSK-XChaCha",
+        "aead": "XChaCha20-Poly1305",
+        "kdf": "HKDF-SHA256",
+        "header_size_bytes": 22,
+        "tag_size_bytes": 16,
+        "fixed_overhead_bytes": 38,
+        "receiver_hint_bytes": 8,
+        "boot_salt_bytes": 4,
+        "counter_bytes": 8,
+        "epoch_seconds": 600,
+        "accepted_epoch_skew_slots": 1,
+        "replay_window_bits": 1024,
+        "padding_buckets_bytes": [128, 384, 1024],
+        "layout": [
+          { "offset": 0, "size": 1, "field": "version_flags", "type": "u8", "endian": "none", "aad": true },
+          { "offset": 1, "size": 8, "field": "receiver_hint", "type": "bytes", "endian": "none", "aad": true },
+          { "offset": 9, "size": 1, "field": "epoch_low", "type": "u8", "endian": "none", "aad": true },
+          { "offset": 10, "size": 4, "field": "boot_salt", "type": "bytes", "endian": "none", "aad": true },
+          { "offset": 14, "size": 8, "field": "counter", "type": "u64", "endian": "le", "aad": true },
+          { "offset": 22, "size": "var", "field": "ciphertext", "type": "var-bytes", "endian": "none", "aad": false },
+          { "offset": 22, "size": 16, "field": "tag", "type": "bytes", "endian": "none", "aad": false }
+        ],
+        "kdf_chain": [
+          "K_hint = HKDF-SHA256(static_key, info=meshsec/v1/hint)",
+          "receiver_hint = HMAC-SHA256(K_hint, LE64(epoch_number))[0..8]",
+          "K_epoch = HKDF-SHA256(static_key, salt=LE64(epoch_number), info=meshsec/v1/epoch)",
+          "K_tx = HKDF-SHA256(K_epoch, salt=sender_id, info=meshsec/v1/dir/ || direction || boot_salt)"
+        ],
+        "invariants": [
+          "static_key is pairwise peer material and is never used directly as an AEAD traffic key",
+          "per-sender traffic key derivation is mandatory for N:N delivery",
+          "boot_salt prevents counter reuse after process restart without persistent counters",
+          "receiver allocates replay state only after AEAD authentication succeeds",
+          "envelope counter is crypto nonce material, not channel sequence or session identity",
+          "L5 event_id dedup is separate from envelope replay protection",
+          "WAN deployment must not use Debug-clear MeshEvents"
+        ]
+      },
+      "mesh_event_v1": {
+        "owner_layer": "L6",
+        "event_id": "evt-7f3a91c2",
+        "family_id": "fam-stream-42",
+        "semantic": "stream",
+        "reliability": "reliable",
+        "ordering": "ordered_within_family",
+        "delivery_policy_id": "dp-steer-default",
+        "path_epoch": 3,
+        "ttl": 16,
+        "pci": { "checksum": "crc32:9af1", "compression": "none" },
+        "package": {
+          "owner_layer": "L6",
+          "package_id": "pkg-fam42-000017",
+          "seq": 17,
+          "offset": 24576,
+          "len": 1452,
+          "fragment_id": 0,
+          "fragment_count": 1,
+          "payload": "aGVsbG8tbWVzaC1zdHJlYW0tc2R1"
+        }
+      },
+      "ack_nack_v1": {
+        "owner_layer": "L5",
+        "family_id": "fam-stream-42",
+        "cumulative_seq": 16,
+        "received_bitmap": "0x0000000000000000000000000001fffe",
+        "missing_ranges": [
+          { "start": 17, "end": 17 }
+        ]
+      }
+    }
+  ]
+}

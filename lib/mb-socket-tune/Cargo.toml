@@ -1,0 +1,9 @@
+[package]
+name = "mb-socket-tune"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+socket2 = { workspace = true }
+tokio = { workspace = true }

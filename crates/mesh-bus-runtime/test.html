@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-runtime - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-runtime - Owner Proof Contract</h1>
+    <p>Classification: <strong>composition and assembly owner</strong>. This module owns YAML config ingestion and wiring from config into live bus runtime.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-runtime</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a>, <a href="src/config.rs">src/config.rs</a>, <a href="src/pipeline.rs">src/pipeline.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-runtime</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Data</th><th>Contract</th></tr>
+        <tr><td><code>Config</code></td><td>Operator YAML surface and typed config tree.</td></tr>
+        <tr><td><code>IngressCfg</code>/<code>EgressCfg</code></td><td>Runtime ownership of adapter construction inputs and plugin wiring.</td></tr>
+        <tr><td><code>PipelineCfg</code>/<code>PipelineSourceCfg</code></td><td>Pipeline profile selection and source binding contract.</td></tr>
+      </table>
+      <p>Runtime owns assembly and startup validation. It does not own core semantics or adapter protocol parse internals.</p>
+    </section>
+
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema.json">schema.json</a> is the operator contract and must stay aligned with serde structs in <a href="src/config.rs">src/config.rs</a>.</p>
+      <p>Fixture sources:</p>
+      <ul>
+        <li><code>tests/fixtures/config/*.yaml</code></li>
+        <li><code>tests/config_fixture_runner.rs</code></li>
+        <li><code>tests/pipeline_assembly.rs</code></li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-runtime</code></td><td>All owner proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-runtime --test config</code></td><td>Config schema validation + fixture parsing proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-runtime --test pipeline_assembly</code></td><td>Pipeline source selection + sink registration proofs.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Config round-trip</td><td>Valid/invalid YAMLs are accepted/rejected per schema and semantic checks.</td></tr>
+        <tr><td>Startup gating</td><td>Duplicate ids, empty lists, zero timeouts/priority, and bad file fields are rejected before runtime start.</td></tr>
+        <tr><td>Pipeline source binding</td><td><code>pipeline.source.ingress_index</code> and single-candidate fallback resolve exactly one source adapter.</td></tr>
+        <tr><td>Pipeline assembly</td><td>Registry from hook specs and sink candidates passes <code>kernel_registry_verify</code> before run.</td></tr>
+        <tr><td>Plugin wiring</td><td>Egresses map to stream/datagram factories with required capabilities.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-core</td><td>Receives assembled plugins, sink ids, scheduler, and handles bus bootstrap.</td></tr>
+        <tr><td>pipeline-hooks/resolver/egress crates</td><td>Injected as explicit dependencies and parameterized by runtime config only.</td></tr>
+        <tr><td>mesh-bus-bin</td><td>Calls <code>parse_config</code>, <code>run</code>, and <code>status_text</code>.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Binary and in-process e2e tests rely on runtime preflight and assembly behavior.</li>
+        <li>Observed status row shape and sink registration are validated through binary smoke assertions and integration fixtures.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Direct dispatch policy or scheduler proof</td><td>Scheduler and core own routing decisions.</td></tr>
+        <tr><td>Protocol parser/proxy behavior</td><td>Owned by ingress/egress edge crates.</td></tr>
+        <tr><td>Real socket load testing</td><td>Performance/e2e throughput are separate artifacts.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

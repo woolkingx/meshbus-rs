@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-egress-service - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-egress-service - Owner Proof Contract</h1>
+    <p>Classification: <strong>stream/datagram egress adapter</strong>. Owns fixed-target service egress session creation.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-egress-service</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-egress-service</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td>Config</td><td>Sink identity, static <code>service_id</code>, connect endpoint and timeout metadata.</td></tr>
+        <tr><td>Session behavior</td><td>Local service identifier label + fixed target TCP dial / UDP send behavior; request target is metadata-only.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-fixtures">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema.json">schema.json</a> declares fixed target service sink shape and caps service metadata. Runtime proofs are in <a href="tests/service.rs">tests/service.rs</a>.</p>
+      <ul>
+        <li>TCP echo flow and UDP echo datagram to configured connect endpoint ignore session request target.</li>
+        <li>Route-group membership behavior in service-specific membership tests.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-egress-service</code></td><td>All owner proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-egress-service --test service</code></td><td>Service-specific sink fixture + route_group tests.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Fixed target</td><td>Configured connect endpoint is used for TCP dial / UDP send, not request-provided target.</td></tr>
+        <tr><td>Static service label</td><td><code>service_id</code> comes from config and is reported in session metadata.</td></tr>
+        <tr><td>Capability</td><td><code>ServiceTcp</code> is stream-only; <code>ServiceUdp</code> is datagram-only.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-runtime</td><td>Constructs this adapter for <code>EgressCfg::ServiceTcp</code>.</td></tr>
+        <tr><td>mesh-bus-egress-tcp</td><td>Provides base TCP session plumbing via <code>with_fixed_target</code>.</td></tr>
+        <tr><td>mesh-bus-egress-udp</td><td>Provides base UDP datagram plumbing via <code>with_fixed_target</code>.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Runtime reverse-stream and reverse-datagram service paths route to this sink by <code>service_id</code> and configured groups.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>SOCKS5/HTTP protocol parsing</td><td>Service egress is transport-only.</td></tr>
+        <tr><td>Global scheduler or route policy tests</td><td>Routing remains runtime and core-owned.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

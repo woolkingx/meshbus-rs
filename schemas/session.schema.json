@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "session.schema.json",
+  "title": "Session",
+  "type": "object",
+  "required": ["id", "target", "opened_at_ms"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "target": { "$ref": "endpoint.schema.json" },
+    "opened_at_ms": { "type": "integer", "minimum": 0 },
+    "pinned_exit": { "$ref": "exit-id.schema.json" }
+  },
+  "additionalProperties": false
+}

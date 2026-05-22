@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mesh-bus-core.kernel.metadata",
+  "$ref": "#/$defs/TypedMap",
+  "$defs": {
+    "ScheduleHintLabel": {
+      "type": "string",
+      "enum": ["ordered", "fanout", "stripe"]
+    },
+    "ExtKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$",
+      "not": { "pattern": "^(net|transport|policy|auth|trace|ext)\\." },
+      "description": "Local key tail stored inside TypedMap.ext. Registry metadata keys use the full ext.<key> form."
+    },
+    "MetaValue": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "properties": { "kind": { "const": "string" }, "value": { "type": "string" } }, "required": ["kind","value"] },
+        { "type": "object", "additionalProperties": false, "properties": { "kind": { "const": "u64" },    "value": { "type": "integer", "minimum": 0 } }, "required": ["kind","value"] },
+        { "type": "object", "additionalProperties": false, "properties": { "kind": { "const": "bool" },   "value": { "type": "boolean" } }, "required": ["kind","value"] },
+        { "type": "object", "additionalProperties": false, "properties": { "kind": { "const": "bytes" },  "value": { "type": "string", "contentEncoding": "base64" } }, "required": ["kind","value"] }
+      ]
+    },
+    "NetMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "src_ip":    {
+          "anyOf": [
+            { "type": "string", "format": "ipv4", "minLength": 1 },
+            { "type": "string", "format": "ipv6", "minLength": 1 },
+            { "type": "null" }
+          ],
+          "description": "L4 source IP literal supplied by the source adapter; when present it must parse as IPv4 or IPv6"
+        },
+        "dst_host":  { "type": ["string", "null"], "minLength": 1 },
+        "dst_port":  { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 },
+        "protocol":  {
+          "type": ["string", "null"],
+          "enum": [null, "tcp", "udp"],
+          "description": "L4 transport-family hint such as tcp or udp for generic capability matching; not an adapter protocol label, not an L7 field, and not a protocol parser input"
+        }
+      }
+    },
+    "TransportMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deadline_ms":    { "type": ["integer", "null"], "minimum": 0 },
+        "schedule_hint":  { "anyOf": [{ "$ref": "#/$defs/ScheduleHintLabel" }, { "type": "null" }] },
+        "schedule_fanout_k": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "PolicyMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "route_group": { "type": ["string", "null"] }
+      }
+    },
+    "AuthMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "user": { "type": ["string", "null"] }
+      }
+    },
+    "TraceMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flow_id": { "type": ["string", "null"] }
+      }
+    },
+    "TypedMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "net":       { "$ref": "#/$defs/NetMeta" },
+        "transport": { "$ref": "#/$defs/TransportMeta" },
+        "policy":    { "$ref": "#/$defs/PolicyMeta" },
+        "auth":      { "$ref": "#/$defs/AuthMeta" },
+        "trace":     { "$ref": "#/$defs/TraceMeta" },
+        "ext":       { "type": "array", "items": {
+          "type": "array", "prefixItems": [{ "$ref": "#/$defs/ExtKey" }, { "$ref": "#/$defs/MetaValue" }], "minItems": 2, "maxItems": 2
+        }}
+      },
+      "required": ["net", "transport", "policy", "auth", "trace", "ext"]
+    }
+  }
+}

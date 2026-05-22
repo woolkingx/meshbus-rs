@@ -1,0 +1,21 @@
+id: parse_socket_buffer_rejects_zero_udp_ingress_recv
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Udp
+        listen: 127.0.0.1:19312
+        target: 127.0.0.1:53
+        socket_recv_buffer_bytes: 0
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "Udp ingress socket_recv_buffer_bytes must be >= 1"
+observations: []
+tags: []

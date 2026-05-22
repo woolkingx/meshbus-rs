@@ -1,0 +1,21 @@
+id: binary_socks5_connect_relays_one_megabyte_payload_intact
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  probe:
+    kind: socks5_large_tcp
+    size_bytes: 1048576
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 5000
+expect:
+  ok: true
+observations: []
+tags: []

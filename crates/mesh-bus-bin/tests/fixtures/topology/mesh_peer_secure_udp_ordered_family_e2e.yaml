@@ -1,0 +1,88 @@
+id: mesh_peer_secure_udp_ordered_family_e2e
+owner: mesh-bus-bin.product-topology
+kind: service-composition
+case: e2e.product_topology
+schema_ref: schemas/test-runtime.schema.json
+input:
+  resources:
+    - name: NODE_A_UDP
+      kind: udp_addr
+    - name: NODE_B_MESH
+      kind: udp_addr
+    - name: RECORDER
+      kind: udp_recorder
+    - name: RELAY
+      kind: udp_relay
+      forward_to: "{{NODE_B_MESH}}"
+      capture: true
+      policy:
+        kind: reorder
+        hold_index: 2
+        release_after: 3
+  nodes:
+    - name: node-b
+      start_after_ms: 200
+      config_yaml: |
+        node:
+          id: node-b
+        peers:
+          - id: peer-a
+            node_id: node-a
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: 1111111111111111111111111111111111111111111111111111111111111111
+        ingresses:
+          - kind: MeshPeerUdp
+            listen: "{{NODE_B_MESH}}"
+        egresses:
+          - kind: Udp
+            id: node-b-udp
+            timeout_ms: 1000
+    - name: node-a
+      start_after_ms: 200
+      config_yaml: |
+        node:
+          id: node-a
+        peers:
+          - id: parent-b
+            node_id: node-b
+            route_groups: [remote-udp]
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: 1111111111111111111111111111111111111111111111111111111111111111
+        ingresses:
+          - kind: Udp
+            listen: "{{NODE_A_UDP}}"
+            target: "{{RECORDER}}"
+        egresses:
+          - kind: MeshPeerUdp
+            id: peer-b-udp
+            peer_id: parent-b
+            peer: "{{RELAY}}"
+            timeout_ms: 1000
+            groups: [remote-udp]
+  probe:
+    kind: udp_sequence
+    target: "{{NODE_A_UDP}}"
+    payloads:
+      - ordered-family-alpha-0001
+      - ordered-family-bravo-0002
+      - ordered-family-charlie-0003
+    delay_ms: 150
+expect:
+  recorders:
+    - name: RECORDER
+      payloads:
+        - ordered-family-alpha-0001
+        - ordered-family-bravo-0002
+        - ordered-family-charlie-0003
+      timeout_ms: 5000
+  wire:
+    capture: RELAY
+    no_magic: "4d42"
+    no_plaintext:
+      - ordered-family-alpha-0001
+      - ordered-family-bravo-0002
+      - ordered-family-charlie-0003
+observations: []
+tags: []

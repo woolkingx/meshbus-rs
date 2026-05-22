@@ -1,0 +1,23 @@
+id: validate_rejects_duplicate_exit_id
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19087
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+      - kind: Socks5
+        id: direct
+        upstream: 127.0.0.1:1080
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "duplicate egress id"
+observations: []
+tags: []

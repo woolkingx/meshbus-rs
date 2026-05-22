@@ -1,0 +1,18 @@
+[package]
+name = "mesh-bus-ingress-udp"
+version = "0.1.1"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+bytes = { workspace = true }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-socket-tune = { path = "../../lib/mb-socket-tune" }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mesh-bus-pipeline-hooks = { path = "../mesh-bus-pipeline-hooks" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+mesh-bus-egress-udp = { path = "../mesh-bus-egress-udp" }

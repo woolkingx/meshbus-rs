@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-pool - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px 24px 18px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-pool - Owner Proof Contract</h1>
+    <p>Classification: <strong>lib/infra</strong>. This module owns generic per-key async connection pooling lifecycle.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-pool</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Tests</td><td><a href="tests/pool.rs">tests/pool.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-pool</code></td></tr>
+      </table>
+    </section>
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <p><code>Pool</code> and <code>Pooled</code> own async slot state, per-key capacity, and idle eviction timestamps. No transport state is owned.</p>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>ConnectionFactory</code></td><td>Factory trait producing owned connection DTOs by key.</td></tr>
+        <tr><td><code>Pool</code></td><td>Per-key list of reusable slots with max size and idle timeout.</td></tr>
+        <tr><td><code>Pooled</code></td><td>RAII guard; dropping returns conn to pool via async task.</td></tr>
+      </table>
+    </section>
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <table>
+        <tr><th>Source</th><th>Proof</th></tr>
+        <tr><td><a href="schema.json">schema.json</a></td><td>Schema anchor for generic pool ownership and integration metadata.</td></tr>
+        <tr><td><a href="tests/pool.rs">tests/pool.rs</a></td><td>Reusable counter factory proving per-key separation and drop/return semantics.</td></tr>
+      </table>
+    </section>
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mb-pool</code></td><td>All pool-owner proof tests.</td></tr>
+        <tr><td><code>cargo test -p mb-pool -- reuses_connection</code></td><td>Reinsert/checkout invariant.</td></tr>
+        <tr><td><code>cargo test -p mb-pool -- isolates_by_key</code></td><td>Key isolation invariant.</td></tr>
+      </table>
+    </section>
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Reuse path</td><td>Released value is reused for same key under idle timeout before connect is re-invoked.</td></tr>
+        <tr><td>Key isolation</td><td>Different keys allocate independent slots and do not share returned conn.</td></tr>
+        <tr><td>Backpressureless drop</td><td>Drop returns slots asynchronously without blocking caller path.</td></tr>
+      </table>
+    </section>
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>Current repository</td><td>No direct production imports found in search; owner surface is ready for adapter wiring.</td></tr>
+        <tr><td>Future transport/pool users</td><td>Own only lifecycle of reusable async connections and never protocol semantics.</td></tr>
+      </table>
+    </section>
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Higher-level modules can derive pool pressure and reuse from <code>Pool</code> behavior.</li>
+        <li>Pool owner proofs are stable when connection factory latency or transport policy changes.</li>
+      </ul>
+    </section>
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Protocol or routing tests</td><td>Not owned by mb-pool.</td></tr>
+        <tr><td>Socket-level integration</td><td>Pool owns only generic handles, not socket API behavior.</td></tr>
+        <tr><td>Load/saturation benchmark suite</td><td>Not present and not in owner scope.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,42 @@
+id: dispatch.stream.scheduler_receives_packet_rank_context
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.scheduler_receives_packet_rank_context
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: echo
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      max_payload_bytes: 1200
+      groups: []
+  scheduler_context:
+    packet_id: 11
+    flow_id: 9
+    traffic_class: Interactive
+    policy_ref: low-latency
+    deadline_ms: 250
+    flow_semantics: ByteStream
+    return_semantics: Direct
+    notes: capture packet_id/flow_id/traffic_class/policy_ref/deadline for RankContext assertions
+expect:
+  open_ok: true
+  exit_id: echo
+  calls:
+    echo: 1
+  assertions:
+    - kind: rank_context
+      expected:
+        packet_id: 11
+        flow_id: 9
+        traffic_class: Interactive
+        policy_ref: low-latency
+        deadline_ms: 250
+        flow_semantics: ByteStream
+        return_semantics: Direct
+observations: []
+tags: []

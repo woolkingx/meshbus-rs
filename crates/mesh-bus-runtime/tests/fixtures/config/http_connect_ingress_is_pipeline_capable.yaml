@@ -1,0 +1,28 @@
+id: http_connect_ingress_is_pipeline_capable
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: HttpConnect
+        listen: 127.0.0.1:19091
+        handshake_timeout_ms: 1000
+        max_header_bytes: 4096
+        max_connections: 32
+        auth:
+          users:
+            - name: alice
+              password: secret
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "HttpConnect {"
+    - "password: \"<redacted>\""
+observations: []
+tags: []

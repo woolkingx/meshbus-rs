@@ -1,0 +1,25 @@
+id: binary_concurrent_tcp_udp_smoke_keeps_resources_bounded
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  probe:
+    kind: socks5_concurrent_tcp_udp
+    tcp_count: 24
+    udp_count: 24
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+    egresses:
+      - kind: Tcp
+        id: direct-tcp
+        timeout_ms: 1000
+      - kind: Udp
+        id: direct-udp
+        timeout_ms: 1000
+expect:
+  ok: true
+observations: []
+tags: []

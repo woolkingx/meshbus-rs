@@ -1,0 +1,23 @@
+id: parse_pipeline_geoip_rejects_country_only
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19201
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_path: /tmp/chain.yaml
+      geoip:
+        country_path: /tmp/country.mmdb
+expect:
+  ok: false
+  error_contains: "pipeline geoip requires both"
+observations: []
+tags: []

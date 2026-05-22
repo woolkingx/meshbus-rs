@@ -1,0 +1,23 @@
+id: parse_loadbalance_rejects_zero_sticky_ttl
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    scheduler:
+      kind: LoadBalance
+      mode: sticky-sessions
+      sticky_ttl_secs: 0
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "scheduler sticky_ttl_secs must be >= 1"
+observations: []
+tags: []

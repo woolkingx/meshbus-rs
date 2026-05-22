@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-scheduler-replicate/schema.json",
+  "title": "mesh-bus-scheduler-replicate",
+  "description": "metadata-only L4 forwarding scheduler that fans out the current flow unit to all candidate egresses; protocol and payload interpretation stay outside this scheduler.",
+  "type": "object",
+  "required": ["decision"],
+  "properties": {
+    "decision": { "const": "Replicate" },
+    "candidate_scope": { "const": "all" }
+  },
+  "additionalProperties": false
+}

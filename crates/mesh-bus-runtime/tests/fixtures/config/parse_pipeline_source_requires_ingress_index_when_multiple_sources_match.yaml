@@ -1,0 +1,23 @@
+id: parse_pipeline_source_requires_ingress_index_when_multiple_sources_match
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+      - kind: Socks5
+        listen: 127.0.0.1:19205
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+expect:
+  ok: false
+  error_contains: "pipeline source ingress_index is required when multiple ingresses declare pipeline source kind application/source"
+observations: []
+tags: []

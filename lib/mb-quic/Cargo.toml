@@ -1,0 +1,20 @@
+[package]
+name = "mb-quic"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+# Test-only: enables the insecure accept-any server cert verifier.
+# Never enable in a release/product build.
+dangerous-insecure-tls = []
+
+[dependencies]
+bytes = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rand = { workspace = true }
+ring = { workspace = true }
+rustls = { workspace = true }
+rcgen = { workspace = true }

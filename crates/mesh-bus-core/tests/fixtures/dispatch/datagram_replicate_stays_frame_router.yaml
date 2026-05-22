@@ -1,0 +1,37 @@
+id: dispatch.datagram.replicate_stays_frame_router
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.datagram.replicate_stays_frame_router
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: "127.0.0.1"
+    port: 9031
+  egresses:
+    - id: e-udp-forwarder
+      protocol: udp-test
+      supports_stream: false
+      supports_datagram: true
+      max_payload_bytes: 1200
+      groups: []
+  datagram:
+    open_target:
+      host: "127.0.0.1"
+      port: 9031
+    sends:
+      - target:
+          host: "127.0.0.1"
+          port: 9031
+        payload: "pkt"
+    schedule_hint:
+      fanout_k: 1
+expect:
+  open_ok: true
+  calls:
+    e-udp-forwarder: 1
+  datagram_assertions:
+    fanout_stays_frame_router: true
+    frame_sends: 1
+    direct_sends: 0
+observations: []
+tags: []

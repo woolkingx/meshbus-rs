@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-ingress-http-connect - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-ingress-http-connect - Owner Proof Contract</h1>
+    <p>Classification: <strong>L7 adapter</strong>. HTTP proxy syntax owner at ingress boundary.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-ingress-http-connect</code></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-ingress-http-connect</code></td></tr>
+      </table>
+    </section>
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>CONNECT success</td><td>Responds 200 only after bus stream connects, then tunnels bytes opaque.</td></tr>
+        <tr><td>Malformed target</td><td>Origin-form CONNECT returns 400 and opens no stream.</td></tr>
+        <tr><td>Absolute-form forward</td><td>Rewrites request-target and Host before upstream relay.</td></tr>
+        <tr><td>Basic auth</td><td>Missing or invalid Proxy-Authorization returns 407; valid header allows connect.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

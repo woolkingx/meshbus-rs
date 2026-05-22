@@ -1,0 +1,20 @@
+{
+  "name": "invalid_jump_declaration",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "stale_jump_target", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": ["fallback"], "may_accept_to": [], "side_effect_only": false },
+        { "id": "allow", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [
+        { "id": "main", "hooks": ["stale_jump_target"] },
+        { "id": "fallback", "hooks": ["allow"] }
+      ],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "may_jump_to targets while may_jump=false" }
+}

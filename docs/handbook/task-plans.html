@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task Plans - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --muted:#5f6b75; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9da7b1; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#ff7b72; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; } .bad { color:var(--bad); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Task Plans</h1>
+    <p>Active work control for runnable files in docs/plan. This chapter owns status, dependency order, blockers, and verification gates; the plan files own task-level execution details.</p>
+  </header>
+  <main>
+    <section id="rule">
+      <h2>Control Rule</h2>
+      <div class="flow">handbook chapter = architecture and acceptance truth
+task-plans.html = active plan inventory and status
+docs/plan/*.md = runnable task breakdown
+tests/live gates = completion evidence</div>
+      <p>Every plan with three or more subtasks must appear here before execution. A plan can be active, blocked, superseded, or complete. Status changes must cite the verification gate that proved them.</p>
+    </section>
+
+    <section id="active">
+      <h2>Active Plan Lines</h2>
+      <table>
+        <tr><th>Order</th><th>Plan</th><th>Owner chapters</th><th>Status</th><th>Gate before next layer</th></tr>
+        <tr>
+          <td>1</td>
+          <td><code>2026-05-19 deprecate QUIC peer runtime path</code></td>
+          <td><a href="mesh-protocol.html">Mesh Protocol</a>, <a href="transport.html">transport</a>, <a href="testing-gates.html">testing gates</a></td>
+          <td><span class="ok">Complete.</span> The old QUIC peer runtime config kind left the production/runtime peer path because the product shape is L7 app protocol over Mesh Protocol, not Mesh Protocol over QUIC.</td>
+          <td>Gate passed: active runtime config cannot build the old QUIC peer kind; product topology cannot select it; remaining QUIC proof lives only in `mb-quic`; old binding is archived under `.backup/reference`.</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>L7 over Mesh completion</td>
+          <td><a href="mesh-protocol.html">Mesh Protocol</a>, <a href="direct-proxy.html">direct proxy</a>, <a href="testing-gates.html">testing gates</a></td>
+          <td><span class="ok">Complete.</span> MeshPeer is now a stream+datagram upstream egress that carries opaque SDUs over Mesh Protocol and re-enters the remote bus. SOCKS5 UDP, SOCKS5 CONNECT, direct UDP, and direct TCP over MeshPeer pass through remote UDP/TCP egress.</td>
+          <td>Gate passed: local product topology runner, local two-node live smoke, remote `198.51.100.36` temporary two-node acceptance, and `cargo test --workspace` all completed with exit code 0. No MeshPeerQuic runtime path was used.</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>MVP production acceptance and optimization</td>
+          <td><a href="production-readiness.html">production readiness</a>, <a href="operator-plane.html">operator plane</a>, <a href="testing-gates.html">testing gates</a></td>
+          <td><span class="ok">Complete.</span> The 10.36 self-use path is now a repeatable MVP production acceptance slice: real systemd service, SOCKS5 HTTPS, Operator API metrics delta, MeshSec wire/fail-closed proof, journal audit, operations fault probes, and before-optimization throughput matrix all have runnable gates.</td>
+          <td>Gate passed: <code>live-mvp-production-acceptance.mjs</code>, <code>live-production-faults.mjs</code>, and <code>live-throughput-matrix.mjs</code> passed against <code>198.51.100.36</code>. Next optimization line is L4 UDP packet loop optimization.</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Service substrate hardening</td>
+          <td><a href="production-readiness.html">production readiness</a>, <a href="operator-plane.html">operator plane</a>, <a href="testing-gates.html">testing gates</a></td>
+          <td><span class="ok">Complete for MVP service substrate.</span> Deploy/install, 1-hour live soak, MeshSec keyring, Operator auth, normal-path probes, redacted diagnose bundle, and owner-backed datagram metrics landed.</td>
+          <td>Remaining follow-up is explicit, not hidden in this plan: MeshSec auth/replay/drop metrics need typed owner counters before Prometheus or Operator can export them.</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Observation graph completion</td>
+          <td><a href="dataplane-observation.html">dataplane observation</a>, <a href="system-architecture.html">system architecture</a>, <a href="mesh-protocol.html">Mesh Protocol</a>, <a href="operator-plane.html">operator plane</a></td>
+          <td><span class="ok">Complete.</span> core.* and obs.* event topology is handbook-owned; MeshSec/native drop facts publish through ObservationBus; metrics/operator/prometheus/diagnose consume projections.</td>
+          <td>Gate passed: handbook hard=0, ObservationRegistry/EventTypeId wiring tests, MeshPeerUdp drop publication tests, projection crates, Operator live test, and remote diagnose bundle shape passed. No ad-hoc owner counters were added.</td>
+        </tr>
+        <tr>
+          <td>5.1</td>
+          <td>CLAUDE design boundary gate</td>
+          <td><a href="documentation-architecture.html">documentation architecture</a>, <a href="system-architecture.html#osi-data-ontology">OSI data ontology</a></td>
+          <td><span class="ok">Complete.</span> Every module/guide CLAUDE.md design-rule block is now enforced by handbook gate R8.</td>
+          <td>Gate passed: handbook hard=0, link check OK, target_count=48, rule_count=48, duplicate_count=0. Future CLAUDE boundary drift is a hard gate failure.</td>
+        </tr>
+        <tr>
+          <td>5.2</td>
+          <td>GitHub publication docs</td>
+          <td><a href="product-roadmap.html#public-name">product naming</a>, <a href="documentation-architecture.html">documentation architecture</a>, <a href="production-readiness.html">production readiness</a></td>
+          <td><span class="ok">Complete.</span> Public repository name is <code>meshbus-rs</code>; GitHub Markdown files are landing and contribution gates only, while architecture truth remains in the handbook.</td>
+          <td>Gate passed: README, dual license files, SECURITY, CONTRIBUTING, issue templates, and PR template all point back to handbook/schema/test owner rules.</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>test runtime rewrite</td>
+          <td><a href="testing-gates.html">testing gates</a>, <a href="testing-index.html">testing index</a></td>
+          <td><span class="warn">Active.</span> The test layer is being converted to schema-driven fixture rows plus generic runners. The audit ledger is the test runtime rewrite audit plan.</td>
+          <td>Continue after the production acceptance runner lands. Do not add new imperative product or dispatch scenario tests; new product/dispatch behavior belongs in fixture rows.</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>handbook topology alignment cleanup</td>
+          <td><a href="documentation-architecture.html">documentation architecture</a>, <a href="mesh-protocol.html">Mesh Protocol</a></td>
+          <td><span class="ok">Complete.</span> Handbook is the topologic/logic schema; schema.json is data/structure schema; CLAUDE.md is execution boot card; plans are one-time task artifacts.</td>
+          <td>Gate green: handbook topology gate hard=0, link check OK, parse OK, stale semantics OK. Remaining advisory items are boot-card slimming and optional diagram/table enrichment.</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>UDP GSO send-plan fix</td>
+          <td><a href="transport.html">transport</a>, <a href="mesh-protocol.html">Mesh Protocol</a></td>
+          <td><span class="ok">Complete.</span> UDP GSO is a per-message L4 UdpPacketLoop send-plan with runtime fallback; it is not socket-global state and not mesh semantics.</td>
+          <td>Gate evidence: udp_loop_offload 8/0, udp_loop_batch 2/0, mesh-bus-core 0 failed, release throughput GSO row reported successful local GSO accounting.</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>MeshSec main node acceptance</td>
+          <td><a href="mesh-protocol.html">Mesh Protocol</a>, <a href="production-readiness.html">production readiness</a></td>
+          <td><span class="ok">Complete.</span> Main-node MeshSec enablement, secure interop, fail-closed probes, and closure evidence landed for the earlier acceptance slice.</td>
+          <td>Follow-up gate moved to the active MVP production acceptance plan, which turns the manual and slice-specific evidence into one repeatable production runner.</td>
+        </tr>
+      </table>
+    </section>
+
+    <section id="backlog">
+      <h2>Backlog Lines</h2>
+      <table>
+        <tr><th>Plan family</th><th>Status</th><th>Resume rule</th></tr>
+        <tr><td>N:N mesh completion</td><td>Local two-node semantics green incl. Secure UDP MeshSec functional proof; production hardening and live WAN secure UDP pending.</td><td>Transport correctness and MeshSec envelope gates landed; resume when multi-hop hardening and live WAN deployment are the priority.</td></tr>
+        <tr><td>SOCKS5 full RFC</td><td>Local functional track green; live WAN remains final proof.</td><td>Resume when compatibility deployment is the priority.</td></tr>
+        <tr><td>Direct proxy foundation</td><td>Functional direct forward/reverse green; timing and live WAN deferred.</td><td>Resume after substrate correctness if product benchmark evidence is needed.</td></tr>
+      </table>
+    </section>
+
+    <section id="status-rules">
+      <h2>Status Rules</h2>
+      <ul>
+        <li><span class="bad">Blocked</span> means a lower layer can make higher-layer test results misleading.</li>
+        <li><span class="warn">To execute</span> means the handbook spec is ready and the runnable plan exists, but implementation has not passed gates.</li>
+        <li><span class="ok">Complete</span> requires fresh command output, relevant unit/integration tests, and live smoke when deployment readiness is claimed.</li>
+        <li>Plan completion never changes architecture by itself; durable changes move into the owning handbook chapter.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

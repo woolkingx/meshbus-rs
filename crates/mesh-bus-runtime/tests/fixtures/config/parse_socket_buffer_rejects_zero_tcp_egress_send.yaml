@@ -1,0 +1,21 @@
+id: parse_socket_buffer_rejects_zero_tcp_egress_send
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Tcp
+        listen: 127.0.0.1:19313
+        target: 127.0.0.1:80
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+        socket_send_buffer_bytes: 0
+expect:
+  ok: false
+  error_contains: "egress direct socket_send_buffer_bytes must be >= 1"
+observations: []
+tags: []

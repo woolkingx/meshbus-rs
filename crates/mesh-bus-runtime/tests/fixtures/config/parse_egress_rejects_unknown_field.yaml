@@ -1,0 +1,20 @@
+id: parse_egress_rejects_unknown_field
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19202
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+        typo_field: true
+expect:
+  ok: false
+  error_contains: "typo_field"
+observations: []
+tags: []

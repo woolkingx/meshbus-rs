@@ -1,0 +1,27 @@
+id: parse_socks5_udp_egress_is_datagram_sink
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Socks5Udp
+        id: udp-upstream
+        upstream: 127.0.0.1:1080
+        timeout_ms: 1000
+        auth:
+          username: alice
+          password: s3cret
+expect:
+  ok: true
+  debug_contains:
+    - "Socks5Udp {"
+    - "udp-upstream"
+    - "127.0.0.1:1080"
+    - "alice"
+observations: []
+tags: []

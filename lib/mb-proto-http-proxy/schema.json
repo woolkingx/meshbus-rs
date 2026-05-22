@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-proto-http-proxy/schema.json",
+  "title": "mb-proto-http-proxy",
+  "description": "Pure HTTP/1.1 proxy request-head codec. L7 adapters project decoded target intent into bus sessions; core receives opaque payload bytes.",
+  "type": "object",
+  "properties": {
+    "rfc_sources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": ["RFC9110 section 9.3.6", "RFC9112 section 3.2.2", "RFC9112 section 3.2.3"]
+    },
+    "connect_target": {
+      "type": "string",
+      "const": "authority-form-host-port",
+      "description": "CONNECT accepts only authority-form target `uri-host:port`; origin-form or absolute-form CONNECT targets are rejected."
+    },
+    "forward_proxy_target": {
+      "type": "string",
+      "const": "absolute-form-http-uri",
+      "description": "Non-CONNECT forward-proxy requests accept absolute-form http:// URI and are rewritten to origin-form before upstream relay."
+    },
+    "header_bound": {
+      "type": "string",
+      "const": "caller-configured-max-header-bytes",
+      "description": "The parser returns HeaderTooLarge before unbounded request-head buffering."
+    },
+    "opaque_after_connect": {
+      "type": "string",
+      "const": "adapter-owned-tunnel-relay",
+      "description": "This crate parses no bytes after the CONNECT request-head; tunneled payload remains opaque."
+    }
+  },
+  "required": ["connect_target", "forward_proxy_target", "header_bound", "opaque_after_connect"]
+}

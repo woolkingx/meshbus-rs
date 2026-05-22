@@ -1,0 +1,20 @@
+id: parse_socks5_ingress_rejects_zero_max_connections
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19202
+        max_connections: 0
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "Socks5 ingress max_connections must be >= 1"
+observations: []
+tags: []

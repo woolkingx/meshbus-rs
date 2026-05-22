@@ -1,0 +1,21 @@
+[package]
+name = "mesh-bus-resolver"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-proto-dns = { path = "../../lib/mb-proto-dns" }
+mb-rule = { path = "../../lib/mb-rule" }
+rand = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { workspace = true }

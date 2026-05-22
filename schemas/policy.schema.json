@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "policy.schema.json",
+  "title": "Policy",
+  "type": "object",
+  "required": ["mode", "load_balance"],
+  "properties": {
+    "mode": { "enum": ["Normal", "Probe", "Aggregate"] },
+    "load_balance": { "enum": ["WRR", "SWRR", "ConsistentHash", "LatencyFirst"] },
+    "probe_budget": {
+      "type": "object",
+      "properties": {
+        "max_parallel": { "type": "integer", "minimum": 0 },
+        "max_bytes_per_minute": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "sticky_ttl_secs": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

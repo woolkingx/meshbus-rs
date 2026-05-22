@@ -1,0 +1,29 @@
+id: dispatch.route_group.absent_uses_any_capability_match
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.route_group.absent_uses_any_capability_match
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: e-cn
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups:
+        - cn
+    - id: e-plain
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups: []
+expect:
+  open_ok: true
+  exit_id: e-cn
+  calls:
+    e-cn: 1
+    e-plain: 0
+observations: []
+tags: []

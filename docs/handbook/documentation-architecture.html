@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Documentation Architecture</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --muted:#5f6b75; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --bad:#cf222e; --ok:#1a7f37; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9da7b1; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --bad:#ff7b72; --ok:#3fb950; } }
+    body { margin:0; font:16px/1.5 system-ui, sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1040px; margin:0 auto; padding:24px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1, h2 { margin:0 0 10px; line-height:1.2; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    .ok { color:var(--ok); font-weight:600; }
+    .bad { color:var(--bad); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook</a></p>
+    <h1>Documentation Architecture</h1>
+    <p>This chapter defines how mesh-bus documentation is created, linked, and kept from fragmenting across handbook HTML, handbook/spec machine contracts, docs/plan, CLAUDE.md, schema.json, code, and tests.</p>
+  </header>
+  <main>
+    <section id="hierarchy">
+      <h2>Hierarchy</h2>
+      <div class="flow">HTML handbook = topologic / logic schema
+  -> schema.json = data / structure schema
+  -> docs/plan = active task decomposition
+  -> CLAUDE.md = execution rules and navigation
+  -> code = implementation
+  -> tests, e2e, and live proof</div>
+      <p>The handbook is not prose around the system; it is the topologic and logic schema of the system. It owns node/edge relationships, owner boundaries, allowed transitions, invariants, acceptance gates, and canonical links. <code>schema.json</code> owns data and structure shape: field contracts, protocol/config structures, samples, constants, and machine-verifiable constraints. Code may implement only the topology plus data shape represented by those two layers.</p>
+    </section>
+
+    <section id="layer-responsibilities">
+      <h2>Layer Responsibilities</h2>
+      <table>
+        <tr><th>Layer</th><th>Owns</th><th>Must Not Do</th></tr>
+        <tr><td>HTML handbook</td><td>Topologic/logic schema: product skeleton, owner graph, module graph, protocol topology, invariants, transitions, acceptance gates, durable status, and cross-layer links.</td><td>Become loose prose, duplicate module schema fields, hide canonical status in scattered pages, or depend on old Markdown drafts for system meaning.</td></tr>
+        <tr><td>schema.json</td><td>Data/structure schema: config, protocol, capability, type contracts, samples, constants, and machine-verifiable constraints.</td><td>Own topology, product meaning, execution plan, or contradict handbook logic.</td></tr>
+        <tr><td>Task plan control chapter</td><td>Active plan inventory, dependency order, status, blockers, and required verification gates.</td><td>Hold task-level edit instructions or replace the runnable files in <code>docs/plan</code>.</td></tr>
+        <tr><td>docs/plan</td><td>Active implementation tasks, file lists, command order, checkpoints, handoff state.</td><td>Create new architecture semantics, hide blockers, or become the durable spec.</td></tr>
+        <tr><td>CLAUDE.md</td><td>Execution rules, owner navigation, local invariants, short current decisions.</td><td>Become the full handbook again.</td></tr>
+        <tr><td>Code</td><td>Executable behavior.</td><td>Invent behavior not represented in spec/schema.</td></tr>
+        <tr><td>Tests</td><td>Proof for acceptance gates and regressions.</td><td>Declare completion without runtime/e2e/live gates where required.</td></tr>
+      </table>
+    </section>
+
+    <section id="authoring-rules">
+      <h2>Authoring Rules</h2>
+      <ul>
+        <li>Topology, ownership, transition, invariant, or acceptance-gate changes start in the HTML handbook.</li>
+        <li>Data shape, field, enum, constant, sample, or machine-validation changes start in <code>schema.json</code>.</li>
+        <li><code>docs/</code> has only two durable documentation branches: <code>docs/handbook</code> for architecture/spec truth and <code>docs/plan</code> for runnable work plans.</li>
+        <li>Formal spec artifacts belong under <code>docs/handbook/spec</code>; a top-level <code>docs/spec</code> directory is forbidden.</li>
+        <li>CLAUDE.md files are execution rules, keypoints, and navigation; they are not architecture/spec sources.</li>
+        <li><code>docs/handbook/task-plans.html</code> owns active plan status and dependency order.</li>
+        <li><code>docs/plan</code> files are active action plans; they must link to handbook sections and only decompose work.</li>
+        <li>Old Markdown specs or plan drafts can provide source material, but after absorption the handbook must say the durable thing directly.</li>
+        <li>New config or protocol shape must update schema before code claims support.</li>
+        <li>Module CLAUDE.md files stay short: scope, keypoints, invariants, commands, links.</li>
+        <li>Tests must cite the acceptance gate they prove.</li>
+      </ul>
+    </section>
+
+    <section id="claudemd-role">
+      <h2>CLAUDE.md Role</h2>
+      <p><span class="ok">Keep:</span> scope, keypoints, local invariants, local commands, current canonical links, short decision summary.</p>
+      <p>Every module or guide <code>CLAUDE.md</code> carries one local <code>design-rule:</code> block. That block is the boot-card guard that says handbook owns topology/logic, schema owns data shape, and the directory may mutate only its owned PCI/data while carried SDU remains opaque.</p>
+      <p><span class="bad">Remove over time:</span> full architecture, duplicated spec, long plan tasks, schema prose duplication, stale decision history.</p>
+      <p>Root <a href="../../CLAUDE.md">CLAUDE.md</a> remains the boot card. This handbook is the architecture/spec source.</p>
+      <p>When conflicts appear, handbook/spec defines architecture, <code>docs/plan</code> defines active task order, CLAUDE.md defines execution constraints, schema defines machine contracts, code shows implementation, and tests define proof.</p>
+    </section>
+
+    <section id="integration-sequence">
+      <h2>Integration Sequence</h2>
+      <ol>
+        <li>Handbook spine exists: index plus this documentation architecture chapter.</li>
+        <li>Product roadmap, direct proxy foundation, system architecture, Mesh Protocol, dataplane observation, transport, compatibility, and testing gates exist as handbook chapters.</li>
+        <li>Absorb useful status, process, and gate content from old Markdown drafts into owning handbook chapters.</li>
+        <li>Back-link each section to schema, code owners, and tests during the next schema-sync pass.</li>
+        <li>Add every multi-step work item to the task plan control chapter before execution.</li>
+        <li>Trim CLAUDE.md files after each section is represented in the handbook.</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>

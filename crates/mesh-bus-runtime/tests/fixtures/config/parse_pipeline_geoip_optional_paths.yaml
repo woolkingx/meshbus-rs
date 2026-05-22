@@ -1,0 +1,26 @@
+id: parse_pipeline_geoip_optional_paths
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19201
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_path: /tmp/chain.yaml
+      geoip:
+        country_path: /tmp/country.mmdb
+        asn_path: /tmp/asn.mmdb
+expect:
+  ok: true
+  debug_contains:
+    - "/tmp/country.mmdb"
+    - "/tmp/asn.mmdb"
+observations: []
+tags: []

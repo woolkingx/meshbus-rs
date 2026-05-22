@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "data-ontology",
+  "title": "mesh-bus data ontology",
+  "description": "Data atoms organized by OSI encapsulation vocabulary. For each layer: PCI = the control data this layer authors and owns (its own header); SDU = the entire PDU handed down from the layer above, carried opaque, never inspected; PDU = SDU + PCI, the unit this layer hands down (which becomes the next layer's SDU). The boundary rule is exactly the SDU contract: a layer reads and authors only its own PCI; the SDU stays opaque. This is why L7 is the complete data: L7 has no upper layer, so its PDU is the un-encapsulated whole; each descent re-frames the upper PDU as this layer's opaque SDU and adds only this layer's PCI. Self-contained: no $ref to any existing contract.",
+
+  "encapsulation_chain": "L7.pdu -> L6.sdu ; L6.pdu -> L5.sdu ; L5.pdu -> L4.sdu ; L4.pdu -> substrate.sdu ; substrate.pdu -> wire. Bottom-up reverses it: each layer strips its PCI and surfaces its SDU upward until L7 reassembles the complete data.",
+
+  "layers": {
+
+    "L7_application_participant": {
+      "holder": "ingress/egress adapter (SOCKS5, mesh-peer, datagram-egress)",
+      "is_complete_data": true,
+      "pdu_name": "Event{ payload, meta } driving run_pipeline + the L5 session it opens",
+      "sdu": "raw external-protocol application bytes the adapter carries (no upper bus layer; this is the data origin)",
+      "pci": {
+        "intent_target": "destination the application asked to reach (host:port, domain, mesh route)",
+        "credential": "auth material presented or required by the adapter (SOCKS5 user/pass, mesh peer key id)",
+        "route_group": "named candidate-exit grouping requested by the participant",
+        "policy_ref_origin": "the opaque policy token as authored by the participant before it descends",
+        "host_sni_url": "L7-only naming surface (HTTP host header, TLS SNI, request URL) — never read below L7"
+      },
+      "boundary": "authors only the bus-semantic PCI above; the application payload is its SDU and is carried opaque downward"
+    },
+
+    "L6_transform": {
+      "holder": "core transform domain + MeshSec band (mb-proto-mesh)",
+      "pdu_name": "transformed/sealed frame = PCI header + transformed inner",
+      "sdu": "L7 PDU (opaque payload bytes; core copies/forwards/seals but never parses)",
+      "pci": {
+        "transform_descriptor": "{ kind ∈ [None,Fragment,Compress,Encrypt,Checksum,Parity], policy_ref }",
+        "fragment_metadata": "{ group_id, fragment_id, seq, total, offset, deadline_ms, checksum }",
+        "reassembly_policy": "{ mode ∈ [None,Dedup,Reorder,Reassemble], policy_ref }",
+        "meshsec_epoch_key_state": "HKDF-SHA256 epoch-derived key material per configured peer (KeyEpoch, peer key state)",
+        "meshsec_nonce_counter": "per-egress / per-matched-peer Arc<AtomicU64> counter feeding the XChaCha20-Poly1305 nonce",
+        "meshsec_replay_window": "1024-bit post-AEAD-auth replay window per peer epoch boot_salt",
+        "meshsec_envelope_header": "meshsec_envelope_v1: 22-byte header + padding-bucket framing wrapping the sealed inner"
+      },
+      "boundary": "owns transform metadata + envelope header (PCI); core validates metadata shape only and runs no transform algorithm; the SDU and the sealed inner stay opaque to every layer below"
+    },
+
+    "L5_session": {
+      "holder": "core session domain",
+      "pdu_name": "session-framed flow unit",
+      "sdu": "L6 PDU (opaque transformed/sealed bytes)",
+      "pci": {
+        "session_id": "identity born at session open",
+        "bus_session_info": "{ session_id, flow_id, schedule_mode, paths[], primary, path_trace[], started_at_ms }",
+        "bus_path_info": "{ exit_id, local, remote, measurement, state }",
+        "path_state": "Connecting | Active | Degraded | Closed",
+        "schedule_mode": "Ordered | Replicate | Stripe (the realized mode for this session)",
+        "disconnect_reason": "session-level termination cause",
+        "send_error": "BufferFull | AddressNotSupported | PayloadTooLarge | Closed"
+      },
+      "boundary": "authors session identity + path lifecycle (PCI); carries the L6 PDU as opaque SDU"
+    },
+
+    "L4_forwarding": {
+      "holder": "core dispatch / forwarding domain",
+      "pdu_name": "dispatched flow on the selected exit",
+      "sdu": "L5 PDU (opaque session-framed bytes)",
+      "pci": {
+        "flow_id": "identity born at first successful Open",
+        "rank_context": "{ packet_id, flow_id, session_id, target, traffic_class, policy_ref, deadline_ms, schedule_hint, flow_semantics, return_semantics, source_key, target_key }",
+        "traffic_class": "Interactive | Bulk | Control | Probe",
+        "flow_semantics": "ByteStream | Datagram | Message",
+        "return_semantics": "Direct | PacketDedup | SequenceReorder",
+        "schedule_hint": "Auto | SinglePath | { FanOut, k } | { Stripe, n }",
+        "schedule_decision": "{ Ordered, order[] } | { Replicate, order[] }",
+        "capabilities": "exit capability set used for candidate matching",
+        "measurement": "per-exit live metric sample (rtt, success)",
+        "exit_result": "{ exit_id, success, rtt_ms, local_endpoint }",
+        "path_trace": "running list of L4-selected exits for the flow (authored here by dispatch; L5 only re-exposes it inside bus_session_info)",
+        "close_reason": "flow termination cause (TtlExpired, NoUsableExit, UpstreamEof, ReaderClosed, ConnectionReset, ...)",
+        "flow_pin": "L4-stored exit affinity (cross-layer: stored in L4 PCI, value supplied by the L7 pipeline)"
+      },
+      "boundary": "routes on flow-native PCI only; must not read any L7 naming atom (host/SNI/URL/intent); the L5 PDU is opaque SDU"
+    },
+
+    "substrate_tcp_udp": {
+      "holder": "OS socket layer surfaced by the egress driver",
+      "pdu_name": "TCP segment / UDP datagram on the wire",
+      "sdu": "L4 PDU (opaque flow bytes)",
+      "pci": {
+        "local_endpoint": "bound local socket address",
+        "remote_endpoint": "connected/peer socket address",
+        "byte_counters": "raw bytes moved on the socket (pre-accounting)",
+        "socket_handle": "the OS stream/datagram socket itself"
+      },
+      "boundary": "owns wire endpoints + raw byte movement (PCI); holds no flow/session/transform identity; the L4 PDU is opaque SDU"
+    },
+
+    "kernel_runtime_carrier": {
+      "holder": "bus runtime (kernel)",
+      "role": "not a layer in the encapsulation chain — it is the carrier; Frame is the PDU container and Frame.payload is by definition the SDU slot, which is why it is opaque",
+      "pci": {
+        "frame": "carrier unit; the payload field is the SDU and is never inspected by the kernel",
+        "dataplane_shape": "Forwarder | DatagramForwarder | FrameRouter (derived once at first Open)",
+        "flow_counters": "{ bytes_in, bytes_out } accounted per flow",
+        "bus_event": "SessionOpened | SessionClosed | Core{ type_id ∈ [FlowOpened,FlowPathChanged,FlowClosed,PathIoError], payload, at_ns }",
+        "bus_error": "NoScheduler | NoEgress | SessionNotFound | ChannelClosed",
+        "typed_map": "kernel-side hot metadata struct (net/transport/policy/auth/trace + ext) — keys are kernel-owned PCI, values are the owning layer's PCI"
+      },
+      "boundary": "moves PDUs between layers without owning layer-native meaning; the payload SDU stays opaque"
+    }
+  },
+
+  "cross_layer_pci": {
+    "note": "OSI keeps PCI strictly per-layer; TCP/IP collapses layers so a few atoms are authored in one layer's PCI yet valued or carried elsewhere. Recorded as fact.",
+    "flow_pin": "lives in L4 PCI; value supplied by the L7 pipeline",
+    "policy_ref": "authored as L7 PCI; carried as an opaque token inside lower-layer SDU framing, never decoded below L7"
+  },
+
+  "metadata_namespace_ownership": {
+    "note": "Per-namespace authoring layer and write/read roles. `source_initial_writes_allowed` is the closed set an L7 application-source projection (pipeline.source.initial_writes / SourceSpec.initial_writes) may pre-write at ingress; lower-layer L4-control PCI is authored only by the sanctioned in-pipeline projection hook, never by operator config.",
+    "net":       { "authoring_layer": "L7-source-projection", "writable_by": ["source_adapter", "net.resolve_or_recover", "net.enrich_geo_asn"], "readable_by": ["policy.rule_chain", "transport.pick_sink_cake", "L4"], "source_initial_writes_allowed": true },
+    "auth":      { "authoring_layer": "L7-source-projection", "writable_by": ["source_adapter"], "readable_by": ["policy.rule_chain"], "source_initial_writes_allowed": true },
+    "trace":     { "authoring_layer": "cross-layer-correlation", "writable_by": ["source_adapter", "dispatch"], "readable_by": ["observers", "L4", "L5"], "source_initial_writes_allowed": true },
+    "ext":       { "authoring_layer": "hook-scratch", "writable_by": ["source_adapter", "net.resolve_or_recover", "net.enrich_geo_asn", "policy.rule_chain"], "readable_by": ["policy.rule_chain", "transport.pick_sink_cake"], "source_initial_writes_allowed": true },
+    "policy":    { "authoring_layer": "L7->L4-projection", "writable_by": ["policy.rule_chain"], "readable_by": ["transport.pick_sink_cake", "L4"], "source_initial_writes_allowed": false },
+    "transport": { "authoring_layer": "L4-control", "writable_by": ["policy.rule_chain"], "readable_by": ["transport.pick_sink_cake", "L4"], "source_initial_writes_allowed": false }
+  },
+
+  "conformance_audit": {
+    "date": "2026-05-17",
+    "scope": "crates/mesh-bus-core/src — boundary audit of actual code against this ontology; read-only, no code changed",
+    "invariants_confirmed_clean": [
+      "L6 transform is algorithm-free: transport/transform/ holds only types + validate_fragment (pure shape check); MeshSec algorithm lives in lib/mb-proto-mesh, outside core",
+      "kernel L7-opacity: kernel/ contains no socks/http/tls/quic identifier (guarded by tests/kernel_invariant.rs)",
+      "Frame.payload SDU-opacity: whole-crate access is .len() or whole-move only; observers read the typed ObservationEnvelope (allowed payload_bytes), not opaque bytes"
+    ],
+    "findings": {
+      "F1_ontology_self_correction_resolved": "path_trace was mis-assigned to L5 PCI; dispatch.rs:252,441 shows L4 dispatch authors it (selected-exit history). Reassigned to L4 PCI; L5 only re-exposes it via bus_session_info. Fixed in this file.",
+      "F2_layer_inversion_resolved": "FlowId is now opaque (DefaultHasher over session_id+host+port, no cleartext L7 host) and minted through the single L4-owned FlowId::mint_for; transport/session/data_handle.rs L5 site now carries (does not author) the L4 identity. Full FlowId-returned-through-ReturnEvent::Connected channel plumbing remains a documented follow-up (posture deeper than this conformance pass).",
+      "F3_carrier_key_smell_open": "kernel/dispatch.rs:84,94,278,329,369 and forwarder.rs:60,97 — carrier keys runtime maps and tracing on L5 session_id. Permitted by the current 'session_id as generic correlation key' invariant, so not a hard violation; open decision: keep pragmatic vs introduce a carrier-native key. Code change deferred (release track frozen).",
+      "F4_mesh_peer_budget_resolved": "mesh-bus-egress-mesh-peer-udp advertised datagram budget is now MeshSec-aware (MESHSEC_MAX_CLEAR_LEN - frame overhead when sealed) instead of a fixed 65_000 (~64x over-advertise → silent drop); QUIC StreamOpen.source_node_id is the configured local node id, not a hardcoded \"local\"."
+    },
+    "note": "F2 and F4 are resolved at functional-verification level (FlowId opaque + L4-owned mint with L5 carry-not-author; mesh-peer advertised budget MeshSec-aware + QUIC source_node_id from cfg.node.id); F3 (carrier maps/tracing keyed on L5 session_id) stays a permitted open decision under the 'session_id as generic correlation key' invariant; the FlowId minted-and-returned through ReturnEvent::Connected channel is the remaining documented follow-up. M8-M12 release track stays frozen pending separate user decision."
+  }
+}

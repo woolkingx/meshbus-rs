@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-scheduler-loadbalance - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-scheduler-loadbalance - Owner Proof Contract</h1>
+    <p>Classification: <strong>scheduler plugin</strong>. Owns candidate ordering strategy for multi-WAN selection.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-scheduler-loadbalance</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>LoadBalanceMode</code></td><td>Dispatch strategy: round-robin, consistent-hashing, sticky-sessions.</td></tr>
+        <tr><td><code>LoadBalanceState</code></td><td>Per-instance mode state, RR state, sticky table, and candidate IDs.</td></tr>
+        <tr><td><code>weights</code></td><td>Optional exit weights for WRR/ordering influence.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema.json">schema.json</a> defines required <code>mode</code> with optional <code>sticky_ttl_ms</code> and <code>weights</code>.</p>
+      <ul>
+        <li><a href="tests/schema.rs">tests/schema.rs</a>: mode vocabulary and weights key constraint.</li>
+        <li><a href="tests/loadbalance.rs">tests/loadbalance.rs</a>: round-robin, weighted, hashing, and sticky session semantics.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-scheduler-loadbalance</code></td><td>All contract proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-scheduler-loadbalance --test schema</code></td><td>Config closure and mode vocabulary check.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-scheduler-loadbalance --test loadbalance</code></td><td>Deterministic candidate ordering proofs.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Round-robin fairness</td><td>Mode rotates first index across candidate order.</td></tr>
+        <tr><td>Weight semantics</td><td>Configured weights bias WRR in round-robin mode.</td></tr>
+        <tr><td>Consistent hashing boundary</td><td>Stable for same target, ignores flow id when target_key present.</td></tr>
+        <tr><td>Sticky pinning</td><td>Source/target hash pins until TTL expiry.</td></tr>
+        <tr><td>Injective keying</td><td>Opaque keys do not collide in sticky hash tuples.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-core</td><td>Consumes ordered decision indices as a pure scheduling output.</td></tr>
+        <tr><td>mesh-bus-runtime</td><td>Supplies <code>LoadBalanceMode</code> and weights; does not alter picker internals.</td></tr>
+        <tr><td>mb-loadbalance</td><td>Provides pure WRR/consistent-hash/sticky algorithms used by this crate.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Flow distribution stability can be validated by binary/proxy e2e using repeated candidates.</li>
+        <li>Sticky behavior is observable only via repeated <code>schedule</code> inputs and flow outcomes.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Direct network or protocol policy tests</td><td>Not a transport module.</td></tr>
+        <tr><td>Runtime feedback correctness proof</td><td><code>feedback</code> is currently no-op by design.</td></tr>
+        <tr><td>Flow payload inspection</td><td>Owner scope is candidate ordering from context and keys only.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

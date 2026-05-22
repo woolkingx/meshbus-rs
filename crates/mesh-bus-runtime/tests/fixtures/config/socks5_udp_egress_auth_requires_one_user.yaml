@@ -1,0 +1,23 @@
+id: socks5_udp_egress_auth_requires_one_user
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Socks5Udp
+        id: udp-upstream
+        upstream: 127.0.0.1:1080
+        timeout_ms: 1000
+        auth:
+          username: ""
+          password: s3cret
+expect:
+  ok: false
+  error_contains: "Socks5Udp auth username must not be empty"
+observations: []
+tags: []

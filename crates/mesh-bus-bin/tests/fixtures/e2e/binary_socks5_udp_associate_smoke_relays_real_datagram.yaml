@@ -1,0 +1,21 @@
+id: binary_socks5_udp_associate_smoke_relays_real_datagram
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  probe:
+    kind: socks5_udp
+    payload: "udp-smoke"
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+    egresses:
+      - kind: Udp
+        id: direct-udp
+        timeout_ms: 1000
+expect:
+  ok: true
+observations: []
+tags: []

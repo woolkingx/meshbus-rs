@@ -1,0 +1,21 @@
+[package]
+name = "mesh-bus-schema"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[build-dependencies]
+typify = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+prettyplease = "0.2"
+syn = "2"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+bytes = { workspace = true }
+regress = "0.9.1"
+
+[dev-dependencies]

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>System Architecture - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --muted:#5f6b75; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9da7b1; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>System Architecture</h1>
+    <p>The core is an event-pipeline kernel plus reusable L4/L5/L6 transport substrate. It is not a proxy core, packet-router clone, protocol parser, DNS server, or application service mesh.</p>
+  </header>
+  <main>
+    <section id="kernel">
+      <h2>Kernel Thesis</h2>
+      <div class="flow">source -> pipeline graph -> sink</div>
+      <p>Kernel primitives are <code>Event</code>, <code>TypedMap</code>, <code>Hook</code>, <code>Pipeline</code>, <code>Verdict</code>, and <code>KernelRegistry</code>. Product names such as rule, scheduler, DNS, SOCKS5, resolver, proxy, and mesh peer are represented as sources, sinks, hooks, metadata fields, and wiring.</p>
+      <p>The executable substrate is an event-pipeline. OSI and TCP/IP remain owner maps: L4 places information onto paths, L5 owns logical sessions, L6 owns representation and transforms, and L7 projects external protocol intent.</p>
+    </section>
+
+    <section id="osi-event-fabric">
+      <h2>OSI Event Fabric</h2>
+      <p>mesh-bus follows OSI ownership instead of collapsing session, transport, encryption, and routing into a TCP/IP socket model. A socket, port, channel, QUIC connection, or peer link is delivery substrate only.</p>
+      <p>OSI is an owner map, not a stack diagram. Each layer owns the smallest fact it can prove, and every layer treats the facts above it as opaque. This is the rule that keeps mesh-bus from turning into a proxy protocol, VPN tunnel, or ad-hoc packet router.</p>
+      <table>
+        <tr><th>Layer</th><th>Owns</th><th>Must not own</th></tr>
+        <tr><td>L7 application</td><td>External intent projection: SOCKS5, direct source, service, future HTTP, DNS, or capture adapter.</td><td>Core routing truth or byte movement.</td></tr>
+        <tr><td>L6 presentation</td><td>Encoding, encryption envelope, fragmentation, compression, checksum, parity, and payload transforms.</td><td>Scheduler decision or session identity.</td></tr>
+        <tr><td>L5 session</td><td>Session id, event sequence, dedup, reorder, reassembly, reliability policy, close semantics, endpoint reconstruction.</td><td>Transport path ownership.</td></tr>
+        <tr><td>L4 transport</td><td>Path, peer, port pool, route_group filtering, capability matching, health/cost scoring, replication, striping, delivery coordinates.</td><td>Application semantics or decrypted payload inspection.</td></tr>
+        <tr><td>L3-ish adjacency</td><td>Adjacent peer visibility, hop ttl, path_trace, capability advertisement, policy evidence.</td><td>Full topology or global route truth.</td></tr>
+        <tr><td>L2/L1 substrate</td><td>UDP/IP/kernel/NIC delivery.</td><td>Session identity.</td></tr>
+      </table>
+      <p>The mesh form of this model is an encrypted event fabric: logical sessions decompose into events, events can be distributed across multiple peers/ports/paths, and the logical endpoint reconstructs meaning.</p>
+      <p>A layer names the API surface a participant implements, not a runtime tier. Any L6 transform may be used by any L7 adapter, any L5 session shape may be selected by any L7 adapter, and any L4 dispatch mode may be applied to any compatible session.</p>
+    </section>
+
+    <section id="osi-data-ontology">
+      <h2>OSI Data Ontology</h2>
+      <p>The OSI core is data ownership. In OSI terms, a layer receives an upper-layer service data unit (SDU), adds its own protocol control information (PCI), and produces this layer's protocol data unit (PDU). The PDU is the native data unit owned and processed by that layer; the SDU carried inside it stays opaque to that layer except for declared service boundaries.</p>
+      <div class="flow">PDU(layer N) = PCI(layer N) + SDU(from layer N+1)</div>
+      <table>
+        <tr><th>Term</th><th>Meaning in mesh-bus</th><th>Ownership rule</th></tr>
+        <tr><td>SDU</td><td>Data received from the layer above, such as encoded payload, session unit, or application bytes.</td><td>Carry it as opaque data unless a declared owner exposes a typed surface.</td></tr>
+        <tr><td>PCI</td><td>The fields and state this layer adds to do its job: path labels, session ids, transform descriptors, crypto counters, protocol control fields.</td><td>This is the layer's native owned data. Only this owner mutates it.</td></tr>
+        <tr><td>PDU</td><td>The complete data unit for this layer: this layer's PCI plus the carried SDU.</td><td>This is the layer's CRUD boundary and state-machine unit.</td></tr>
+      </table>
+      <p>Architecture starts by asking what data exists and who owns it. Logic, modules, state machines, errors, timeouts, observers, and fast paths all follow from that ownership. A module is the implementation boundary of a data owner, not a place to hide scattered behavior.</p>
+      <table>
+        <tr><th>Layer</th><th>Native owned data</th><th>Carried SDU rule</th></tr>
+        <tr><td>L7 application</td><td>Protocol syntax, credentials, application intent, rule input context, external request state.</td><td>Stitches L6 codec, L5 control, and L4 transport surfaces into one application behavior.</td></tr>
+        <tr><td>L6 presentation</td><td>Codec state, transform descriptor, envelope header, key epoch, replay window, padding, checksum/compression state.</td><td>Treats application payload meaning as opaque while transforming representation.</td></tr>
+        <tr><td>L5 session</td><td>Session id, lifecycle, flow semantics, return semantics, ordering, close reason, endpoint reconstruction.</td><td>Treats transformed payload units as opaque data carried by the session.</td></tr>
+        <tr><td>L4 transport</td><td>Flow id, path, route_group, sink candidate, health/cost evidence, dispatch mode, path trace, transport handle.</td><td>Treats session payload and application meaning as opaque; it may route only from L4-owned or declared metadata.</td></tr>
+      </table>
+      <p>Opacity is not deliberate forgetting. It is pure ownership: a lower layer cannot read upward-owned data. For example, L4 routing must not inspect URL, SNI, host headers, SOCKS5 fields, or decrypted payload because those are not L4-owned data. <code>Frame.payload</code> is physically carried by core but semantically owned by the transform or application participant that produced it.</p>
+      <p>Some values separate owner, exposer, and value-origin. When they differ, the schema and handbook must say so. For example, <code>flow_id</code> is L4-owned, <code>session_id</code> and lifecycle are L5-owned, <code>TransformDescriptor</code> is L6-owned, and host:port intent, credentials, and <code>RuleCtx</code> are L7-owned. A rule may decide a route label from L7-owned input, but the resulting candidate filter remains L4-owned data.</p>
+      <p>Source concepts: <a href="https://www.erg.abdn.ac.uk/users/gorry/course/intro-pages/encapsulation.html">SDU/PCI/PDU encapsulation</a>, <a href="https://www.ibm.com/think/topics/osi-model">OSI data movement</a>.</p>
+    </section>
+
+    <section id="participant-map">
+      <h2>Participant Map</h2>
+      <table>
+        <tr><th>Participant</th><th>Owns</th><th>Examples</th></tr>
+        <tr><td>Kernel</td><td>Registry, source wiring, pipeline execution, metadata verification, dispatch events.</td><td><code>mesh-bus-core::kernel</code></td></tr>
+        <tr><td>L4 forwarding</td><td>Candidate filtering, capability matching, path evidence, health, scheduling, dispatch, return consolidation.</td><td>scheduler crates, <code>mb-health</code>, observer crates</td></tr>
+        <tr><td>L5 session</td><td>Session request, logical flow, stream/datagram session surface, close reasons, path metadata.</td><td><code>StreamSession</code>, <code>DatagramSession</code>, <code>SessionInfo</code></td></tr>
+        <tr><td>L6 transform / codec</td><td>Wire representation, encryption, compression, fragmentation, checksum, parity, protocol codecs.</td><td><code>mb-proto-socks5</code>, future DNS codec, future transform crates</td></tr>
+        <tr><td>L7 application participant</td><td>External syntax and intent projection into protocol-neutral bus metadata.</td><td>SOCKS5 ingress/egress, TCP/UDP ingress, future HTTP CONNECT, capture, mesh-peer adapters</td></tr>
+        <tr><td>Rule primitive</td><td>Pure match-and-decide over DTOs; no kernel or adapter ownership.</td><td><code>mb-rule</code></td></tr>
+        <tr><td>Runtime assembly</td><td>Config to verified registry, hook context, source/sink registration, startup gates.</td><td><code>mesh-bus-runtime</code>, <code>mesh-bus-bin</code></td></tr>
+      </table>
+      <p>The kernel may carry bytes or labels from any layer, but carrying is not ownership. For example, <code>Frame.payload</code> is physically inside core and semantically owned by the transform or adapter that produced it.</p>
+    </section>
+
+    <section id="layered-mesh-rules">
+      <h2>Layered Mesh Rules</h2>
+      <table>
+        <tr><th>Rule</th><th>Reason</th></tr>
+        <tr><td>Transport address follows successful crypto.</td><td>A UDP source address, port, or socket is not identity. A peer endpoint may update only after an authenticated envelope decrypts under the expected peer key.</td></tr>
+        <tr><td>Hop protection and end-to-end event protection are separate.</td><td>Adjacent-peer envelopes protect delivery and local forwarding evidence; logical MeshEvent payload protection preserves endpoint/session privacy across intermediate nodes.</td></tr>
+        <tr><td>Routing evidence is local and expiring.</td><td>Capability adverts, reachability hints, path stats, and health samples guide decisions. They do not become global topology truth.</td></tr>
+        <tr><td>Channel state is a projection.</td><td>Streams, datagrams, QUIC streams, and direct-proxy flows are views over event/session semantics, not the primitive object the mesh routes.</td></tr>
+        <tr><td>Compatibility protocols enter at L7 only.</td><td>SOCKS5, HTTP CONNECT, DNS, VMess, XRAY, and transparent capture project intent into the bus. They must not leak parser logic into L4/L5/L6.</td></tr>
+      </table>
+    </section>
+
+    <section id="concept-owner-map">
+      <h2>Concept Owner Map</h2>
+      <table>
+        <tr><th>Concept</th><th>Owner</th><th>Projection rule</th></tr>
+        <tr><td>Source IP / port</td><td>L4 input fact, L5 affinity label</td><td>Adapters project it; core stores opaque source labels and must not derive protocol meaning.</td></tr>
+        <tr><td>Destination host / port</td><td>L4 target fact, L7-derived intent</td><td>Adapters or resolver hooks project hostname/IP into metadata; core sees target labels and candidate filters.</td></tr>
+        <tr><td>Flow id / packet id</td><td>L4</td><td>Dispatch and dedup identity; not application session truth.</td></tr>
+        <tr><td>Selected exit / path trace</td><td>L4 evidence surfaced through L5</td><td>Dispatch writes it; session info and access logs expose it.</td></tr>
+        <tr><td><code>route_group</code></td><td>L4 candidate filter</td><td>Rules or adapters write the label; pick hooks filter by sink group membership. Empty candidate set fails closed.</td></tr>
+        <tr><td>Session open / close / half-close</td><td>L5</td><td>L7 maps protocol replies to typed <code>DisconnectReason</code>; transport instances do I/O.</td></tr>
+        <tr><td>SOCKS5 wire fields</td><td>L6 codec plus L7 intent</td><td>The codec owns bytes; the adapter owns CONNECT / UDP ASSOCIATE / BIND intent projection.</td></tr>
+        <tr><td>Rule context fields</td><td>Projection surface</td><td>Fields originate from different layers; <code>mb-rule</code> evaluates DTOs and owns no original semantics.</td></tr>
+        <tr><td>DNS answer, TTL, resolver RTT</td><td>Resolver hook and observation</td><td>DNS enriches metadata and emits evidence; core does not parse DNS wire format or DNS-specific fields for routing.</td></tr>
+      </table>
+    </section>
+
+    <section id="l4-session">
+      <h2>L4 Session Contract</h2>
+      <p>L7 sees a clean transport service surface; bus internally owns n:n routing across transport instances.</p>
+      <table>
+        <tr><th>Surface</th><th>Meaning</th><th>Core value-add</th></tr>
+        <tr><td>`SessionRequest`</td><td>Intent declaration: target, flow semantics, traffic class, deadline, policy, return semantics, schedule hint.</td><td>Declares what the source wants without forcing transport mode.</td></tr>
+        <tr><td>`StreamSession`</td><td>Connection-oriented byte stream with split send/recv halves and typed close reasons.</td><td>Can hide Ordered, future Stripe, mesh hop, and path changes behind one logical session.</td></tr>
+        <tr><td>`DatagramSession`</td><td>Connectionless datagram service where one send call equals one logical datagram.</td><td>Can support Ordered and FanOut with return dedup while preserving boundaries.</td></tr>
+        <tr><td>`SessionInfo`</td><td>Observable schedule mode, paths, primary path, path trace, and started time.</td><td>Makes multi-WAN and multi-hop diagnostics first-class.</td></tr>
+      </table>
+      <p>The service surface follows ISO-style transport primitives: stream connect, data, half-close, abort, and datagram unit-data. The bus value-add is below that surface: Ordered, Replicate/FanOut, future Stripe, future mesh-hop recursion, health filtering, and path observation.</p>
+    </section>
+
+    <section id="routing-modes">
+      <h2>Routing Modes</h2>
+      <table>
+        <tr><th>Mode</th><th>Shape</th><th>Use</th><th>Status</th></tr>
+        <tr><td>Ordered</td><td>1 logical flow to 1 egress</td><td>Default stream/datagram path.</td><td>Implemented.</td></tr>
+        <tr><td>Replicate</td><td>1 datagram to N egresses, return deduped</td><td>Resilience and pub/sub-style fan-out.</td><td>Implemented for datagram semantics.</td></tr>
+        <tr><td>Stripe</td><td>1 stream chunked across N egresses, reordered on return</td><td>Future aggregate bandwidth.</td><td>Reserved, not first phase.</td></tr>
+        <tr><td>Mesh hop</td><td>Egress on node A becomes ingress on node B</td><td>Cross-node federation through adjacent peers.</td><td>Local two-node semantics green; hardening remains.</td></tr>
+      </table>
+    </section>
+
+    <section id="l4-capabilities">
+      <h2>L4 Capability Axes</h2>
+      <table>
+        <tr><th>Axis</th><th>Contract</th><th>Examples</th></tr>
+        <tr><td>Shape</td><td>What the information unit looks like and what the bus may preserve.</td><td>Ordered byte stream, boundary-preserved datagram, message, opaque tunneled packet.</td></tr>
+        <tr><td>Dispatch</td><td>How one information unit is placed onto one or more paths.</td><td>Single path, replicate/race, stripe, tunneled forward.</td></tr>
+        <tr><td>Return</td><td>How responses from paths become one consumer-visible answer.</td><td>Pass-through, deduplicate, reorder, reassemble.</td></tr>
+        <tr><td>Observation</td><td>How path behavior becomes uniform evidence.</td><td>RTT, success/failure, fragment arrival, DNS resolver RTT, attempted upstreams.</td></tr>
+      </table>
+      <p>No axis may be inferred silently from another. Rules, source adapters, resolver hooks, and schedulers supply intent explicitly; dispatch code accepts the combined intent or fails with a typed reason.</p>
+    </section>
+
+    <section id="metadata">
+      <h2>Metadata Contract</h2>
+      <p>Metadata is the only cross-hook communication surface. The stable namespaces are `net.*`, `transport.*`, `policy.*`, `auth.*`, `trace.*`, and schema-registered `ext.*` fields.</p>
+      <p>`route_group` is metadata used to filter sink candidates. `PipelineId` is control flow. They must not collapse into one concept.</p>
+      <table>
+        <tr><th>Namespace</th><th>Owner</th><th>Examples</th></tr>
+        <tr><td><code>net.*</code></td><td>Source and net hooks</td><td><code>dst_host</code>, <code>dst_port</code>, <code>protocol</code>, <code>src_ip</code></td></tr>
+        <tr><td><code>transport.*</code></td><td>Transport hooks and adapter projection</td><td><code>schedule_hint</code>, <code>schedule_fanout_k</code></td></tr>
+        <tr><td><code>policy.*</code></td><td>Policy hooks</td><td><code>route_group</code></td></tr>
+        <tr><td><code>auth.*</code></td><td>Source authentication projection</td><td><code>user</code></td></tr>
+        <tr><td><code>trace.*</code></td><td>Pipeline runner and adapters</td><td><code>flow_id</code></td></tr>
+        <tr><td><code>ext.*</code></td><td>Schema-registered enrichment</td><td><code>operation</code>, <code>dst_ips</code>, <code>dns_rtt_ms</code>, <code>geo_country</code>, <code>asn</code>, <code>geosite_tags</code>, <code>cost_bias</code></td></tr>
+      </table>
+      <p>Protocol-specific aliases such as SOCKS5 command names are compatibility fields. New adapters should populate generic metadata such as <code>ext.operation</code> first.</p>
+    </section>
+
+    <section id="rule-engine">
+      <h2>Rule Engine</h2>
+      <p>The rule engine is a small declarative decision primitive. It receives a flat optional `RuleCtx`, evaluates first-match-wins rules, and returns a single `Action` such as allow, deny, set route group, set schedule hint, set transform, compose, or cost bias.</p>
+      <table>
+        <tr><th>Invariant</th><th>Reason</th></tr>
+        <tr><td>`mb-rule` does not depend on `mesh-bus-core` or adapter crates.</td><td>Rules are DTO-level policy, not kernel implementation.</td></tr>
+        <tr><td>Kernel does not depend on `mb-rule`.</td><td>Kernel only sees typed request fields such as `route_group`.</td></tr>
+        <tr><td>No action inspects payload bytes.</td><td>Policy describes routing, lifecycle, transform intent, not byte content.</td></tr>
+        <tr><td>Unsupported actions are no-op at a hook site and logged.</td><td>One action union can serve multiple planes without forcing every site to consume every action.</td></tr>
+      </table>
+      <p>Inside the forward pipeline, unsupported actions are stricter than library evaluation: resolver-pool and transform actions do not silently continue at <code>policy.rule_chain</code>; the hook fails closed because its declared writes are route group, schedule hint, fanout count, and cost bias.</p>
+      <p>Rule configuration is closed and explicit: rules are ordered, first match wins, default action is mandatory, empty string/set/composite predicates are invalid, route-group labels are non-empty, and compose conflicts are rejected at validation time.</p>
+    </section>
+
+    <section id="forward-pipeline">
+      <h2>Forward Pipeline</h2>
+      <div class="flow">source Event
+  -> net.resolve_or_recover
+  -> net.enrich_geo_asn
+  -> policy.rule_chain
+  -> transport.pick_sink_cake
+  -> Verdict::Accept(SinkId) | Reject | Drop</div>
+      <p>A source adapter creates an event from protocol input and projected metadata, then invokes the protocol-neutral pipeline runtime. For SOCKS5, CONNECT runs the pipeline once per session open; UDP relay packets run it once per target-bearing datagram; UDP ASSOCIATE control does not run the forward pipeline because no target exists yet.</p>
+      <table>
+        <tr><th>Hook</th><th>Role</th><th>Terminal behavior</th></tr>
+        <tr><td><code>net.resolve_or_recover</code></td><td>Resolve hostname, recover host data from IP reverse map, fill DNS RTT and resolution mode.</td><td>Rejects when no target exists; never accepts a sink.</td></tr>
+        <tr><td><code>net.enrich_geo_asn</code></td><td>Attach geo country, ASN, and geosite tags from in-memory data.</td><td>Continues; misses become neutral facts such as <code>XX</code> or <code>0</code>.</td></tr>
+        <tr><td><code>policy.rule_chain</code></td><td>Project metadata into <code>RuleCtx</code>, evaluate policy, write route/schedule/bias metadata.</td><td>Deny becomes Reject; allowed route metadata continues.</td></tr>
+        <tr><td><code>transport.pick_sink_cake</code></td><td>Filter candidates by protocol and route group, apply cost bias / DNS RTT seed, rank with CAKE.</td><td>Accepts one sink or rejects <code>no_usable_exit</code>.</td></tr>
+      </table>
+    </section>
+
+    <section id="kernel-registry">
+      <h2>Registry Verification</h2>
+      <p>`KernelRegistry` validates sources, sinks, hooks, pipelines, wiring, IDs, hook functions, accept/jump declarations, DAG shape, namespace access, unsatisfied reads, side-effect restrictions, and unknown sinks before the bus starts.</p>
+      <p>End-of-pipeline `Continue` is invalid. Pipeline jumps must form a DAG. Runtime `Accept` and `Jump` payloads are checked against the hook declaration.</p>
+      <p>Verification also protects source wiring as a total single-valued function: every registered source has exactly one wiring entry, and no source appears twice. Hook namespace patterns are not wildcards; declared reads and writes must be covered by explicit namespace patterns.</p>
+    </section>
+
+    <section id="compiled-runtime">
+      <h2>Schema-Compiled Runtime</h2>
+      <p>Schema, config, and rule files are compile inputs, not prose beside the code. Runtime build validates them into typed models, then compiles IDs, groups, capabilities, pipelines, observers, and candidate filters into compact executor tables.</p>
+      <div class="flow">schema.json / config / rule
+  -> typed validated model
+  -> compiled slots, masks, tables, hook arrays
+  -> hot executor</div>
+      <table>
+        <tr><th>Declarative input</th><th>Compiled runtime form</th><th>Hot-path rule</th></tr>
+        <tr><td>SourceId, SinkId, HookId, PipelineId</td><td>Small numeric slots plus debug strings for logs.</td><td>No string matching in dispatch or pipeline progress.</td></tr>
+        <tr><td>route_group and capability lists</td><td>Bit masks and precomputed candidate tables.</td><td>No full egress scan when the compiled table is valid.</td></tr>
+        <tr><td>Pipeline hook graph</td><td>Verified hook function arrays and declaration masks.</td><td>No registry HashMap lookup after build.</td></tr>
+        <tr><td>ObserverSpec reads/writes/pulls</td><td>EventTypeId to observer-slot routing table.</td><td>No unconditional fan-out to all observers.</td></tr>
+        <tr><td>Rule chain</td><td>Validated predicate/action program over typed metadata.</td><td>No payload inspection and no dynamic schema discovery.</td></tr>
+      </table>
+      <p>The executor may still expose logical string IDs at APIs, logs, snapshots, and schema boundaries. Internally, hot paths prefer slots, enums, masks, arrays, atomics, and function pointers.</p>
+    </section>
+
+    <section id="async-observation">
+      <h2>Async and Observation</h2>
+      <p>Hooks are sync function pointers. Async upstream work, such as DNS resolver calls, crosses the boundary only through scoped shared hook context and a Tokio handle. Hooks must not spawn persistent tasks, hold state across hook boundaries, or keep locks around pipeline progress.</p>
+      <p>The data plane emits only declared observation facts. The canonical contract is <a href="dataplane-observation.html#observation-topology">Dataplane and Observation</a>: core lifecycle/path facts use <code>core.*</code>, owner facts such as MeshSec/native drops use <code>obs.*</code>, and counters/path samples use declared pull sources. Metrics, Prometheus, exit-health updates, Operator snapshots, and CAKE feedback are projections rather than inline dispatch logic. Dispatch remains pick -&gt; send -&gt; emit.</p>
+    </section>
+
+    <section id="boundaries">
+      <h2>Boundary Rules</h2>
+      <ul>
+        <li>Core depends on no L7 protocol crate.</li>
+        <li>Routing decisions use request metadata and path evidence, not protocol syntax or payload bytes.</li>
+        <li>`Frame.payload` is opaque bytes.</li>
+        <li>New L7 protocol means a new adapter pair, never a branch in core.</li>
+        <li>Async hook work uses the sanctioned scoped runtime bridge; hooks must not spawn persistent tasks or keep state across boundaries.</li>
+        <li>DNS is a resolver/enrichment hook for bus decisions, not an active port-53 listener in the core architecture.</li>
+        <li>Compatibility adapters may preserve protocol detail for logs, but core and scheduler decisions stay protocol-neutral.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

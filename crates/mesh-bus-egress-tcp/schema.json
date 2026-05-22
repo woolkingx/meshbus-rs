@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-egress-tcp/schema.json",
+  "title": "mesh-bus-egress-tcp",
+  "description": "Config for a plain TCP egress exit. Constructed by mesh-bus-runtime from EgressCfg::Tcp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "timeout_ms"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique ExitId for this egress within the bus."
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Connect and write timeout in milliseconds. Upstream reads are continuous byte-stream forwarding, not request-response reads."
+    },
+    "socket_recv_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_RCVBUF size in bytes applied before TCP connect."
+    },
+    "socket_send_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_SNDBUF size in bytes applied before TCP connect."
+    },
+    "stream_model": {
+      "type": "string",
+      "const": "full-duplex-byte-stream",
+      "description": "TCP egress treats upstream bytes as an RFC-aligned bidirectional byte stream. send() writes client bytes; poll() returns independently produced upstream chunks."
+    },
+    "close_semantics": {
+      "type": "string",
+      "const": "release-session",
+      "description": "Close and Cancel frames remove the cached per-session stream without upstream read/write."
+    },
+    "shutdown_write_semantics": {
+      "type": "string",
+      "const": "tcp-write-half-shutdown",
+      "description": "ShutdownWrite shuts down only the upstream TCP write half and leaves the read half available for return streaming."
+    }
+  }
+}

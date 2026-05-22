@@ -1,0 +1,39 @@
+id: dispatch.stream.ordered_duplicate_packet_id_for_flow_returns_directly
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.ordered_duplicate_packet_id_for_flow_returns_directly
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: dedup
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups: []
+  scenario:
+    packets:
+      - seq: 11
+        payload: first
+        packet_id: 1001
+        flow_id: 7
+      - seq: 12
+        payload: second
+        packet_id: 1001
+        flow_id: 7
+        note: duplicate packet_id under same flow should still be delivered (Direct)
+expect:
+  open_ok: true
+  exit_id: dedup
+  calls:
+    dedup: 2
+  assertions:
+    - kind: duplicate_packet_delivery
+      expected:
+        delivery_mode: Direct
+        returned_payloads:
+          - second
+observations: []
+tags: []

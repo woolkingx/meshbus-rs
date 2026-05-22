@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus.deploy.systemd.schema.json",
+  "title": "mesh-bus systemd deployment",
+  "description": "Systemd unit template for running mesh-bus with YAML dry-run validation.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "properties": {
+    "unit": {
+      "type": "string",
+      "const": "mesh-bus.service"
+    },
+    "preflight": {
+      "type": "string",
+      "const": "mesh-bus check --config"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+disallowed-methods = [
+    { path = "std::option::Option::unwrap", reason = "use expect with context or ? operator" },
+    { path = "std::result::Result::unwrap", reason = "use expect with context or ? operator" },
+]

@@ -1,0 +1,22 @@
+id: parse_scheduler_rejects_unknown_field
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    scheduler:
+      kind: Cake
+      typo_field: true
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19203
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "typo_field"
+observations: []
+tags: []

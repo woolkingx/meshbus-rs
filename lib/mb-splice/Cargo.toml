@@ -1,0 +1,11 @@
+[package]
+name = "mb-splice"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+libc = { workspace = true }
+mesh-bus-core = { path = "../../crates/mesh-bus-core" }
+tokio = { workspace = true }

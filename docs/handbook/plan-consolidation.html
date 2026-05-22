@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan Consolidation - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --muted:#5f6b75; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9da7b1; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui, sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1, h2, h3 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    ul { margin:8px 0 0 22px; padding:0; }
+    li { margin:4px 0; }
+    .ok { color:var(--ok); font-weight:600; }
+    .warn { color:var(--warn); font-weight:600; }
+    .muted { color:var(--muted); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Plan Consolidation</h1>
+    <p>Durable architecture, spec decisions, completion status, process rules, testing gates, and remaining gaps recovered from old Markdown plans/specs. After absorption, docs/plan remains active task decomposition only.</p>
+  </header>
+  <main>
+    <section id="rule">
+      <h2>Consolidation Rule</h2>
+      <div class="flow">plan content
+  -> recovered durable topology/logic goes to handbook owner chapter
+  -> recovered data/structure contract goes to schema.json
+  -> remaining steps stay in docs/plan</div>
+      <p>Do not treat any plan as the canonical architecture source. When a plan contains durable design, status, or testing content, move that content into the owning handbook chapter or schema contract before code relies on it. The full hierarchy is defined by <a href="documentation-architecture.html">Documentation architecture</a>.</p>
+    </section>
+
+    <section id="current-lines">
+      <h2>Current Completion Lines</h2>
+      <table>
+        <tr><th>Line</th><th>Consolidated status</th><th>Remaining proof or work</th></tr>
+        <tr>
+          <td>N:N mesh</td>
+          <td><span class="ok">Local functional path is green.</span> Runtime topology accepts node identity, adjacent peers, raw UDP peer ingress/egress, and Secure UDP MeshSec. Local two-node e2e proves raw UDP datagram forwarding, Secure UDP MeshSec forwarding, native event-family reliability, and remote node exit selection.</td>
+          <td>Reconnect/recovery after shared close, RouteAdvertise aggregation hardening, local multi-hop open, live WAN proof, and release throughput matrix execution remain. QUIC is retained only as a protocol library/reference data shape, not as mesh peer runtime substrate.</td>
+        </tr>
+        <tr>
+          <td>UDP / QUIC transport</td>
+          <td><span class="ok">Own UDP substrate and own QUIC library implemented.</span> UdpPacketLoop owns the tokio socket with sendmmsg/recvmmsg batch I/O, GSO/GRO, software pacing, conservative PMTU guard, and Linux cfg fallback; raw UDP mesh peer crates delegate to it. Own real QUIC (`mb-quic`) provides packet protection, TLS handshake, recovery, congestion, streams, flow control, datagrams, close, and timers with deterministic tests. The Quinn reference binding was removed from the dependency graph in M6; Cloudflare quiche source stays read-only reference only. The active mesh runtime line is Secure UDP / MeshSec over native UDP, and the env-gated release transport throughput matrix harness (`throughput_transport.rs`) builds and skips clean.</td>
+          <td><span class="ok">Own UDP substrate is complete at functional-verification level; own QUIC is library/reference evidence.</span> Directive-deferred only: real WAN traffic runs, reconnect/recovery hardening, and live execution of the release throughput matrix. Secure UDP with MeshSec plus native event-family reliability is the production mesh transport line. Historical task plans before 2026-05-18 are archived under `.backup/` and are not architecture truth.</td>
+        </tr>
+        <tr>
+          <td>SOCKS5 RFC track</td>
+          <td><span class="ok">Local functional completeness is green.</span> Command/auth matrix is authoritative in schema. Codec strictness covers RSV/ATYP and reply REP 0x08. Ingress includes CONNECT, UDP ASSOCIATE, BIND, NoAuth, UserPass, and default-off GSSAPI gate behavior. Egress includes upstream NoAuth/UserPass, ATYP-aware CONNECT, and SOCKS5 UDP ASSOCIATE. Workspace-local gates recorded 177 result-ok / 0 failed after fmt and diff checks.</td>
+          <td>Live upstream WAN smoke remains the final proof. IPv6 remains secondary functionality unless explicitly promoted.</td>
+        </tr>
+        <tr>
+          <td>Direct proxy foundation</td>
+          <td><span class="ok">Local functional path is green.</span> Direct forward/reverse is the product foundation: source intent enters normal rule/policy/scheduler before bytes move. The absorbed native direct slice landed pipeline-capable direct TCP/UDP sources, a scheduler-selectable `ServiceTcpEgress` reverse sink, route_group causal selection, and a direct-vs-SOCKS5 comparison record.</td>
+          <td>Fine-grained bus-internal segment timing and live WAN are the directive-deferred last phase. Datagram plane surfaces no per-exit dispatch counter, so datagram comparison rows record sink as unobserved (telemetry gap, not regression).</td>
+        </tr>
+      </table>
+    </section>
+
+    <section id="durable-contracts">
+      <h2>Durable Contracts Recovered From Plans</h2>
+      <table>
+        <tr><th>Area</th><th>Recovered contract</th><th>Owner surface</th></tr>
+        <tr>
+          <td>L4 session abstraction</td>
+          <td>External protocols must enter through StreamSession or DatagramSession style L4 session surfaces. Raw frame use inside plugins is a migration smell.</td>
+          <td>`mesh-bus-core`, ingress/egress adapters, module CLAUDE files.</td>
+        </tr>
+        <tr>
+          <td>Pipeline and rule engine</td>
+          <td>The stable shape is source -> pipeline -> wiring -> sink. Event pipeline is control flow, decision flow, and session flow; payload bytes remain transport data, not core event payload.</td>
+          <td>`mesh-bus-runtime`, `mesh-bus-pipeline-hooks`, `mb-rule`.</td>
+        </tr>
+        <tr>
+          <td>Dataplane observation</td>
+          <td>Dispatch must emit observable decisions and failures. Observers consume metrics, health, CAKE feedback, path labels, and scheduler evidence without owning byte movement.</td>
+          <td>`mesh-bus-core`, observer crates, scheduler crates.</td>
+        </tr>
+        <tr>
+          <td>Datagram path</td>
+          <td>Datagram send and recv are split. Forward path must not lockstep send_to with recv_from. Direct datagram forwarder applies only when session target semantics are compatible.</td>
+          <td>`DatagramEgressAdapter`, ingress UDP, SOCKS5 UDP, UDP egress, datagram forwarder.</td>
+        </tr>
+        <tr>
+          <td>Mesh peer</td>
+          <td>Adjacent peer is the routing unit. Secure UDP MeshSec is the production event substrate. Raw UDP is debug/local. QUIC provides reference/fallback/benchmark streams and datagrams only; its connection pool is path evidence, not mesh session truth.</td>
+          <td>`mb-proto-mesh`, raw UDP peer crates, QUIC peer crate, runtime schema.</td>
+        </tr>
+        <tr>
+          <td>Compatibility</td>
+          <td>SOCKS5, HTTP CONNECT, transparent capture, and future protocols are adapters. They project external syntax into bus session semantics and must not redefine the product skeleton.</td>
+          <td>Ingress/egress compatibility crates and protocol codec libs.</td>
+        </tr>
+        <tr>
+          <td>Testing process</td>
+          <td>Feature completion requires narrow tests, owning module tests, runtime assembly when config/wiring changes, binary e2e when traffic paths change, and live WAN smoke when deployment or WAN readiness is claimed.</td>
+          <td>Testing gates, tests boot card, binary e2e, env-gated live tests.</td>
+        </tr>
+      </table>
+    </section>
+
+    <section id="superseded">
+      <h2>Superseded Or Reframed Work</h2>
+      <table>
+        <tr><th>Old plan direction</th><th>Current handbook position</th></tr>
+        <tr><td>Dataplane fastpath as a separate bypass track</td><td>Reframed as kernel dataplane event restoration and observable dispatch. Fast movement must still preserve scheduler and observer semantics.</td></tr>
+        <tr><td>Plan files as working architecture references</td><td>Rejected. Plans decompose execution only; durable content belongs in HTML handbook/spec.</td></tr>
+        <tr><td>Mesh optimization before direct proxy foundation</td><td>Reordered. Direct forward/reverse foundation proves the product skeleton before mesh protocol optimization.</td></tr>
+        <tr><td>SOCKS5 or QUIC as product definition</td><td>Rejected. Compatibility protocols and transport bindings are adapters/projections over the bus architecture.</td></tr>
+      </table>
+    </section>
+
+    <section id="next">
+      <h2>Absorption Status</h2>
+      <ol>
+        <li>Product roadmap, direct proxy foundation, system architecture, Mesh Protocol, transport, compatibility, dataplane observation, and testing gates now have standalone handbook chapters.</li>
+        <li>Old plan/spec content has been reduced to current status, durable contracts, reframed decisions, and testing gates in handbook language.</li>
+        <li>Next cleanup is to shorten module CLAUDE.md files to execution rules, owner keypoints, and handbook pointers.</li>
+        <li>Schema links should be added beside each chapter during the next schema-sync pass.</li>
+        <li><code>docs/plan</code> should stay focused on active tasks, commands, checkpoints, and handoff evidence.</li>
+      </ol>
+    </section>
+
+    <section id="absorbed-families">
+      <h2>Absorbed Content Families</h2>
+      <ul>
+        <li>Foundation: L4 session abstraction, source -> pipeline -> wiring -> sink, DNS enrichment as a hook, rule-chain ownership, and protocol-neutral metadata.</li>
+        <li>Data plane: stream forwarder shape, datagram split, datagram direct-session boundary, observation bus, lifecycle events, and no-penetration observer rules.</li>
+        <li>Product path: native direct forward/reverse, compatibility adapter boundary, SOCKS5 full-RFC status, and direct-vs-compatibility comparison gates.</li>
+        <li>Mesh transport: adjacent-peer ontology, Secure UDP MeshSec production line, raw UDP debug/local plane, QUIC reference/fallback substrate, route_group remote path selection, SPKI pinning, and UDP packet architecture alignment.</li>
+        <li>Verification: local functional gates, workspace gates, env-gated WAN smoke scaffolds, performance matrix expectations, and explicit not-live-verified reporting.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

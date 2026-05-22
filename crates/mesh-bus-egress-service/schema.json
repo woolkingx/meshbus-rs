@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-egress-service/schema.json",
+  "title": "mesh-bus-egress-service",
+  "description": "Config for local service-sink egresses (native direct reverse stream/datagram). Constructed by mesh-bus-runtime from EgressCfg::ServiceTcp and EgressCfg::ServiceUdp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "service_id", "connect", "timeout_ms"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique ExitId for this service sink within the bus."
+    },
+    "service_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Static service identity label exposed to observation. Never derived from payload."
+    },
+    "route_group": {
+      "type": "string",
+      "description": "Optional route_group this service sink advertises (compatibility alias for a single-group membership)."
+    },
+    "groups": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "route_group filter membership. A session whose route_group is Some(g) reaches this sink only if g is in groups."
+    },
+    "connect": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Local TCP or UDP endpoint the service listens on, such as 127.0.0.1:8080 or 127.0.0.1:53. The data plane dials/sends to this; request.target is service-intent metadata only."
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Connect and write timeout in milliseconds."
+    },
+    "supports_stream": {
+      "type": "boolean",
+      "description": "ServiceTcp supports stream only; ServiceUdp supports datagram only."
+    },
+    "supports_datagram": {
+      "type": "boolean",
+      "description": "ServiceTcp supports stream only; ServiceUdp supports datagram only."
+    }
+  }
+}

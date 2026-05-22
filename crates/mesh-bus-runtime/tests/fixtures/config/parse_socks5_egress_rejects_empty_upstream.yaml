@@ -1,0 +1,20 @@
+id: parse_socks5_egress_rejects_empty_upstream
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Socks5
+        id: upstream
+        upstream: ""
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "Socks5 egress upstream must not be empty"
+observations: []
+tags: []

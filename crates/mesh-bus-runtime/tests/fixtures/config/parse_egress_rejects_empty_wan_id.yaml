@@ -1,0 +1,20 @@
+id: parse_egress_rejects_empty_wan_id
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        wan_id: ""
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "egress direct wan_id must not be empty"
+observations: []
+tags: []

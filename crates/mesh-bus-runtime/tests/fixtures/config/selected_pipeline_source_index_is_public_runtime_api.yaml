@@ -1,0 +1,27 @@
+id: selected_pipeline_source_index_is_public_runtime_api
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Tcp
+        listen: 127.0.0.1:0
+        target: example.com:80
+      - kind: Socks5
+        listen: 127.0.0.1:0
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_path: /tmp/chain.yaml
+      source:
+        ingress_index: 1
+expect:
+  ok: true
+  debug_contains:
+    - "ingress_index: Some(1)"
+observations: []
+tags: []

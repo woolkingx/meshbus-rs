@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-loadbalance/schema.json",
+  "title": "mb-loadbalance",
+  "description": "This crate provides pure load-balancing algorithms (WRR, SWRR, ConsistentHash, StickyTable); data types are imported from /schemas/ via mesh-bus-schema.",
+  "type": "object"
+}

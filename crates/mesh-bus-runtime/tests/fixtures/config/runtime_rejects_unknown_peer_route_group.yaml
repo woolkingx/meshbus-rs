@@ -1,0 +1,28 @@
+id: runtime_rejects_unknown_peer_route_group
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    peers:
+      - id: parent-a
+        node_id: node-b
+        route_groups: [wan-us]
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: MeshPeerUdp
+        id: peer-udp
+        peer_id: parent-a
+        peer: 127.0.0.1:29000
+        timeout_ms: 1000
+        groups: [wan-eu]
+expect:
+  ok: false
+  error_contains: "unknown peer route_group"
+observations: []
+tags: []

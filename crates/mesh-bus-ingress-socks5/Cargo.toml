@@ -1,0 +1,35 @@
+[package]
+name = "mesh-bus-ingress-socks5"
+version = "0.1.25"
+edition.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+# GSSAPI (SOCKS5 auth method 0x01) is reserved and OFF by default. No
+# authenticator backend exists; enabling the feature only flips
+# GSSAPI_SUPPORTED. The greeting still never negotiates GSSAPI.
+gssapi = []
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-proto-socks5 = { path = "../../lib/mb-proto-socks5" }
+mb-rule = { path = "../../lib/mb-rule" }
+mb-splice = { path = "../../lib/mb-splice" }
+mb-socket-tune = { path = "../../lib/mb-socket-tune" }
+mesh-bus-pipeline-hooks = { path = "../mesh-bus-pipeline-hooks" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }
+mesh-bus-egress-tcp = { path = "../mesh-bus-egress-tcp" }
+mesh-bus-egress-udp = { path = "../mesh-bus-egress-udp" }
+mesh-bus-resolver = { path = "../mesh-bus-resolver" }
+mb-geoip = { path = "../../lib/mb-geoip" }
+mb-geosite = { path = "../../lib/mb-geosite" }
+tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }

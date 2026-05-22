@@ -1,0 +1,16 @@
+{
+  "name": "policy_reads_payload",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "pol_peek", "kind": "Policy", "allowed_namespaces": [], "reads": ["net.payload"], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [{ "id": "main", "hooks": ["pol_peek"] }],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "reads `net.payload` (forbidden)" }
+}

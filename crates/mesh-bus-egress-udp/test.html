@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-egress-udp - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-egress-udp - Owner Proof Contract</h1>
+    <p>Classification: <strong>datagram egress adapter</strong>. Owns UDP send/recv session behavior and one-send-one-datagram boundary.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-egress-udp</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-egress-udp</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td>Config</td><td><code>id</code>, <code>timeout_ms</code>, socket buffer knobs, support flags, datagram boundary.</td></tr>
+        <tr><td>Session</td><td>Persistent UdpSocket split into send and receive halves.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-fixtures">
+      <h2>Schema / Fixture Source</h2>
+      <p>Adapter contract is in <a href="schema.json">schema.json</a>. Tests: <a href="tests/echo.rs">echo.rs</a> and <a href="tests/schema.rs">schema.rs</a>.</p>
+      <ul>
+        <li>Datagram send-only boundary and no stream support.</li>
+        <li>One datagram preserved per send path.</li>
+        <li>Socket buffer knob presence and default semantics.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-egress-udp</code></td><td>Owner proof + boundary tests.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Datagram boundary</td><td>One send call emits exactly one UDP datagram.</td></tr>
+        <tr><td>Session persistence</td><td>Socket binding and send/recv split remain alive for active session.</td></tr>
+        <tr><td>Schema closure</td><td>Unknown config keys are rejected.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-runtime</td><td>Instantiates <code>EgressCfg::Udp</code> sink.</td></tr>
+        <tr><td>mesh-bus-core</td><td>Consuming datagram plugin interface and kernel scheduling.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Datagram payloads traverse as opaque packets into core; payload shape not modified by this adapter.</li>
+        <li>Runtime direct UDP egress paths can reuse this module for fixed target forwarding.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Stream protocol parsing</td><td>Datagram adapter owns transport only.</td></tr>
+        <tr><td>Routing policy and scheduler assertions</td><td>Core/runtime owned.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

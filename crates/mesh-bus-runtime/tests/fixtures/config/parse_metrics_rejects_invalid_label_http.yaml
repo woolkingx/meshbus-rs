@@ -1,0 +1,24 @@
+id: parse_metrics_rejects_invalid_label_http
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    metrics:
+      kind: PrometheusHttp
+      listen: 127.0.0.1:19100
+      labels:
+        bad-label: lab
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19090
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "metrics labels key `bad-label` must match Prometheus label name pattern"
+observations: []
+tags: []

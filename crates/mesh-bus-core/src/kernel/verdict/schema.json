@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mesh-bus-core.kernel.verdict",
+  "$ref": "#/$defs/Verdict",
+  "$defs": {
+    "PipelineId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "SinkId":     { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "SourceId":   { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "HookId":     { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "Reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code":   { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "detail": { "type": "string" }
+      },
+      "required": ["code"]
+    },
+    "VerdictLabel": {
+      "type": "string",
+      "enum": ["Continue", "Jump", "Accept", "Reject", "Drop"]
+    },
+    "Verdict": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "properties": { "tag": { "const": "Continue" } }, "required": ["tag"] },
+        { "type": "object", "additionalProperties": false, "properties": { "tag": { "const": "Jump" },   "target": { "$ref": "#/$defs/PipelineId" } }, "required": ["tag","target"] },
+        { "type": "object", "additionalProperties": false, "properties": { "tag": { "const": "Accept" }, "sink":   { "$ref": "#/$defs/SinkId" } },     "required": ["tag","sink"] },
+        { "type": "object", "additionalProperties": false, "properties": { "tag": { "const": "Reject" }, "reason": { "$ref": "#/$defs/Reason" } },     "required": ["tag","reason"] },
+        { "type": "object", "additionalProperties": false, "properties": { "tag": { "const": "Drop" } },  "required": ["tag"] }
+      ]
+    }
+  }
+}

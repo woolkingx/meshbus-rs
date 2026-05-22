@@ -1,0 +1,23 @@
+id: parse_pipeline_source_rejects_invalid_source_id_shape_slash
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      source:
+        id: "bad/id"
+expect:
+  ok: false
+  error_contains: "pipeline source id must match SourceId pattern"
+observations: []
+tags: []

@@ -1,0 +1,29 @@
+id: direct_udp_forward_reaches_udp_egress
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  rule_chain_yaml: |
+    default: allow
+    rules: []
+  probe:
+    kind: direct_udp
+    payload: "direct-udp-smoke"
+  yaml: |
+    ingresses:
+      - kind: Udp
+        listen: "{{UDP_LISTEN}}"
+        target: "{{UDP_ECHO}}"
+    egresses:
+      - kind: Udp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: "{{RULE_CHAIN}}"
+      source:
+        ingress_index: 0
+expect:
+  ok: true
+observations: []
+tags: []

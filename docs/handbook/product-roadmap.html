@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product Roadmap - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --muted:#5f6b75; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9da7b1; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2,h3 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Product Roadmap</h1>
+    <p>mesh-bus is an OSI-aware Rust transport substrate for programmable direct proxy and mesh transport. Compatibility protocols are edge plugins; native direct session routing is the product skeleton.</p>
+  </header>
+  <main>
+    <section id="public-name">
+      <h2>Public Name</h2>
+      <table>
+        <tr><th>Surface</th><th>Name</th><th>Rule</th></tr>
+        <tr><td>GitHub repository</td><td><code>meshbus-rs</code></td><td>Rust implementation and public source package.</td></tr>
+        <tr><td>Product family</td><td>MeshBus</td><td>OSI-aware event/data mesh runtime. Do not rename the product around SOCKS5, proxy, QUIC, or VPN terms.</td></tr>
+        <tr><td>Protocol</td><td>MeshBus Protocol</td><td>Adjacent-peer event semantics and L4/L5/L6 owner contracts.</td></tr>
+        <tr><td>Security layer</td><td>MeshSec</td><td>L6 encrypted event envelope. It is not TLS, QUIC, or route policy.</td></tr>
+        <tr><td>CLI</td><td><code>mesh-bus</code></td><td>Current binary name. A future alias may be <code>meshbus</code>, but docs must name the implemented command.</td></tr>
+      </table>
+      <p>The public README is a GitHub landing page. Architecture and status claims remain owned by this handbook.</p>
+    </section>
+
+    <section id="position">
+      <h2>Position</h2>
+      <p>mesh-bus is not SOCKS5, HTTP CONNECT, VMess, XRAY, a VPN replacement, a Kubernetes service mesh, or a QUIC wrapper. Those protocols and deployments are adapters or bindings over the bus.</p>
+      <div class="flow">source intent -> local bus session -> encrypted events -> N:N paths -> logical endpoint reconstruction</div>
+      <p>The product value is mesh-aware session routing, adjacent-peer capability exchange, path observation, programmable exit selection, encrypted event delivery, and native direct byte/datagram movement.</p>
+      <p>The product should feel like a modern mesh proxy fabric with Squid-like parent-peer composition, but without becoming HTTP-cache centered, proxy-protocol centered, or a tunnel wrapper.</p>
+    </section>
+
+    <section id="market-position">
+      <h2>Market Position</h2>
+      <p>The first product wedge is a programmable L4/L5 substrate for teams building direct proxy, private mesh transport, edge gateways, and auditable traffic-control systems. The user buys control over session intent, policy, scheduling, observation, and transport evidence without having to make a compatibility protocol the product core.</p>
+      <table>
+        <tr><th>Audience</th><th>Why mesh-bus matters</th><th>Initial proof</th></tr>
+        <tr><td>Network infrastructure developers</td><td>Embed a Rust-first session fabric instead of assembling protocol-specific proxies.</td><td>Direct stream/datagram APIs, adapter SDK boundaries, deterministic tests.</td></tr>
+        <tr><td>Platform and edge engineers</td><td>Route traffic by rule, capability, path evidence, and service identity across local and peer exits.</td><td>Direct forward/reverse demos, live WAN smoke, path metrics.</td></tr>
+        <tr><td>Security and operations teams</td><td>Audit policy decisions and transport facts while keeping payload movement opaque to core.</td><td>Rule logs, close reasons, MeshSec envelopes, reproducible compliance gates.</td></tr>
+      </table>
+      <p>Broader SaaS, game, streaming, IoT, Kubernetes, and enterprise-SLA stories are expansion lanes. They should follow proven direct proxy, Secure UDP/MeshSec, own QUIC, observability, and live benchmark gates.</p>
+    </section>
+
+    <section id="competitive-posture">
+      <h2>Competitive Posture</h2>
+      <table>
+        <tr><th>Category</th><th>Established center</th><th>mesh-bus posture</th></tr>
+        <tr><td>Envoy-style proxy/data plane</td><td>General edge and service proxy, L7/L4 filters, xDS ecosystem, service-mesh data plane.</td><td>Stay lower and more embeddable: OSI-owned L4/L5 session fabric with protocol adapters at the edge.</td></tr>
+        <tr><td>Linkerd-style service mesh</td><td>Kubernetes-native security, observability, reliability, and operational simplicity.</td><td>Do not compete as a Kubernetes mesh first. Prove transport substrate, direct proxy, and mesh-peer primitives first.</td></tr>
+        <tr><td>Tailscale/ZeroTier-style overlay</td><td>Managed secure connectivity, identity-based access, virtual networking, endpoint UX.</td><td>Do not claim polished VPN replacement first. Provide a programmable substrate that can build such products.</td></tr>
+        <tr><td>Shadowsocks/XRAY/protocol proxies</td><td>Specific protocol behavior and deployment compatibility.</td><td>Treat them as adapter/plugin lines that project intent into the same bus session model.</td></tr>
+      </table>
+      <p>The defensible message is not "another proxy protocol". The defensible message is "protocol-neutral direct proxy and mesh transport substrate with strict OSI ownership".</p>
+    </section>
+
+    <section id="go-to-market-gates">
+      <h2>Go-To-Market Gates</h2>
+      <table>
+        <tr><th>Stage</th><th>Claim allowed</th><th>Required evidence</th></tr>
+        <tr><td>Developer preview</td><td>Programmable direct proxy substrate.</td><td>Direct forward/reverse e2e, SOCKS5 comparison record, documented adapter boundaries.</td></tr>
+        <tr><td>Transport preview</td><td>Native mesh transport foundation.</td><td>UDP packet-loop matrix, Secure UDP/MeshSec envelope tests, own QUIC regression parity against the reference binding.</td></tr>
+        <tr><td>Operator preview</td><td>Auditable route and policy control.</td><td><a href="operator-plane.html">Operator API</a>, rule/policy traces, close reason accounting, Prometheus metrics, probes, live WAN smoke.</td></tr>
+        <tr><td>Enterprise-ready</td><td>Supportable deployment substrate.</td><td>Versioned schema stability, release benchmark matrix, security review, upgrade story, documented support boundaries.</td></tr>
+      </table>
+      <p>Community metrics such as stars, forks, downloads, and plugin count are growth signals. Product readiness is gated by protocol compliance, live WAN repeatability, throughput/latency evidence, and whether a new adapter can ship without touching core.</p>
+    </section>
+
+    <section id="skeleton">
+      <h2>Product Skeleton</h2>
+      <table>
+        <tr><th>Layer</th><th>Product role</th></tr>
+        <tr><td>L7 participants</td><td>Project external intent into bus semantics. Protocol parsers stay at the edge.</td></tr>
+        <tr><td>L6 transforms</td><td>Own protocol-neutral shaping: event envelope, encryption, fragmentation, compression, checksum, parity, object presentation.</td></tr>
+        <tr><td>L5 sessions</td><td>Own session identity, event sequence, flow semantics, return semantics, lifecycle, dedup, reorder, reassembly, and close semantics.</td></tr>
+        <tr><td>L4 scheduling</td><td>Own capability matching, policy, route_group, path scoring, exit, peer, service, port pool, replication, and striping selection.</td></tr>
+        <tr><td>Data plane</td><td>Moves opaque bytes or datagrams after the control plane selects a path.</td></tr>
+      </table>
+    </section>
+
+    <section id="trajectory">
+      <h2>Trajectory</h2>
+      <p>The long-term differentiator is programmable, verified-hook, cross-exit adaptive routing. Single-flow throughput is a baseline, not the product identity.</p>
+      <table>
+        <tr><th>Layer</th><th>Trajectory</th><th>Unlocks</th><th>Status</th></tr>
+        <tr><td>L1</td><td>Closed-loop path feedback</td><td>Every frame or session becomes path evidence through RTT, goodput, loss, close reason, saturation, and health windows.</td><td>Design backlog</td></tr>
+        <tr><td>L2</td><td>Striping plus SequenceReorder</td><td>True multipath for ByteStream only, with reorder bounded at the L5 endpoint.</td><td>Deferred until basic mesh-peer and WAN gates are stable</td></tr>
+        <tr><td>L3</td><td>Unified exit/plugin surface</td><td>Direct, compatibility, and mesh-peer exits expose one capability-shaped scheduler surface.</td><td>Backlog</td></tr>
+        <tr><td>L4</td><td>Multi-hop mesh-peer plugin</td><td>One node's egress becomes another node's ingress through encrypted adjacent-peer events.</td><td>Partially proven by two-node local mesh-peer tests</td></tr>
+      </table>
+      <p>Throughput-only items such as splice, sockmap, io_uring batching, and hardware offload stay behind the closed-loop and mesh semantics work unless a measured deployment need changes the priority.</p>
+    </section>
+
+    <section id="event-fabric">
+      <h2>Encrypted N:N Event Fabric</h2>
+      <p>The native mesh model is not a tunnel and not a channel. A logical stream or datagram flow may be decomposed into encrypted MeshEvents, sent through multiple peers, ports, and paths, and reconstructed at the logical endpoint by L5 semantics.</p>
+      <table>
+        <tr><th>Concept</th><th>Product rule</th></tr>
+        <tr><td>Event</td><td>The basic mesh protocol unit. Stream chunks, datagrams, control, route adverts, capability adverts, and samples are event families.</td></tr>
+        <tr><td>Envelope</td><td>L6 protection around a MeshEvent. WAN profile exposes only delivery hints and ciphertext.</td></tr>
+        <tr><td>Port/path</td><td>L4 delivery coordinate. It never becomes session identity or service identity.</td></tr>
+        <tr><td>Endpoint</td><td>L5 owner that deduplicates, reorders, reassembles, and closes logical session meaning.</td></tr>
+      </table>
+    </section>
+
+    <section id="direct-paths">
+      <h2>Native Direct Paths</h2>
+      <table>
+        <tr><th>Path</th><th>Meaning</th><th>Minimum intent</th></tr>
+        <tr><td>Forward</td><td>A trusted local client, SDK, CLI, or capture adapter opens bus stream/datagram sessions without encoding intent as a compatibility protocol.</td><td>target or service, route_group, flow semantics, return semantics, traffic class, deadline/ttl, policy_ref, trace labels.</td></tr>
+        <tr><td>Reverse</td><td>A service or node advertises service capability into the mesh, and other sources select it through normal L4 scheduling.</td><td>service_id, route_group, stream/datagram capability, max_datagram_bytes, health epoch, path stats, policy labels.</td></tr>
+      </table>
+      <p>Native direct is the performance and architecture feature. Compatibility is reach.</p>
+    </section>
+
+    <section id="mvp-product-lanes">
+      <h2>MVP Product Lanes</h2>
+      <table>
+        <tr><th>Lane</th><th>User value</th><th>Architecture rule</th><th>Status</th></tr>
+        <tr><td>L4 reverse TCP</td><td>Expose an internal TCP service through local or remote mesh selection. HTTP and HTTPS work because the server owns protocol semantics.</td><td>Operator config owns the target. Core moves opaque stream SDU only.</td><td><span class="ok">Functional gate proven</span></td></tr>
+        <tr><td>L4 reverse UDP</td><td>Expose UDP services such as DNS or QUIC-style datagram services through mesh selection.</td><td>Operator config owns the target. Datagram boundary and source endpoint semantics stay explicit.</td><td><span class="ok">Functional gate proven</span></td></tr>
+        <tr><td>SOCKS5 forward</td><td>Power users and tools can set a SOCKS5 proxy and reach remote exits through MeshSec.</td><td>SOCKS5 owns negotiation and target syntax; bus receives stream/datagram intent.</td><td><span class="ok">Functional and live two-node smoke proven</span></td></tr>
+        <tr><td>HTTP CONNECT forward</td><td>Browsers and system proxy settings can use a standard HTTP proxy without SOCKS5 support.</td><td>HTTP adapter owns RFC 9110/9112 CONNECT parsing; after open, payload is opaque stream data.</td><td><span class="ok">Functional gate proven</span></td></tr>
+      </table>
+    </section>
+
+    <section id="compatibility">
+      <h2>Compatibility Boundary</h2>
+      <p>SOCKS5, HTTP CONNECT, DNS, VMess, XRAY, Shadowsocks-like protocols, and transparent capture adapters must decode only at the edge, project intent into session request fields, preserve close reasons and observation labels, and prove their own protocol compatibility.</p>
+      <p>They must not put protocol parsers in core, claim native-path performance, or define the product skeleton.</p>
+    </section>
+
+    <section id="deferred-product-lines">
+      <h2>Deferred Product Lines</h2>
+      <table>
+        <tr><th>Line</th><th>When to build</th><th>Boundary</th></tr>
+        <tr><td>L7 HTTP reverse proxy</td><td>When rules must use host, path, header, method, or HTTP service identity.</td><td>New HTTP ingress/egress plugin pair. No HTTP parser in core.</td></tr>
+        <tr><td>HTTPS termination</td><td>When mesh-bus must own certificates, ACME, SNI routing, or decrypted HTTP policy.</td><td>New TLS/HTTP edge plugin. Core still sees projected session intent and opaque lower-layer payload after projection.</td></tr>
+        <tr><td>HTTP/3 semantic proxy</td><td>When HTTP/3 request semantics, QPACK, and stream mapping matter beyond raw UDP forwarding.</td><td>New HTTP/3 edge plugin. QUIC state is edge-owned, not route truth.</td></tr>
+        <tr><td>Transparent gateway mode</td><td>When users need zero client proxy settings or router-wide capture.</td><td>TPROXY/TUN capture adapter owns original-destination PCI and projects direct stream/datagram opens.</td></tr>
+        <tr><td>Protocol compatibility pack</td><td>When adoption needs XRAY, VMess, Shadowsocks-like, or custom app protocols.</td><td>Each protocol is an adapter over the same direct request surface.</td></tr>
+      </table>
+    </section>
+
+    <section id="fast-movement">
+      <h2>Fast Movement Contract</h2>
+      <table>
+        <tr><th>Stream</th><th>Datagram</th><th>Observation</th></tr>
+        <tr>
+          <td>Prefer direct stream halves after scheduling. Use splice where Linux TCP endpoints allow it. For mesh transport, represent stream as ordered events reconstructed by L5 endpoints. Keep EventBus out of payload movement.</td>
+          <td>Use persistent datagram sessions. Preserve one logical datagram per message. For mesh transport, datagrams are encrypted events that may replicate across paths and deduplicate at the endpoint.</td>
+          <td>Event pipeline decides. Data plane moves. Observers sample. Scheduler consumes path evidence. No layer owns another layer's schema.</td>
+        </tr>
+      </table>
+    </section>
+
+    <section id="phases">
+      <h2>Roadmap Phases</h2>
+      <table>
+        <tr><th>Phase</th><th>Goal</th><th>Acceptance</th><th>Status</th></tr>
+        <tr><td>1 Native direct forward</td><td>First-class direct stream/datagram source.</td><td>Reach TCP/UDP exits, emit same labels as compatibility paths, expose close reasons, compare against SOCKS5 CONNECT and UDP ASSOCIATE.</td><td>Local stream + datagram green; direct vs SOCKS5 comparison record landed (functional). Datagram-plane per-exit dispatch counter is not yet surfaced; real WAN measurement deferred to last phase</td></tr>
+        <tr><td>2 Native direct reverse</td><td>Service capability advertisement and local service re-entry.</td><td>Remote/local source selects stream/datagram service through route_group and scheduler; no L7 route table in core.</td><td>Stream and UDP reverse service product fixtures green, including secure remote UDP service.</td></tr>
+        <tr><td>3 HTTP CONNECT forward</td><td>General browser/system proxy compatibility.</td><td>CONNECT authority projects to the same stream open as SOCKS5 CONNECT; adapter returns HTTP 200 only after open; TLS payload remains opaque.</td><td>HTTP CONNECT over secure mesh product fixture green.</td></tr>
+        <tr><td>4 Direct movement baseline</td><td>Measure single-node direct movement before mesh optimization.</td><td>Stream matrix covers direct halves/std/Tokio/splice; datagram matrix covers persistent sessions and UDP send/recv; timing separates rule, scheduler, open, movement.</td><td>Functional comparison record landed; release throughput baseline now exists for the live acceptance slice. Fine-grained stream timing still remains a separate measurement line.</td></tr>
+        <tr><td>5 Compatibility completeness</td><td>Trust protocol plugins as edges.</td><td>SOCKS5 and HTTP CONNECT common deployment paths complete; future protocols remain adapter/plugin lines; compatibility compared against native direct baseline.</td><td>SOCKS5 and HTTP CONNECT functional MeshSec paths are green; two-node live smoke against <code>198.51.100.36</code> passed.</td></tr>
+        <tr><td>6 Mesh peer performance</td><td>Optimize native encrypted event transport.</td><td>Secure UDP event envelopes, port-pool delivery, packet-loop matrix, path stats feeding scheduler evidence, WAN smoke with real remote exits/services.</td><td>MeshSec MeshPeerUdp is the MVP production substrate. Live 10.36 acceptance passed packet capture, fail-closed, operations fault, and before-optimization throughput gates. First optimization owner is L4 UDP packet loop; own QUIC remains protocol-library/reference evidence, not mesh peer completion.</td></tr>
+        <tr><td>7 Operator plane</td><td>Make nodes inspectable, testable, configurable, and eventually remotely manageable.</td><td>API-first management surface; CLI/Web are clients; probes use normal data paths; writes are schema-checked and audited.</td><td>M0 local read-only Operator API is implemented and deployed on the live 10.36 node. Production acceptance now uses it for status and metrics evidence; probes, local writes, Web, remote admin, and cluster control remain future phases.</td></tr>
+        <tr><td>8 Advanced mesh semantics</td><td>Add mesh-level event distribution after direct paths are measurable.</td><td>Multi-hop RouteAdvertise hardening, replicate, striping, SequenceReorder, migration, projection exchange, admin intent plane.</td><td>Projection exchange specified as read-only v1; striping, migration, and mutating AdminIntent remain future work.</td></tr>
+        <tr><td>9 L7 HTTPX and gateway modes</td><td>Add semantic HTTP routing or transparent capture only after MVP proxy lanes are stable.</td><td>HTTPX owns HTTP/TLS semantics at the edge; TPROXY/TUN owns capture PCI; neither leaks protocol parsing into core.</td><td>Deferred product line.</td></tr>
+      </table>
+    </section>
+
+    <section id="first-slice">
+      <h2>First Implementation Slice</h2>
+      <ol>
+        <li>Define direct source schema for stream and datagram intent.</li>
+        <li>Add direct stream source and direct datagram source to runtime config.</li>
+        <li>Add local e2e comparing direct stream against SOCKS5 CONNECT and direct datagram against SOCKS5 UDP ASSOCIATE.</li>
+        <li>Define direct stream service capability and add direct reverse e2e.</li>
+        <li>Record throughput, close reason, timing, and metrics label differences.</li>
+      </ol>
+      <p><span class="ok">Functional status:</span> the direct stream source, direct datagram source, stream/datagram service sinks, route_group selection, SOCKS5 forward, HTTP CONNECT forward, and secure two-node product fixtures are proven by binary e2e. The live <code>198.51.100.36</code> service slice now has repeatable SOCKS5 HTTPS acceptance, Operator metrics delta, MeshSec packet capture/fail-closed proof, journal audit, operations fault probes, and a release throughput baseline. Fine-grained bus-internal timing, long-run soak, and optional HTTP CONNECT/UDP DNS live client probes remain measurement work.</p>
+    </section>
+
+    <section id="non-goals">
+      <h2>Non-Goals</h2>
+      <p>Do not rename the product around direct proxy. Do not parse SOCKS5, VMess, XRAY, HTTP, DNS, or decrypted TLS in core. Do not treat QUIC connection state, UDP port, socket, or channel state as route truth or session truth. Do not claim production N:N from loopback-only tests.</p>
+    </section>
+  </main>
+</body>
+</html>

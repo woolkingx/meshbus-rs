@@ -1,0 +1,452 @@
+use bytes::{Bytes, BytesMut};
+use mb_endpoint::Endpoint;
+use mb_proto_mesh::{
+    CloseReasonWire, FlowSemanticsWire, MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS,
+    MESHSEC_REPLAY_WINDOW_BITS, MeshFrame, MeshSecOpenKey, MeshSecReplayCache, MeshSecSealContext,
+    NativeEventMode, ReturnSemanticsWire, StreamOpen, decode_frame, encode_frame,
+    meshsec_epoch_number, open_mesh_frame, seal_mesh_frame,
+};
+use mesh_bus_core::{
+    BusSessionInfo, BusSessionRequest, DatagramEgress, DisconnectReason, ExitId, ScheduleMode,
+    SendError, StreamEgress,
+};
+use mesh_bus_egress_mesh_peer_udp::MeshPeerUdpEgress;
+use std::net::SocketAddr;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::net::UdpSocket;
+use tokio::sync::mpsc;
+
+fn endpoint(host: &str, port: u16) -> Endpoint {
+    Endpoint::new(host.to_string(), port).unwrap()
+}
+
+async fn recv_mesh_frame(sock: &UdpSocket) -> (MeshFrame, SocketAddr) {
+    let mut buf = vec![0u8; 2048];
+    let (n, peer) = sock.recv_from(&mut buf).await.expect("recv mesh frame");
+    let frame = decode_frame(&mut BytesMut::from(&buf[..n])).expect("decode mesh frame");
+    (frame, peer)
+}
+
+#[test]
+fn capabilities_advertise_stream_and_datagram() {
+    let peer_addr: SocketAddr = "127.0.0.1:9".parse().unwrap();
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    );
+    assert!(StreamEgress::capabilities(&egress).supports_stream);
+    assert!(DatagramEgress::capabilities(&egress).supports_datagram);
+}
+
+#[test]
+fn adapter_projections_advertise_only_their_flow_family() {
+    let peer_addr: SocketAddr = "127.0.0.1:9".parse().unwrap();
+    let owner = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    );
+
+    let stream = owner.clone().as_stream_adapter();
+    assert!(StreamEgress::capabilities(&stream).supports_stream);
+    assert!(!StreamEgress::capabilities(&stream).supports_datagram);
+
+    let datagram = owner.as_datagram_adapter();
+    assert!(!DatagramEgress::capabilities(&datagram).supports_stream);
+    assert!(DatagramEgress::capabilities(&datagram).supports_datagram);
+}
+
+#[tokio::test]
+async fn stream_open_emits_mesh_stream_open() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame);
+    let target = endpoint("example.com", 443);
+    let request = BusSessionRequest::stream(target.clone()).with_route_group("mesh-upstream");
+    let mut session = egress
+        .open_stream(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer stream");
+    session.connect().await.expect("connect mesh peer stream");
+
+    let (frame, _) = recv_mesh_frame(&peer).await;
+    assert_eq!(
+        frame,
+        MeshFrame::StreamOpen(StreamOpen {
+            session_id: "test-session".into(),
+            target,
+            route_group: Some("mesh-upstream".into()),
+            flow_semantics: FlowSemanticsWire::ByteStream,
+            return_semantics: ReturnSemanticsWire::Direct,
+            source_node_id: "local".into(),
+            path_trace: Vec::new(),
+        })
+    );
+}
+
+#[tokio::test]
+async fn stream_send_emits_ordered_stream_data() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame);
+    let target = endpoint("example.com", 443);
+    let request = BusSessionRequest::stream(target);
+    let mut session = egress
+        .open_stream(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer stream");
+    session.connect().await.expect("connect mesh peer stream");
+    let _ = recv_mesh_frame(&peer).await;
+
+    let (mut send, _recv) = session.split();
+    send.send(Bytes::from_static(b"stream-sdu"))
+        .await
+        .expect("send stream bytes");
+
+    let (frame, _) = recv_mesh_frame(&peer).await;
+    assert_eq!(
+        frame,
+        MeshFrame::StreamData {
+            session_id: "test-session".into(),
+            seq: 1,
+            payload: Bytes::from_static(b"stream-sdu"),
+        }
+    );
+}
+
+#[tokio::test]
+async fn stream_recv_preserves_same_drain_multiple_data_frames() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame);
+    let target = endpoint("example.com", 443);
+    let request = BusSessionRequest::stream(target);
+    let mut session = egress
+        .open_stream(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer stream");
+    session.connect().await.expect("connect mesh peer stream");
+    let (_, client) = recv_mesh_frame(&peer).await;
+
+    let (_send, mut recv) = session.split();
+    for (seq, payload) in [(1, b"tls-server-hello".as_slice()), (2, b"tls-cert-chain")] {
+        let packet = encode_frame(&MeshFrame::StreamData {
+            session_id: "test-session".into(),
+            seq,
+            payload: Bytes::copy_from_slice(payload),
+        })
+        .expect("encode stream data");
+        peer.send_to(&packet, client)
+            .await
+            .expect("send stream data");
+    }
+
+    let first = tokio::time::timeout(Duration::from_secs(1), recv.recv())
+        .await
+        .expect("first recv must not hang")
+        .expect("first stream payload");
+    let second = tokio::time::timeout(Duration::from_millis(200), recv.recv())
+        .await
+        .expect("second recv must be buffered from same drain")
+        .expect("second stream payload");
+
+    assert_eq!(&first[..], b"tls-server-hello");
+    assert_eq!(&second[..], b"tls-cert-chain");
+}
+
+#[tokio::test]
+async fn stream_close_removes_session_state() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame);
+    let target = endpoint("example.com", 443);
+    let request = BusSessionRequest::stream(target);
+    let mut session = egress
+        .open_stream(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer stream");
+    session.connect().await.expect("connect mesh peer stream");
+    let _ = recv_mesh_frame(&peer).await;
+
+    let (mut send, _recv) = session.split();
+    send.abort(DisconnectReason::ConnectionReset).await;
+
+    let (frame, _) = recv_mesh_frame(&peer).await;
+    assert_eq!(
+        frame,
+        MeshFrame::StreamClose {
+            session_id: "test-session".into(),
+            close_reason: CloseReasonWire::Normal,
+        }
+    );
+    assert!(matches!(
+        send.send(Bytes::from_static(b"after-close")).await,
+        Err(DisconnectReason::SessionClosed)
+    ));
+}
+
+#[tokio::test]
+async fn datagram_session_exchanges_mesh_datagram_frames() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+    let (seen_tx, mut seen_rx) = mpsc::channel::<MeshFrame>(2);
+
+    tokio::spawn(async move {
+        let (open, client) = recv_mesh_frame(&peer).await;
+        seen_tx.send(open).await.expect("record open");
+
+        let (send, client_again) = recv_mesh_frame(&peer).await;
+        assert_eq!(client_again, client);
+        seen_tx.send(send).await.expect("record send");
+
+        let reply = encode_frame(&MeshFrame::DatagramReturn {
+            session_id: "test-session".into(),
+            seq: 1,
+            source: endpoint("8.8.8.8", 53),
+            payload: Bytes::from_static(b"dns-reply"),
+        })
+        .expect("encode reply");
+        peer.send_to(&reply, client).await.expect("send reply");
+    });
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame);
+    let max_datagram_bytes = egress.max_payload_bytes() as u64;
+    let target = endpoint("8.8.8.8", 53);
+    let request = BusSessionRequest::datagram(target.clone());
+    let mut session = egress
+        .open_datagram(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer datagram");
+
+    session
+        .send_to(target.clone(), Bytes::from_static(b"dns-query"))
+        .await
+        .expect("send datagram");
+
+    assert_eq!(
+        seen_rx.recv().await.expect("open frame"),
+        MeshFrame::DatagramOpen(mb_proto_mesh::DatagramOpen {
+            session_id: "test-session".into(),
+            fixed_target: Some(target.clone()),
+            max_datagram_bytes,
+        })
+    );
+    assert_eq!(
+        seen_rx.recv().await.expect("send frame"),
+        MeshFrame::DatagramSend {
+            session_id: "test-session".into(),
+            seq: 1,
+            target: target.clone(),
+            payload: Bytes::from_static(b"dns-query"),
+        }
+    );
+
+    let (source, payload) = session.recv_from().await.expect("recv datagram return");
+    assert_eq!(source, target);
+    assert_eq!(&payload[..], b"dns-reply");
+}
+
+#[tokio::test]
+async fn mesh_peer_udp_oversize_send_reports_payload_too_large() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    );
+    let target = endpoint("8.8.8.8", 53);
+    let request = BusSessionRequest::datagram(target.clone());
+    let mut session = egress
+        .open_datagram(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer datagram");
+
+    // Within the 65000-byte app ceiling but well past the conservative PMTU:
+    // the substrate must surface this as a typed failure, not a silent Ok(()).
+    let oversize = Bytes::from(vec![0u8; 4096]);
+    let result = session.send_to(target, oversize).await;
+    assert!(
+        matches!(result, Err(SendError::PayloadTooLarge)),
+        "oversize datagram is a typed failure, not a silent Ok: got {result:?}"
+    );
+}
+
+#[test]
+fn meshsec_advertised_budget_fits_seal_clear_cap() {
+    use mb_proto_mesh::meshsec::MESHSEC_MAX_CLEAR_LEN;
+    // With MeshSec configured the sealed clear (encoded MeshFrame) must fit the
+    // 1024 padding bucket (MESHSEC_MAX_CLEAR_LEN=1022). The advertised datagram
+    // budget must therefore be <= MESHSEC_MAX_CLEAR_LEN minus frame overhead,
+    // never the unsealed 65_000 (~64x over-advertise = silent drop).
+    let sealed_budget = mesh_bus_egress_mesh_peer_udp::meshsec_max_payload_bytes();
+    assert!(
+        sealed_budget <= MESHSEC_MAX_CLEAR_LEN,
+        "sealed budget {sealed_budget} exceeds seal clear cap {MESHSEC_MAX_CLEAR_LEN}"
+    );
+    assert!(sealed_budget > 0);
+}
+
+const TEST_KEY: [u8; 32] = [11u8; 32];
+
+fn now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock")
+        .as_secs()
+}
+
+async fn recv_sealed_frame_opened_from_node_a(sock: &UdpSocket) -> (MeshFrame, SocketAddr) {
+    let mut buf = vec![0u8; 2048];
+    let (n, peer) = sock.recv_from(&mut buf).await.expect("recv sealed frame");
+    assert!(
+        decode_frame(&mut BytesMut::from(&buf[..n])).is_err(),
+        "egress must seal outbound frames, not send them in clear"
+    );
+    let keys = vec![MeshSecOpenKey {
+        peer_id: "peer-a".into(),
+        remote_node_id: "node-a".into(),
+        static_key: TEST_KEY,
+    }];
+    let mut replay = MeshSecReplayCache::new(MESHSEC_REPLAY_WINDOW_BITS);
+    let epoch = meshsec_epoch_number(now_secs());
+    let (_, frame) = open_mesh_frame(
+        &buf[..n],
+        &keys,
+        "node-b",
+        epoch.saturating_sub(MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS)
+            ..=epoch + MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS,
+        &mut replay,
+    )
+    .expect("open sealed egress frame");
+    (frame, peer)
+}
+
+#[tokio::test]
+async fn meshsec_egress_seals_outbound_and_opens_sealed_return() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+    let (seen_tx, mut seen_rx) = mpsc::channel::<MeshFrame>(2);
+
+    tokio::spawn(async move {
+        let (open, client) = recv_sealed_frame_opened_from_node_a(&peer).await;
+        seen_tx.send(open).await.expect("record open");
+        let (send, client_again) = recv_sealed_frame_opened_from_node_a(&peer).await;
+        assert_eq!(client_again, client);
+        seen_tx.send(send).await.expect("record send");
+
+        let reply_ctx = MeshSecSealContext {
+            local_node_id: "node-b".into(),
+            remote_node_id: "node-a".into(),
+            static_key: TEST_KEY,
+            boot_salt: [3, 3, 3, 3],
+        };
+        let reply = seal_mesh_frame(
+            &MeshFrame::DatagramReturn {
+                session_id: "test-session".into(),
+                seq: 1,
+                source: endpoint("8.8.8.8", 53),
+                payload: Bytes::from_static(b"dns-reply"),
+            },
+            &reply_ctx,
+            meshsec_epoch_number(now_secs()),
+            1,
+        )
+        .expect("seal reply");
+        peer.send_to(&reply, client).await.expect("send reply");
+    });
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(500),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame)
+    .with_meshsec(MeshSecSealContext {
+        local_node_id: "node-a".into(),
+        remote_node_id: "node-b".into(),
+        static_key: TEST_KEY,
+        boot_salt: [1, 2, 3, 4],
+    });
+    let target = endpoint("8.8.8.8", 53);
+    let request = BusSessionRequest::datagram(target.clone());
+    let mut session = egress
+        .open_datagram(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer datagram");
+
+    session
+        .send_to(target.clone(), Bytes::from_static(b"dns-query"))
+        .await
+        .expect("send datagram");
+
+    assert!(matches!(
+        seen_rx.recv().await.expect("open frame"),
+        MeshFrame::DatagramOpen(_)
+    ));
+    assert_eq!(
+        seen_rx.recv().await.expect("send frame"),
+        MeshFrame::DatagramSend {
+            session_id: "test-session".into(),
+            seq: 1,
+            target: target.clone(),
+            payload: Bytes::from_static(b"dns-query"),
+        }
+    );
+
+    let (source, payload) = session.recv_from().await.expect("recv datagram return");
+    assert_eq!(source, target);
+    assert_eq!(&payload[..], b"dns-reply");
+}

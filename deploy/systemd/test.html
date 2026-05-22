@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>deploy/systemd - Owner Proof Contract</title>
+  <style>
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:#182026; background:#f7f8fa; }
+    header, main { max-width:900px; margin:0 auto; padding:20px 24px; }
+    section { margin:0 0 18px; border:1px solid #d8dee4; border-radius:8px; padding:18px; background:#fff; }
+    h1,h2 { margin:0 0 10px; } code { background:#eef1f4; padding:1px 4px; border-radius:4px; }
+    table { width:100%; border-collapse:collapse; } th,td { border:1px solid #d8dee4; padding:8px; text-align:left; vertical-align:top; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>deploy/systemd - Owner Proof Contract</h1>
+    <p>Classification: <strong>deployment contract</strong>. This directory owns systemd unit shape, not runtime topology.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table><tr><th>Surface</th><th>Path</th></tr><tr><td>Guide</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr><tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr><tr><td>Unit</td><td><a href="mesh-bus.service">mesh-bus.service</a></td></tr></table>
+    </section>
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <p>Owned data is the unit template: <code>ExecStart</code>, drain timeout, file descriptor limit, sandboxing, journald capture, and state directory policy.</p>
+    </section>
+    <section id="runner">
+      <h2>Fixtures / Runner</h2>
+      <table><tr><th>Proof</th><th>Runner</th></tr><tr><td>Unit syntax and install-host compatibility</td><td><code>systemd-analyze verify deploy/systemd/mesh-bus.service</code></td></tr><tr><td>Runtime config preflight</td><td><code>mesh-bus check --config</code></td></tr></table>
+    </section>
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <p>The unit must run <code>mesh-bus run --config</code>, rely on YAML for WAN topology, and preserve shutdown drain semantics.</p>
+    </section>
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <p>Binary owns CLI behavior; runtime owns config parsing; deployment only wires the installed service process.</p>
+    </section>
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <p>No WAN topology, policy, scheduler, or protocol behavior tests here. Those belong to runtime and binary e2e.</p>
+    </section>
+  </main>
+</body>
+</html>

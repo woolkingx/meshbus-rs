@@ -1,0 +1,5 @@
+[package]
+name = "mb-health"
+version = "0.1.1"
+edition.workspace = true
+rust-version.workspace = true

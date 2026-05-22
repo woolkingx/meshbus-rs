@@ -1,0 +1,33 @@
+id: parse_pipeline_p7_operator_surface_round_trips
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      rule_chain_resolver: /etc/mesh-bus/resolver.yaml
+      geosite:
+        path: /etc/mesh-bus/geosite.dat
+      dns_cache:
+        serve_stale_window_ms: 60000
+      geoip:
+        country_path: /etc/mesh-bus/country.mmdb
+        asn_path: /etc/mesh-bus/asn.mmdb
+expect:
+  ok: true
+  debug_contains:
+    - "/etc/mesh-bus/forward.yaml"
+    - "/etc/mesh-bus/resolver.yaml"
+    - "/etc/mesh-bus/geosite.dat"
+    - "serve_stale_window_ms: Some(60000)"
+observations: []
+tags: []

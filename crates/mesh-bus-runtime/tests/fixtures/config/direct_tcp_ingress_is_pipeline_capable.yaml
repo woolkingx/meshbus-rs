@@ -1,0 +1,21 @@
+id: direct_tcp_ingress_is_pipeline_capable
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Tcp
+        listen: 127.0.0.1:19090
+        target: 127.0.0.1:80
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "Tcp {"
+observations: []
+tags: []

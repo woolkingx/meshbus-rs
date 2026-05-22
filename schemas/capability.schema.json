@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capability.schema.json",
+  "title": "Capabilities",
+  "type": "object",
+  "required": ["protocol", "supports_stream", "supports_datagram"],
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "description": "opaque adapter protocol label for status and capability display; not a protocol parser or dispatch branch contract"
+    },
+    "supports_stream": { "type": "boolean" },
+    "supports_datagram": { "type": "boolean" },
+    "max_payload_bytes": { "type": "integer", "minimum": 0 },
+    "groups": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Route group labels; runtime filters candidate exits by membership when BusSessionRequest.route_group is set."
+    }
+  },
+  "additionalProperties": false
+}

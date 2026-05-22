@@ -1,0 +1,11 @@
+id: parse_invalid_yaml_returns_error
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: "not: valid: yaml: ["
+expect:
+  ok: false
+observations: []
+tags: []

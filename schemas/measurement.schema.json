@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "measurement.schema.json",
+  "title": "Measurement",
+  "type": "object",
+  "required": ["exit_id", "at_ms", "rtt_ms", "payload_bytes", "success"],
+  "properties": {
+    "exit_id": { "$ref": "exit-id.schema.json" },
+    "at_ms": { "type": "integer", "minimum": 0 },
+    "rtt_ms": { "type": "integer", "minimum": 0 },
+    "payload_bytes": { "type": "integer", "minimum": 0 },
+    "jitter_ms": { "type": "integer", "minimum": 0 },
+    "throughput_bps": { "type": "integer", "minimum": 0 },
+    "success": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

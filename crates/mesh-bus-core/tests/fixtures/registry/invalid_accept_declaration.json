@@ -1,0 +1,17 @@
+{
+  "name": "invalid_accept_declaration",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "stale_accept_target", "kind": "Transport", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": false, "may_jump": false, "may_jump_to": [], "may_accept_to": ["direct"], "side_effect_only": false },
+        { "id": "allow", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [{ "id": "main", "hooks": ["stale_accept_target", "allow"] }],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "may_accept_to targets while may_terminate=false" }
+}

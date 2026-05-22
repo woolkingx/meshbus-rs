@@ -1,0 +1,24 @@
+id: parse_pipeline_source_id_is_opaque_http_edge
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      source:
+        id: http-edge
+expect:
+  ok: true
+  debug_contains:
+    - "http-edge"
+observations: []
+tags: []

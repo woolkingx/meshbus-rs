@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-ingress-tcp/schema.json",
+  "title": "mesh-bus-ingress-tcp",
+  "description": "Config for a plain TCP ingress listener with a fixed upstream target. Constructed by mesh-bus-runtime from IngressCfg::Tcp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["listen", "target"],
+  "properties": {
+    "listen": {
+      "type": "string",
+      "description": "host:port to bind the TCP listener."
+    },
+    "target": {
+      "type": "string",
+      "description": "Fixed upstream host:port all sessions are forwarded to."
+    },
+    "socket_recv_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_RCVBUF size in bytes for accepted TCP sockets."
+    },
+    "socket_send_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_SNDBUF size in bytes for accepted TCP sockets."
+    },
+    "client_eof_semantics": {
+      "type": "string",
+      "const": "stream-send-half-shutdown-write",
+      "description": "After client read EOF, ingress calls StreamSendHalf::shutdown_write and keeps reading upstream returns until FIN."
+    }
+  }
+}

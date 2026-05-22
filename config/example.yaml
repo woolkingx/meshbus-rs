@@ -1,0 +1,7 @@
+ingresses:
+  - kind: Socks5
+    listen: 127.0.0.1:11080
+egresses:
+  - kind: Tcp
+    id: direct
+    timeout_ms: 3000

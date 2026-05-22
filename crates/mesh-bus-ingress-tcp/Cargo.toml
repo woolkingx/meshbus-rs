@@ -1,0 +1,25 @@
+[package]
+name = "mesh-bus-ingress-tcp"
+version = "0.1.1"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-chunker = { path = "../../lib/mb-chunker" }
+mb-splice = { path = "../../lib/mb-splice" }
+mb-socket-tune = { path = "../../lib/mb-socket-tune" }
+mesh-bus-pipeline-hooks = { path = "../mesh-bus-pipeline-hooks" }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }
+mesh-bus-egress-tcp = { path = "../mesh-bus-egress-tcp" }
+mesh-bus-resolver = { path = "../mesh-bus-resolver" }
+mb-rule = { path = "../../lib/mb-rule" }
+mb-geoip = { path = "../../lib/mb-geoip" }
+mb-geosite = { path = "../../lib/mb-geosite" }

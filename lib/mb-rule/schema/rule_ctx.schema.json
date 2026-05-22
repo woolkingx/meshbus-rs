@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bus-mesh/schema/rule_ctx.schema.json",
+  "title": "RuleCtx",
+  "type": "object",
+  "properties": {
+    "src_ip":         { "type": ["string", "null"], "format": "ipv4-or-ipv6" },
+    "dst_ip":         { "type": ["string", "null"], "format": "ipv4-or-ipv6" },
+    "dst_port":       { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 },
+    "network":        { "$ref": "#/definitions/RuleNetwork" },
+    "flow_id":        { "type": ["string", "null"] },
+    "session_shape":  { "$ref": "#/definitions/RuleSessionShape" },
+    "operation":      { "type": ["string", "null"], "description": "Protocol-neutral source operation such as connect, datagram_associate, or datagram_send" },
+    "schedule_hint":  { "$ref": "#/definitions/RuleScheduleHint" },
+    "traffic_class":  { "$ref": "#/definitions/RuleTrafficClass" },
+    "transform_kind": { "$ref": "#/definitions/RuleTransformKind" },
+    "fragment_group": { "type": ["string", "null"] },
+    "hostname":       { "type": ["string", "null"] },
+    "socks5_command": {
+      "$ref": "#/definitions/RuleSocks5Command",
+      "description": "legacy compatibility predicate for existing SOCKS5 RulePolicy users; future adapters should write protocol-neutral operation instead of adding protocol-named fields"
+    },
+    "consumer":       { "type": ["string", "null"] },
+    "dns_qtype":      { "type": ["string", "null"] },
+    "authenticated_user": { "type": ["string", "null"] },
+    "dst_geo":      { "type": ["string", "null"], "description": "ISO 3166-1 alpha-2" },
+    "asn":          { "type": ["integer", "null"], "minimum": 0, "maximum": 4294967295 },
+    "geosite_tags": { "type": "array", "items": { "type": "string" }, "default": [] }
+  },
+  "definitions": {
+    "RuleNetwork":       { "type": ["string", "null"], "enum": [null, "tcp", "udp"] },
+    "RuleSessionShape":  { "type": ["string", "null"], "enum": [null, "stream", "datagram"] },
+    "RuleScheduleHint":  {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "enum": ["auto"] },
+        { "type": "object", "required": ["fanout"], "properties": {
+            "fanout": { "type": "object", "required": ["k"], "properties": { "k": { "type": "integer", "minimum": 1 } }, "additionalProperties": false }
+          }, "additionalProperties": false }
+      ]
+    },
+    "RuleTrafficClass":  { "type": ["string", "null"], "enum": [null, "interactive", "bulk", "control"] },
+    "RuleTransformKind": { "type": ["string", "null"], "enum": [null, "fragment", "compress", "encrypt", "checksum", "parity"] },
+    "RuleSocks5Command": { "type": ["string", "null"], "enum": [null, "connect", "bind", "udp_associate"] },
+    "RuleFlowId":        { "type": ["string", "null"] }
+  }
+}

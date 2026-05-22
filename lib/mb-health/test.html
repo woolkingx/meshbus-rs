@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-health - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-health - Owner Proof Contract</h1>
+    <p>Classification: <strong>stateful data owner</strong>. This module owns bounded health evidence windows and per-exit failure/recovery state.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-health</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-health</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Data</th><th>Contract</th></tr>
+        <tr><td><code>HealthWindow</code></td><td>Bounded RTT, outcome, EWMA jitter, and payload-byte windows.</td></tr>
+        <tr><td><code>HealthPolicy</code></td><td>Failure threshold, recovery window, and probe delay constants.</td></tr>
+        <tr><td><code>ExitHealthTable</code></td><td>Per-exit failure counters, last failure, last success, and probe gating.</td></tr>
+      </table>
+      <p>The caller owns clock samples and exit identity strings. This module owns only the health-state mutation rules.</p>
+    </section>
+
+    <section id="fixtures">
+      <h2>Fixture / Test Source</h2>
+      <table>
+        <tr><th>File</th><th>Proofs</th></tr>
+        <tr><td><a href="src/lib.rs">src/lib.rs</a> inline tests</td><td>Goodput, jitter, and EWMA behavior.</td></tr>
+        <tr><td><a href="tests/window.rs">tests/window.rs</a></td><td>Sample count, eviction, success rate, unhealthy threshold, probe delay, and recovery.</td></tr>
+      </table>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mb-health</code></td><td>All owner proofs.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Bounded window</td><td>RTT and byte windows evict oldest samples at capacity.</td></tr>
+        <tr><td>EWMA and jitter</td><td>Mean RTT and jitter respond to samples while resisting single spikes.</td></tr>
+        <tr><td>Goodput</td><td>Byte samples over time produce byte-per-second estimates; insufficient samples return zero.</td></tr>
+        <tr><td>Success rate</td><td>Outcome window returns the success fraction, defaulting to 1.0 when empty.</td></tr>
+        <tr><td>Exit health</td><td>Failures mark exits unhealthy, probe delay re-admits them, and success recovers them.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-core dispatch</td><td>Consumes <code>ExitHealthTable</code> as health evidence and owns dispatch decisions.</td></tr>
+        <tr><td>Schedulers</td><td>Consume RTT, jitter, success, and goodput evidence without owning the health mutation rules.</td></tr>
+      </table>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Wall-clock, sleep, socket, or async runtime tests</td><td>Callers pass <code>now_ms</code>; health state is deterministic data.</td></tr>
+        <tr><td>Scheduler ranking or dispatch selection tests</td><td>Those are composition owners.</td></tr>
+        <tr><td>Network reachability assumptions</td><td>This module records evidence; it does not create it.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

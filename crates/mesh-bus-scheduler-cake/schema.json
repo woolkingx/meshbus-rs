@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-scheduler-cake/schema.json",
+  "title": "mesh-bus-scheduler-cake",
+  "description": "CAKE-based metadata-only exit ranking scheduler. Consumes RankContext placement metadata and local measurement windows; never parses protocol payloads.",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "RankContextUse": {
+      "type": "object",
+      "description": "Packet metadata consumed by the scheduler before ranking candidates.",
+      "required": ["flow_id", "traffic_class", "flow_semantics", "return_semantics"],
+      "properties": {
+        "flow_id": {
+          "type": "string",
+          "description": "Used as the deterministic ranking key."
+        },
+        "traffic_class": {
+          "enum": ["Interactive", "Bulk", "Control", "Probe"],
+          "description": "Selects rank configuration."
+        },
+        "flow_semantics": {
+          "enum": ["ByteStream", "Datagram", "Message"],
+          "description": "L4 flow-shape metadata available for generic transport placement; not a protocol parser or L7 policy input."
+        },
+        "return_semantics": {
+          "enum": ["Direct", "PacketDedup", "SequenceReorder"],
+          "description": "L4 return-shape metadata available for generic transport placement; not a protocol parser or L7 policy input."
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExitMetric": {
+      "type": "object",
+      "description": "Per-exit metrics fed into the CAKE rank function.",
+      "required": ["rtt_ms", "success_rate"],
+      "properties": {
+        "rtt_ms": { "type": "number", "minimum": 0 },
+        "success_rate": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "ScheduleDecision": {
+      "type": "object",
+      "description": "Decision shape returned by the CAKE scheduler.",
+      "required": ["mode"],
+      "properties": {
+        "mode": {
+          "const": "Ordered",
+          "description": "CAKE only orders candidates; bus-core owns Replicate fan-out semantics."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

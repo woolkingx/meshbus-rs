@@ -1,0 +1,54 @@
+id: direct_tcp_over_mesh_peer_to_remote_tcp_e2e
+owner: mesh-bus-bin.product-topology
+kind: service-composition
+case: e2e.product_topology
+schema_ref: schemas/test-runtime.schema.json
+input:
+  resources:
+    - name: NODE_A_TCP
+      kind: tcp_addr
+    - name: NODE_B_MESH
+      kind: udp_addr
+    - name: TCP_ECHO
+      kind: tcp_echo
+  nodes:
+    - name: node-b
+      start_after_ms: 150
+      config_yaml: |
+        node:
+          id: node-b
+        ingresses:
+          - kind: MeshPeerUdp
+            listen: "{{NODE_B_MESH}}"
+        egresses:
+          - kind: Tcp
+            id: node-b-tcp
+            timeout_ms: 1000
+    - name: node-a
+      start_after_ms: 150
+      config_yaml: |
+        node:
+          id: node-a
+        peers:
+          - id: parent-b
+            node_id: node-b
+            route_groups: [mesh-upstream]
+        ingresses:
+          - kind: Tcp
+            listen: "{{NODE_A_TCP}}"
+            target: "{{TCP_ECHO}}"
+        egresses:
+          - kind: MeshPeerUdp
+            id: peer-b
+            peer_id: parent-b
+            peer: "{{NODE_B_MESH}}"
+            timeout_ms: 1000
+            groups: [mesh-upstream]
+  probe:
+    kind: tcp_roundtrip
+    target: "{{NODE_A_TCP}}"
+    payload: "direct-tcp-over-mesh"
+expect:
+  echo_payload: "direct-tcp-over-mesh"
+observations: []
+tags: []

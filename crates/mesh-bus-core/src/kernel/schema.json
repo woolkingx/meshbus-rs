@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "mesh-bus-core.kernel.schema.json",
+  "title": "MeshBusCoreKernelDomain",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "Bus": {
+      "description": "Runtime dispatcher: holds port, egress set, scheduler, observers, and the dispatch loop",
+      "type": "object",
+      "required": ["port", "egresses", "scheduler", "observers", "shutdown", "in_flight"]
+    },
+    "BusHandle": {
+      "description": "Control handle returned by Bus::spawn; exposes shutdown and snapshot without access to the full runtime",
+      "type": "object",
+      "required": ["shutdown", "in_flight", "drain_notify", "command_tx", "join"]
+    },
+    "BusPort": {
+      "description": "Ingress-side submission handle; creates sessions and submits frames",
+      "type": "object",
+      "required": ["submit_tx", "next_session_id", "supports_stream", "supports_datagram", "forwarder_streams", "forwarder_datagrams", "probe_channels"]
+    },
+    "BusBuilder": {
+      "description": "Builder for Bus: accumulates egresses, scheduler, observers, and health policy before building",
+      "type": "object",
+      "required": ["reg"]
+    },
+    "Registry": {
+      "description": "Plugin registry: holds egress plugins, observer plugins, scheduler, and health policy before runtime start",
+      "type": "object",
+      "required": ["egresses", "observers", "scheduler", "health_policy"]
+    },
+    "BusEvent": {
+      "description": "Observable bus lifecycle events plus routed core observation envelopes emitted to ObserverPlugin",
+      "oneOf": [
+        { "title": "SessionOpened", "type": "object", "required": ["SessionOpened"] },
+        { "title": "SessionClosed", "type": "object", "required": ["SessionClosed"] },
+        {
+          "title": "Core",
+          "type": "object",
+          "required": ["Core"],
+          "properties": {
+            "Core": {
+              "type": "object",
+              "required": ["type_id", "payload", "at_ns"],
+              "properties": {
+                "type_id": {
+                  "enum": ["FlowOpened", "FlowPathChanged", "FlowClosed", "PathIoError"]
+                },
+                "payload": {
+                  "type": "object",
+                  "description": "EventPayloadInner shape: flow/session/path metadata, byte counters, close reason, and success flag"
+                },
+                "at_ns": { "type": "integer", "minimum": 0 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "BusError": {
+      "description": "Errors returned by Bus construction or operation",
+      "enum": ["NoScheduler", "NoEgress", "SessionNotFound", "ChannelClosed"]
+    },
+    "SessionHandle": {
+      "description": "Crate-internal L4 session bridge: frame submit sender + return event receiver, held by BusPort",
+      "type": "object",
+      "required": ["id", "submit", "returns", "forwarder_streams", "forwarder_datagrams", "probe_channels"]
+    },
+    "RuntimeSnapshot": {
+      "description": "Point-in-time snapshot of runtime counters per exit, returned by BusHandle::snapshot",
+      "type": "object",
+      "required": ["exits"]
+    },
+    "DataplaneShape": {
+      "description": "Per-flow forwarding shape derived at first Open from flow semantics, realized path count, egress capabilities, and transform requirements",
+      "enum": ["Forwarder", "DatagramForwarder", "FrameRouter"]
+    },
+    "FlowCounters": {
+      "description": "Per-flow byte counters shared between dispatch and the forwarder; updated atomically on every data transfer",
+      "type": "object",
+      "required": ["bytes_in", "bytes_out"]
+    }
+  },
+  "properties": {
+    "domain": { "const": "kernel" }
+  }
+}

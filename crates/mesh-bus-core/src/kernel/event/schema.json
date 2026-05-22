@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mesh-bus-core.kernel.event",
+  "$ref": "#/$defs/Event",
+  "$defs": {
+    "HookTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hook_id": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "verdict":  { "type": "string", "enum": ["Continue","Jump","Accept","Reject","Drop"] }
+      },
+      "required": ["hook_id", "verdict"]
+    },
+    "Event": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Runtime event: opaque payload bytes plus typed metadata.",
+      "properties": {
+        "payload": { "type": "string", "contentEncoding": "base64" },
+        "meta":    { "$ref": "../metadata/schema.json#/$defs/TypedMap" }
+      },
+      "required": ["payload", "meta"]
+    }
+  }
+}

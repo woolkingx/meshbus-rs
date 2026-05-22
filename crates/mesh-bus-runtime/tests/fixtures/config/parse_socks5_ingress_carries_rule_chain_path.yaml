@@ -1,0 +1,21 @@
+id: parse_socks5_ingress_carries_rule_chain_path
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19084
+        rule_chain_path: /etc/mesh-bus/rules.yaml
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 3000
+expect:
+  ok: true
+  debug_contains:
+    - "/etc/mesh-bus/rules.yaml"
+observations: []
+tags: []

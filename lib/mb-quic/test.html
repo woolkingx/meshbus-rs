@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-quic - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-quic - Owner Proof Contract</h1>
+    <p>Classification: <strong>lib/transport</strong>. Sans-I/O QUIC protocol engine, no UDP socket ownership.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-quic</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a>, <a href="src/conn.rs">src/conn.rs</a>, <a href="src/packet.rs">src/packet.rs</a>, <a href="src/stream.rs">src/stream.rs</a>, <a href="src/datagram.rs">src/datagram.rs</a>, <a href="src/recovery.rs">src/recovery.rs</a>, <a href="src/crypto.rs">src/crypto.rs</a>, <a href="src/transport_params.rs">src/transport_params.rs</a>, <a href="src/tls.rs">src/tls.rs</a>, <a href="src/frame.rs">src/frame.rs</a></td></tr>
+        <tr><td>Tests</td><td><a href="tests/packet.rs">tests/packet.rs</a>, <a href="tests/crypto.rs">tests/crypto.rs</a>, <a href="tests/stream.rs">tests/stream.rs</a>, <a href="tests/datagram.rs">tests/datagram.rs</a>, <a href="tests/recovery.rs">tests/recovery.rs</a>, <a href="tests/limits.rs">tests/limits.rs</a>, <a href="tests/handshake.rs">tests/handshake.rs</a>, <a href="tests/interop.rs">tests/interop.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-quic</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>Version</code>, <code>Conn</code>, <code>ConnConfig</code></td><td>Protocol ownership and lifecycle surface; no I/O ownership.</td></tr>
+        <tr><td><code>frame::Frame</code>, <code>packet</code> types</td><td>Codec of QUIC long/short headers, packet numbers, varints, ACK and Crypto frame encoding/decoding.</td></tr>
+        <tr><td><code>crypto::PacketKeys</code>, <code>TransportParameters</code></td><td>RFC 9001 initial secret/material and transport-parameter transport surface.</td></tr>
+        <tr><td><code>recovery::LossRecovery</code></td><td>Loss/PTO/congestion inference state used by stream scheduling.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-fixture">
+      <h2>Schema / Fixture Source</h2>
+      <table>
+        <tr><th>Source</th><th>Proof</th></tr>
+        <tr><td>Inline vectors in <a href="tests/packet.rs">tests/packet.rs</a></td><td>Varint/frame-number/RFC9000 header roundtrips.</td></tr>
+        <tr><td>Inline vectors in <a href="tests/crypto.rs">tests/crypto.rs</a></td><td>RFC9001 initial-secret/key/IV/header-mask checks and AEAD seal/open.</td></tr>
+        <tr><td><a href="tests/limits.rs">tests/limits.rs</a></td><td>Bound checks for oversize frame lengths.</td></tr>
+        <tr><td><a href="tests/recovery.rs">tests/recovery.rs</a></td><td>ACK range reconstruction and loss timing behavior.</td></tr>
+      </table>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mb-quic</code></td><td>Protocol core proofs excluding feature-gated stream/datagram/interop/handshake tests.</td></tr>
+        <tr><td><code>cargo test -p mb-quic --features dangerous-insecure-tls</code></td><td>Enable stream/datagram/handshake/interop suites.</td></tr>
+        <tr><td><code>cargo test -p mb-quic -- packet_number_decode_rfc9000_appendix_a3</code></td><td>Packet-number decode proof.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Header/number math</td><td>Version mapping and varint/packet-number compression decode-encode roundtrips match RFC examples.</td></tr>
+        <tr><td>Crypto and secret material</td><td>RFC9001 initial secret/client/server key/IV/HP values match appendix vectors.</td></tr>
+        <tr><td>Loss recovery</td><td>ACK processing updates in-flight/RTT and loss detection transitions (including PTO reset).</td></tr>
+        <tr><td>Bounds and caps</td><td>Oversized crypto/datagram frame payloads are rejected as malformed before allocation growth.</td></tr>
+        <tr><td>Stream/data behavior</td><td>Established-path stream ordering and datagram best-effort queue behavior remain deterministic in tests.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>Future QUIC application adapter</td><td>May use this crate to implement QUIC app protocol over Mesh Protocol; adapter owns sockets or bus projection.</td></tr>
+        <tr><td><code>mesh-bus-runtime</code> or upper policies</td><td>Routing, route selection, mesh event semantics, and peer topology are not owned here.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Transport parameter and handshake proof is consumed only as protocol-library evidence.</li>
+        <li>Mesh Protocol production gates must not cite QUIC stream ownership as session, route, or reliability truth.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Raw socket syscalls/perf microbench as correctness gates</td><td>Transport crate is sans-I/O and benchmark policy is external.</td></tr>
+        <tr><td>Core/routing policy assertions</td><td>Not in mb-quic ownership.</td></tr>
+        <tr><td>Kernel QUIC backend integration as owner proof</td><td>No external QUIC runtime dependency is owned by this crate.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

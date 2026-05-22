@@ -1,0 +1,21 @@
+id: parse_health_rejects_zero_failure_threshold
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    health:
+      failure_threshold: 0
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "health failure_threshold must be >= 1"
+observations: []
+tags: []

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Direct Proxy Foundation - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Direct Proxy Foundation</h1>
+    <p>Direct proxy is the native path where sources, services, compatibility adapters, and future peers express session intent directly to mesh-bus.</p>
+  </header>
+  <main>
+    <section id="thesis">
+      <h2>Thesis</h2>
+      <div class="flow">source intent -> metadata enrichment -> rule/policy -> scheduler -> exit | service | upstream peer</div>
+      <p>Speed matters, but the first goal is cleaner rule and policy decisions. Event pipeline decides. Data plane moves. Observers sample. Compatibility protocols only project into this shape.</p>
+      <p>Direct proxy is the bottom product layer that must be correct before mesh transport optimization, chain, multi-hop, striping, reorder, or transport fast paths can be product claims.</p>
+    </section>
+
+    <section id="mvp-scope">
+      <h2>MVP Scope</h2>
+      <table>
+        <tr><th>Lane</th><th>Contract</th><th>Status</th></tr>
+        <tr><td>L4 reverse TCP</td><td>Configured listen endpoint opens a bus stream and exits to a configured service/upstream. Payload remains opaque, so HTTP and HTTPS pass as raw bytes.</td><td><span class="ok">Functional gate proven</span></td></tr>
+        <tr><td>L4 reverse UDP</td><td>Configured datagram listen endpoint forwards UDP datagrams to a configured upstream/service while preserving packet boundaries and source semantics.</td><td><span class="ok">Functional gate proven</span></td></tr>
+        <tr><td>SOCKS5 forward</td><td>SOCKS5 CONNECT and UDP ASSOCIATE project client-declared targets into direct stream/datagram opens.</td><td><span class="ok">Functional and live MeshSec path proven</span></td></tr>
+        <tr><td>HTTP CONNECT forward</td><td>HTTP proxy syntax declares the target; after CONNECT success the adapter only moves opaque bytes.</td><td><span class="ok">Functional gate proven</span></td></tr>
+      </table>
+      <p>Transparent TPROXY/TUN capture is an advanced gateway mode. It is not required for the MVP because normal users can configure SOCKS5 or HTTP proxy explicitly, and reverse proxy targets are configured by the operator.</p>
+    </section>
+
+    <section id="ontology">
+      <h2>Ontology</h2>
+      <table>
+        <tr><th>Term</th><th>Meaning</th></tr>
+        <tr><td>DirectSource</td><td>Ingress that accepts native stream or datagram intent and opens a bus session.</td></tr>
+        <tr><td>DirectRequest</td><td>One stream or datagram open intent from a direct source or compatibility adapter.</td></tr>
+        <tr><td>DirectService</td><td>Local service target exposed as a scheduler-selectable sink.</td></tr>
+        <tr><td>CompatibilityAdapter</td><td>Protocol edge that converts external syntax into DirectRequest.</td></tr>
+        <tr><td>UpstreamPeer</td><td>Another mesh-bus node selected as an egress path.</td></tr>
+        <tr><td>RuleContext</td><td>Metadata visible to rules before scheduling.</td></tr>
+        <tr><td>PathEvidence</td><td>Health, RTT, loss, goodput, saturation, close reason, and related scheduler evidence.</td></tr>
+      </table>
+    </section>
+
+    <section id="request-shape">
+      <h2>Request Shape</h2>
+      <table>
+        <tr><th>DirectStreamOpen</th><th>DirectDatagramOpen</th></tr>
+        <tr>
+          <td>target, route_group, flow_semantics, return_semantics, traffic_class, deadline_ms, policy_ref, source_labels.</td>
+          <td>target, route_group, max_datagram_bytes, return_semantics, traffic_class, deadline_ms, policy_ref, source_labels.</td>
+        </tr>
+      </table>
+      <p>Concrete Rust may reuse existing `BusSessionRequest`, endpoint, flow, return, and metadata types instead of adding public aliases.</p>
+    </section>
+
+    <section id="service-shape">
+      <h2>Service Capability Shape</h2>
+      <table>
+        <tr><th>Field</th><th>Contract</th></tr>
+        <tr><td>service_id</td><td>Stable service intent label selected by rules or route_group; it is not an L7 route table key in core.</td></tr>
+        <tr><td>route_group</td><td>Scheduler grouping used to choose a local service, exit, or future upstream peer.</td></tr>
+        <tr><td>stream_egress / datagram_egress</td><td>Capability bits. Datagram service is allowed only when packet boundary and source endpoint semantics are explicit.</td></tr>
+        <tr><td>max_datagram_bytes</td><td>Datagram service bound. Oversize behavior must be explicit; no hidden stream conversion.</td></tr>
+        <tr><td>health_epoch and policy_labels</td><td>Scheduler and policy evidence. They do not create route truth by themselves.</td></tr>
+      </table>
+      <p>Stream and datagram reverse service sinks are both functional. Datagram service keeps the RFC768 one-send-one-datagram boundary and uses configured service connect as the fixed target.</p>
+    </section>
+
+    <section id="rule-metadata">
+      <h2>Rule Metadata Contract</h2>
+      <table>
+        <tr><th>Allowed before scheduling</th><th>Forbidden as route truth</th></tr>
+        <tr>
+          <td>source id, source labels, target host/IP/port, route_group, operation, traffic_class, deadline/ttl, policy_ref, DNS enrichment, geo/asn/geosite enrichment, path evidence, schedule_hint.</td>
+          <td>HTTP path, HTTP header, decrypted TLS content, raw payload bytes, SOCKS5 negotiation details, VMess/XRAY wrapper flags, QUIC connection state.</td>
+        </tr>
+      </table>
+      <p>Compatibility metadata may exist as adapter labels; core and scheduler decisions stay protocol-neutral.</p>
+    </section>
+
+    <section id="semantics">
+      <h2>Forward, Reverse, Chain</h2>
+      <table>
+        <tr><th>Flow</th><th>Semantics</th></tr>
+        <tr><td>Forward stream</td><td>DirectSource builds stream metadata, pipeline runs, scheduler selects stream egress or peer, data plane pipes opaque bytes, close reason and metrics emit.</td></tr>
+        <tr><td>Forward datagram</td><td>DirectSource builds datagram metadata, pipeline runs, scheduler selects datagram egress or peer, data plane preserves datagram/source endpoint semantics.</td></tr>
+        <tr><td>Reverse stream</td><td>DirectServiceCapability exposes service_id/route_group/capability/health labels. Source selects service through normal scheduler and opens local connector.</td></tr>
+        <tr><td>Chain</td><td>Node A chooses node B as a MeshPeer upstream egress after local policy. Node B receives opaque Mesh Protocol stream/datagram events, re-enters its own bus, applies node-B local policy, and selects its own local TCP/UDP/SOCKS5/Service/MeshPeer egress.</td></tr>
+      </table>
+    </section>
+
+    <section id="compatibility-mapping">
+      <h2>Compatibility Mapping</h2>
+      <table>
+        <tr><th>Adapter syntax</th><th>Direct projection</th><th>Boundary</th></tr>
+        <tr><td>SOCKS5 CONNECT target</td><td>DirectStreamOpen target</td><td>SOCKS5 negotiation remains inside the SOCKS5 adapter.</td></tr>
+        <tr><td>SOCKS5 UDP packet target</td><td>DirectDatagramOpen target</td><td>UDP ASSOCIATE wrapper state does not become scheduler truth.</td></tr>
+        <tr><td>HTTP CONNECT authority</td><td>DirectStreamOpen target</td><td>HTTP parser stops after CONNECT request and response. TLS bytes are not inspected.</td></tr>
+        <tr><td>HTTP absolute-form request</td><td>DirectStreamOpen target plus rewritten origin-form request bytes</td><td>HTTP/1.1 forward-proxy compatibility belongs to the HTTP adapter, not core.</td></tr>
+        <tr><td>Transparent TCP original destination</td><td>DirectStreamOpen target</td><td>Advanced gateway capture metadata projects intent; core still sees protocol-neutral request fields.</td></tr>
+      </table>
+      <p>These mappings prove compatibility protocols are adapters to direct request semantics, not product skeletons.</p>
+      <p>HTTP CONNECT adapter contracts: <a href="../../crates/mesh-bus-ingress-http-connect/schema.json">crates/mesh-bus-ingress-http-connect/schema.json</a> and <a href="../../lib/mb-proto-http-proxy/schema.json">lib/mb-proto-http-proxy/schema.json</a>.</p>
+    </section>
+
+    <section id="movement">
+      <h2>Data Movement Contract</h2>
+      <p>Timing must separate source wait, pipeline/rule time, scheduler time, egress/service open time, movement time, return/write wait, and close propagation.</p>
+      <p>Stream candidates are direct halves, Tokio copy, std copy, blocking splice where Linux endpoints allow it, and future sockmap only after a direct single pinned stream is proven. Datagram candidates are persistent session, normal UDP send/recv baseline, future packet loop, sendmmsg/recvmmsg, and GSO/GRO.</p>
+      <p>EventBus must not move payload bytes.</p>
+    </section>
+
+    <section id="observation">
+      <h2>Observation Contract</h2>
+      <p>Every direct path must emit or preserve source id, target/service id, selected sink, route_group, operation, bytes/datagrams in and out, close reason, path evidence, and compatibility adapter id when applicable.</p>
+    </section>
+
+    <section id="gates">
+      <h2>Acceptance Gates</h2>
+      <table>
+        <tr><th>Gate</th><th>Requirement</th></tr>
+        <tr><td>Rule</td><td>Direct stream/datagram can be accepted, rejected, and route_group-selected; rules use target/source labels and cannot inspect payload bytes.</td></tr>
+        <tr><td>Forward</td><td>Direct stream reaches TCP egress; direct datagram reaches UDP egress; close reasons and metrics match compatibility semantics.</td></tr>
+        <tr><td>Reverse</td><td>Direct stream/datagram selects a local service sink without adding L7 route parsing to core.</td></tr>
+        <tr><td>HTTP CONNECT</td><td>HTTP CONNECT ingress accepts an authority target, runs the same rule/policy/scheduler path as SOCKS5 CONNECT, returns HTTP 200 only after stream open, and then relays opaque bytes.</td></tr>
+        <tr><td>Baseline</td><td>Direct stream and datagram are measured against SOCKS5 paths, with timing segmented by rule/scheduler/open/movement.</td></tr>
+        <tr><td>Chain</td><td>SOCKS5 UDP and SOCKS5 CONNECT can use MeshPeer as an upstream egress. The remote peer re-enters its bus and exits through its configured local UDP/TCP egress without Mesh Protocol parsing L7 payload.</td></tr>
+        <tr><td>Mesh deferral</td><td>Multi-hop, striping, reorder optimization, GSO/GRO performance claims, and WAN claims do not block direct foundation.</td></tr>
+      </table>
+    </section>
+
+    <section id="implementation-order">
+      <h2>Implementation Order</h2>
+      <ol>
+        <li>Keep proven direct TCP reverse and SOCKS5-over-Mesh paths as the MVP baseline.</li>
+        <li>Keep UDP reverse service semantics and product e2e green.</li>
+        <li>Keep HTTP CONNECT forward ingress green as the general-user compatibility adapter.</li>
+        <li>Add operator examples for reverse TCP, reverse UDP, SOCKS5 forward, and HTTP CONNECT forward.</li>
+        <li>Run fresh local and two-node live smoke for every MVP lane.</li>
+        <li>Only after those gates, revisit transparent gateway capture and L7 HTTPX plugins.</li>
+      </ol>
+      <p>Do not reorder this so mesh fast paths, TPROXY/TUN, or L7 HTTP routing block the product MVP.</p>
+    </section>
+
+    <section id="status">
+      <h2>Gate Evidence</h2>
+      <p>Each gate is proven by a binary end-to-end test that drives the real
+         compiled binary from operator YAML. The MVP two-node live smoke now
+         also passes against <code>198.51.100.36</code>; release throughput and
+         long-running stability remain separate production gates.</p>
+      <table>
+        <tr><th>Gate</th><th>Evidence</th><th>Status</th></tr>
+        <tr><td>Forward (stream)</td><td><code>mesh-bus-bin::e2e direct_tcp_forward_reaches_tcp_egress</code> — raw TCP ingress relays to TCP egress and echoes byte-for-byte.</td><td>Proven</td></tr>
+        <tr><td>Rule (route_group)</td><td><code>mesh-bus-bin::e2e direct_tcp_route_group_cn_pins_cn_exit</code> + <code>direct_tcp_route_group_us_pins_us_exit</code> — identical {direct,cn,us} topology, only the forward rule's <code>set_route_group</code> differs; dispatch deterministically follows the rule, so scheduler tie-break cannot explain it.</td><td>Proven</td></tr>
+        <tr><td>Reverse (service sink)</td><td><code>mesh-bus-bin::e2e direct_tcp_reverse_reaches_service_sink</code> — source target is a black-hole service-intent address; the only <code>ServiceTcp</code> sink dials its configured <code>connect</code> and echoes, proving <code>request.target</code> is ignored. <code>direct_tcp_reverse_does_not_use_l7_route_table</code> — raw non-HTTP bytes routed to the live <code>svc-a</code> by target-CIDR route_group while black-hole <code>svc-b</code> stays at zero dispatch, so selection is L4 route_group / Accept, not payload parsing.</td><td>Proven</td></tr>
+        <tr><td>Reverse (datagram service sink)</td><td><code>product_topology_fixture_runner direct_udp_reverse_reaches_service_sink</code> — raw UDP ingress target is a documentation-range black-hole address; <code>ServiceUdp</code> sends each datagram to its configured UDP echo service and returns the response.</td><td>Proven</td></tr>
+        <tr><td>Forward (datagram)</td><td><code>mesh-bus-bin::e2e direct_udp_forward_reaches_udp_egress</code> — pipeline-attached raw UDP ingress (minimal allow chain forces the <code>UdpIngress::with_pipeline</code> path) relays a datagram to UDP egress and echoes it byte-for-byte; a wiring bug would fail closed and time out.</td><td>Proven</td></tr>
+        <tr><td>HTTP CONNECT over MeshSec</td><td><code>product_topology_fixture_runner http_connect_over_secure_mesh_peer_to_remote_tcp_e2e</code> — HTTP CONNECT authority target opens a remote TCP stream through encrypted MeshPeerUdp; tunnel payload echoes byte-for-byte and wire capture proves no plaintext payload/route label/IP leakage.</td><td>Proven</td></tr>
+        <tr><td>UDP reverse over MeshSec</td><td><code>product_topology_fixture_runner udp_reverse_over_secure_mesh_peer_to_remote_service_e2e</code> — raw UDP ingress reaches remote <code>ServiceUdp</code> through encrypted MeshPeerUdp while preserving datagram payload.</td><td>Proven</td></tr>
+        <tr><td>Live two-node MVP smoke</td><td>Local node <code>local-secure</code> used only <code>MeshPeerUdp</code> egress to remote node <code>198.51.100.36:19000</code>. SOCKS5 HTTPS and HTTP CONNECT HTTPS returned HTTP 200; UDP DNS through local UDP ingress returned NOERROR. Local dispatch delta +2 and remote dispatch delta +2 for the stream probes.</td><td>Proven</td></tr>
+        <tr><td>Baseline</td><td><code>mesh-bus-bin::e2e direct_vs_socks5_comparison_record</code> (<code>#[ignore]</code>) — drives direct stream vs SOCKS5 CONNECT and direct datagram vs SOCKS5 UDP ASSOCIATE through identical echoes and records bytes in/out, close reason, selected sink, route_group, and the externally-observable setup/request/movement/teardown brackets per path. Functional comparison proven; fine-grained bus-internal segment timing and real-WAN measurement are the directive-deferred last phase. Note: the datagram plane does not yet surface a per-exit dispatch counter, so the datagram rows record sink honestly as unobserved.</td><td>Proven (functional)</td></tr>
+      </table>
+    </section>
+
+    <section id="non-goals">
+      <h2>Non-Goals</h2>
+      <p>Do not implement HTTP semantic routing, HTTPS interception, HTTP/3 semantic proxying, VMess, XRAY, TLS termination, HTTP path/header inspection, decrypted TLS inspection, or raw payload inspection in the foundation path. HTTP CONNECT is allowed as an edge adapter because it only projects target intent and then relays opaque bytes. Do not invent full service discovery before local service routing is proven. Do not claim production mesh from loopback-only direct tests.</p>
+    </section>
+  </main>
+</body>
+</html>

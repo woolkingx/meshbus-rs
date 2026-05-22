@@ -1,0 +1,36 @@
+id: dispatch.datagram.preserves_one_call_one_datagram
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.datagram.preserves_one_call_one_datagram
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: "127.0.0.1"
+    port: 9000
+  egresses:
+    - id: e-udp-1
+      protocol: udp-test
+      supports_stream: false
+      supports_datagram: true
+      max_payload_bytes: 1200
+      groups: []
+  datagram:
+    open_target:
+      host: "127.0.0.1"
+      port: 9000
+    sends:
+      - target:
+          host: "127.0.0.1"
+          port: 9000
+        payload: "pkt"
+expect:
+  open_ok: true
+  calls:
+    e-udp-1: 1
+  datagram_assertions:
+    one_send_invocation: true
+    one_datagram_received: true
+    payloads:
+      - "pkt"
+observations: []
+tags: []

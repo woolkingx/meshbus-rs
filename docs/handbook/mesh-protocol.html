@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mesh Protocol - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .topology { overflow:auto; border:1px solid var(--line); border-radius:6px; padding:12px; background:rgba(127,127,127,.08); line-height:1.35; }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Mesh Protocol</h1>
+    <p>Mesh Protocol is the content-neutral N:N event fabric above core. It decomposes logical sessions into opaque events, distributes them across adjacent peers, ports, and paths, and lets the logical endpoint reconstruct session meaning without making TCP, UDP, QUIC, SOCKS5, HTTP, or any app protocol part of mesh truth.</p>
+  </header>
+  <main>
+    <section id="scope">
+      <h2>Scope</h2>
+      <p>Mesh Protocol is not QUIC, not TCP, not UDP, not SOCKS5, not HTTP, not WireGuard, not a full-mesh routing protocol, not a channel protocol, and not a new application protocol. Its target is a native event fabric that moves opaque data packages across a mesh while preserving OSI owner boundaries.</p>
+      <p>TCP, UDP, QUIC, SOCKS5, HTTP CONNECT, DNS, and custom apps are client/server edge adapters. They project their own syntax into stream/datagram/application intent at the edge, and the remote edge projects mesh events back into the chosen egress protocol. Mesh Protocol never parses or owns their payload or protocol syntax.</p>
+      <p>The protocol is OSI-style event fabric, not TCP/IP-style tunnel. UDP ports, sockets, QUIC connections, and peer links are delivery coordinates only. Session identity, ordering, reliability, deduplication, reassembly, crypto envelope, path evidence, and delivery policy belong to the mesh/session owners, not to any adapter channel.</p>
+      <p><strong>Canonical rule:</strong> this chapter owns Mesh Protocol semantics. Transport, plan, product, and compatibility chapters may reference this shape, but must not redefine Mesh Protocol around QUIC, TCP, SOCKS5, HTTP, or any delivery substrate.</p>
+    </section>
+
+    <section id="topology-contract">
+      <h2>Topology Contract</h2>
+      <p>The stable product shape is <strong>protocol over mesh</strong>, never <strong>mesh over one protocol</strong>. Edge protocols are replaceable adapters; Mesh Protocol is the delivery and reconstruction contract between nodes.</p>
+      <pre class="topology">
+client side                                                     server side
+
+TCP client   SOCKS5 client   UDP app   QUIC app   HTTP CONNECT   custom app
+    |             |             |          |             |             |
+    v             v             v          v             v             v
++--------------------------------------------------------------------------+
+| edge ingress adapters: parse only their own protocol PCI                 |
+| output: BusSessionRequest / MeshEvent intent + opaque SDU payload         |
++--------------------------------------------------------------------------+
+                                  |
+                                  v
++--------------------------------------------------------------------------+
+| Mesh Protocol core                                                       |
+| MeshEvent + DataPackage + FamilyState + DeliveryPolicy + MeshSec + Path  |
+| owns: identity, reliability policy, ordering, dedup, reassembly, routing |
+| does not own: TCP bytes, UDP app syntax, QUIC TLS, SOCKS5 negotiation    |
++--------------------------------------------------------------------------+
+                                  |
+                                  v
++--------------------------------------------------------------------------+
+| delivery substrates                                                       |
+| Secure UDP / UDP packet loop / optional QUIC reference / TCP debug       |
+| own: socket mechanics, batching, PMTU, pacing, packet I/O, link evidence |
++--------------------------------------------------------------------------+
+                                  |
+                                  v
++--------------------------------------------------------------------------+
+| edge egress adapters: connect/send through the selected local protocol   |
++--------------------------------------------------------------------------+
+    |             |             |          |             |             |
+    v             v             v          v             v             v
+TCP server   SOCKS5 upstream   UDP peer   QUIC peer   HTTP service   custom service
+      </pre>
+      <table>
+        <tr><th>Layer owner</th><th>Owns</th><th>Must not own</th></tr>
+        <tr><td>Edge adapter</td><td>Client/server protocol syntax, endpoint intent, protocol-specific handshake, and local I/O.</td><td>Mesh route truth, mesh reliability truth, mesh session identity, or foreign protocol payload semantics.</td></tr>
+        <tr><td>Mesh Protocol</td><td>Event identity, family identity, opaque package movement, delivery policy, reliability/ordering/dedup/reassembly contract, MeshSec envelope, path evidence, and node-to-node delivery.</td><td>TCP stream bytes meaning, UDP app grammar, QUIC TLS/channel semantics, SOCKS5 negotiation details, HTTP headers, or app payload interpretation.</td></tr>
+        <tr><td>Delivery substrate</td><td>UDP socket, port, packet loop, GSO/GRO, sendmmsg/recvmmsg, PMTU, pacing, optional QUIC reference connection, and local link samples.</td><td>Application semantics, mesh session truth, route truth, or policy ownership.</td></tr>
+      </table>
+      <p>Current code names reflect implementation history, not ontology. <code>MeshPeerUdp</code> is the native peer delivery line. The old QUIC peer binding carried MeshFrames over QUIC and is not an active production runtime path. QUIC remains only as a protocol library/reference data shape unless a future app adapter carries QUIC as content over Mesh Protocol.</p>
+    </section>
+
+    <section id="upstream-egress-model">
+      <h2>Upstream Egress Model</h2>
+      <p>An upstream is any selected egress owner. Local TCP, local UDP, local SOCKS5, local service adapters, and MeshPeer are the same scheduler category: they are exits that can accept a stream or datagram SDU according to their advertised capability.</p>
+      <p>MeshPeer is special only because its upstream is another bus node. It carries opaque L7 SDU bytes as MeshEvents to a peer, and the peer re-enters its own local pipeline to choose the final egress. This makes <strong>L7 over Mesh Protocol</strong> the canonical shape.</p>
+      <pre class="topology">
+client / app protocol
+  -> edge ingress adapter owns protocol PCI
+  -> BusSessionRequest owns neutral stream/datagram intent
+  -> scheduler chooses an upstream egress
+       -> local Tcp/Udp/Socks5/Service egress
+       -> MeshPeer egress
+            -> Mesh Protocol event package
+            -> remote MeshPeer ingress
+            -> remote BusSessionRequest re-entry
+            -> remote scheduler chooses Tcp/Udp/Socks5/Service/MeshPeer egress
+      </pre>
+      <table>
+        <tr><th>Upstream kind</th><th>Accepts</th><th>Owner rule</th></tr>
+        <tr><td>TCP egress</td><td>Opaque stream SDU to a target endpoint.</td><td>Owns socket connect/copy/close only; it does not parse L7 payload.</td></tr>
+        <tr><td>UDP egress</td><td>Opaque datagram SDU and target/source endpoints.</td><td>Owns datagram send/recv and endpoint mapping only.</td></tr>
+        <tr><td>SOCKS5 egress</td><td>Stream/datagram intent projected into SOCKS5 client behavior.</td><td>Owns SOCKS5 handshake and relay syntax only.</td></tr>
+        <tr><td>MeshPeer egress</td><td>Opaque stream/datagram SDU projected into MeshEvent families.</td><td>Owns adjacent-peer event packaging, MeshSec envelope, peer path evidence, and remote re-entry. It must not become an HTTP/SOCKS/QUIC parser.</td></tr>
+      </table>
+      <p><span class="ok">Product gate passed:</span> stream-capable MeshPeer re-entry is implemented. SOCKS5 CONNECT, direct TCP, SOCKS5 UDP, and direct UDP can enter node A, cross Mesh Protocol as opaque stream/datagram events, re-enter node B, and exit through node B local TCP/UDP egress. Remote SOCKS5 stream egress is a required deployment projection of the same L7-over-mesh stream gate.</p>
+    </section>
+
+    <section id="ontology">
+      <h2>Ontology</h2>
+      <table>
+        <tr><th>Term</th><th>Meaning</th></tr>
+        <tr><td>Node</td><td>One running mesh-bus process with stable node_id.</td></tr>
+        <tr><td>Peer</td><td>Configured remote node reachable through one transport binding.</td></tr>
+        <tr><td>Envelope</td><td>Outer encrypted delivery unit. It exposes only key lookup and delivery hints, never event family, session id, node id, route group, or package bytes.</td></tr>
+        <tr><td>MeshEvent</td><td>Protocol PDU: event_id, family_id, semantic class, reliability class, ordering class, delivery_policy_id, path_epoch, PCI, and one DataPackage reference.</td></tr>
+        <tr><td>DataPackage</td><td>Opaque carried SDU: package_id, seq, offset, len, fragment_id/count, and payload bytes. Lower layers move, encrypt, split, repair, or reorder it only through declared PCI.</td></tr>
+        <tr><td>EventFamily</td><td>L5 owner scope for stream/datagram/control/observation semantics. A family owns reliability, ordering, deduplication, reassembly, repair, and close rules.</td></tr>
+        <tr><td>ReceiverMouth</td><td>A delivery mouth for one owner to accept encrypted envelopes or decoded events. UDP address and port are coordinates, not session, route, or channel truth.</td></tr>
+        <tr><td>PortOpen</td><td>An event that tells a peer which receiver port or port pool is ready to accept a class of events. It allocates a receiver, not a channel.</td></tr>
+        <tr><td>FamilyState</td><td>Receiver-side state for next_expected_seq, received bitmap, reorder window, pending packages, repair deadline, and close status.</td></tr>
+        <tr><td>LinkEvidence</td><td>Observed delivery relation between a local sender and remote mouth: srtt, rttvar, delivery ratio, loss burst, reorder score, PMTU, queue delay, and cost weight.</td></tr>
+        <tr><td>ParentPeer / ChildPeer</td><td>Adjacent upstream peer configured as egress, or adjacent downstream peer accepted by mesh-peer ingress.</td></tr>
+        <tr><td>Path</td><td>Scheduler-visible route to a local exit or configured peer egress sink.</td></tr>
+        <tr><td>Capability</td><td>Advertised ability: stream/datagram egress, route_group, wan_id, max datagram bytes, hop count, health epoch, cost labels.</td></tr>
+        <tr><td>DeliveryPolicy</td><td>Event-level contract for steer, stripe, replicate, repair, probe, receiver_set, budget, reorder window, and repair timeout.</td></tr>
+        <tr><td>Substrate binding</td><td>Concrete delivery substrate for encrypted envelopes: Secure UDP is the native production line; QUIC and TCP are reference, fallback, or comparison bindings only.</td></tr>
+      </table>
+    </section>
+
+    <section id="data-shape-contract">
+      <h2>Data Shape Contract</h2>
+      <p>Mesh Protocol follows the PCI / SDU / PDU rule from <a href="spec/data-ontology.schema.json">data-ontology.schema.json</a>. A MeshEvent is the protocol PDU. Each owner may read and mutate only its own PCI; payload and upper-layer data stay opaque SDU.</p>
+      <table>
+        <tr><th>Concept</th><th>Contract</th></tr>
+        <tr><td>Event + DataPackage</td><td>The native unit. Event carries meaning and legality; DataPackage carries bytes. Combining them makes delivery independent from channel shape.</td></tr>
+        <tr><td>Channel</td><td>A receiver queue or ingress mouth. It is not the path, not the session, and not the protocol center.</td></tr>
+        <tr><td>QUIC stream</td><td>A current compatibility/reference substrate for MeshFrame delivery. It is not the target design, not the owner of reliability, not Mesh Protocol, and not session truth.</td></tr>
+        <tr><td>Receiver hint / mouth</td><td>Delivery coordinate. It helps find the right receiver and key, but never defines identity or routing truth.</td></tr>
+        <tr><td>Session id / flow id</td><td>L5/L4 correlation data. They bind event reconstruction and scheduling evidence, not a transport channel.</td></tr>
+        <tr><td>Event payload</td><td>Opaque SDU to every lower owner. Lower layers may size, encrypt, fragment, forward, deduplicate, or reorder it only through declared PCI.</td></tr>
+      </table>
+      <p>The current QUIC reference path opens a QUIC bidirectional stream and writes MeshFrame::StreamOpen / StreamData / StreamClose inside it. That is a compatibility path and regression baseline, not the target ontology. Native mesh work keeps reliability, order, dedup, repair, striping, and reassembly in event-family PCI owned by L5/L6 over Secure UDP/MeshSec. QUIC may supply proven data-shape references such as packet number, ack range, stream offset, flow-control window, and path validation sample, but not its channel ownership model.</p>
+    </section>
+
+    <section id="invariants">
+      <h2>Event Fabric Invariants</h2>
+      <ul>
+        <li>A node stores local exits, configured parent peers, optional child peers, and aggregated capability views from adjacent peers.</li>
+        <li>A node does not require full topology, full peer list, global shortest-path routing, or route flooding.</li>
+        <li>`RouteAdvertise` updates metadata for a configured peer egress sink; it never creates a new `SinkId`.</li>
+        <li>Events forward hop by hop. Each next hop may re-enter its own bus and make a local L4 decision.</li>
+        <li>A logical session may be decomposed into MeshEvents and DataPackages, distributed across multiple peers, receiver mouths, and paths, and reconstructed only by FamilyState at the logical endpoint.</li>
+        <li>UDP ports and transport connections never define session identity. They are delivery coordinates selected by policy.</li>
+        <li>Opening or rotating a UDP port means announcing a receiver for future events. It is not opening, migrating, or owning a channel.</li>
+        <li>A channel or QUIC stream is a receiver/delivery surface only. It must not become the owner of route, identity, reliability, ordering, or reconstruction semantics.</li>
+        <li>Completing or optimizing QUIC is not completion of Mesh Protocol. Native event reliability over Secure UDP is the mesh protocol line.</li>
+        <li>TCP, UDP, QUIC, SOCKS5, HTTP, DNS, and application protocols are edge adapter contents. Mesh Protocol treats their bytes as opaque SDU.</li>
+        <li>Every advertised capability carries `hop_count`; receivers drop `hop_count >= MAX_HOP_DEPTH`.</li>
+        <li>A transport connection is path evidence and delivery substrate, not route truth, security truth, or session truth.</li>
+        <li>Transport address follows crypto: a peer's current delivery coordinate may be updated only after an envelope authenticates under the peer's accepted key material.</li>
+      </ul>
+    </section>
+
+    <section id="frame-encoding">
+      <h2>Frame Encoding</h2>
+      <p>Debug and local protocol frames use a versioned length-prefixed bincode envelope:</p>
+      <table>
+        <tr><th>Field</th><th>Contract</th></tr>
+        <tr><td>magic = 0x4D42</td><td>Identifies Mesh Protocol frames in packet captures and debug tooling.</td></tr>
+        <tr><td>version</td><td>Mesh Protocol version, not binary version. Incompatible versions return HelloReject with supported_versions.</td></tr>
+        <tr><td>msg_type</td><td>Allows the receiver to route a frame before decoding the payload.</td></tr>
+        <tr><td>payload_len + payload</td><td>Length-prefixed bincode payload. Debug JSON is allowed only behind an explicit inspection flag.</td></tr>
+      </table>
+      <p>Production WAN delivery should use MeshSec envelopes instead of exposing stable magic or message type bytes.</p>
+    </section>
+
+    <section id="prior-art-alignment">
+      <h2>Prior Art Alignment</h2>
+      <p>FIPS, Reticulum, WireGuard, and small obfuscation libraries are evidence that this shape is practical; they are not product dependencies and they do not override mesh-bus layer ownership.</p>
+      <table>
+        <tr><th>Source</th><th>Borrowed idea</th><th>mesh-bus boundary</th></tr>
+        <tr><td><a href="https://github.com/jmcorgan/fips/tree/master/docs/design">FIPS design docs</a></td><td>Clean transport / mesh / session split, hop encryption plus end-to-end session encryption, address-follows-crypto, rotating dispatch indices, local reachability evidence.</td><td>mesh-bus keeps EventBus/L4 scheduler as the switching fabric and treats channels as projections.</td></tr>
+        <tr><td><a href="https://reticulum.network/manual/whatis.html">Reticulum</a></td><td>Cryptographic identity as addressing, no mandatory IP dependency, initiator privacy, heterogeneous transports, userland mesh.</td><td>mesh-bus remains a rule/scheduler/session fabric for direct proxy and compatibility adapters, not a complete replacement network stack.</td></tr>
+        <tr><td>WireGuard-style roaming</td><td>Endpoint changes are accepted after authenticated packet decrypt, not because the transport source address claims identity.</td><td>Ports and sockets stay delivery coordinates and never become session truth.</td></tr>
+        <tr><td><a href="https://github.com/ERITEK/fantik-core">Fantik-core style obfs</a></td><td>No magic bytes, cover padding, masked frame length, and AEAD blob discipline for hostile networks.</td><td>Obfuscation belongs to transport binding policy; MeshEvent semantics remain inside L5/L6.</td></tr>
+      </table>
+    </section>
+
+    <section id="envelope">
+      <h2>Encrypted Event Envelope</h2>
+      <p>Production WAN delivery uses a minimal encrypted envelope. The outer envelope must not reveal event family, session id, node id, route group, target, service id, path trace, or payload bytes.</p>
+      <table>
+        <tr><th>Outer field</th><th>Contract</th></tr>
+        <tr><td>receiver_hint</td><td>Opaque key-derived lookup hint. It is not node_id and not route truth.</td></tr>
+        <tr><td>key_id / epoch_hint</td><td>Key selection and time-slot hint. It may be masked in WAN profile.</td></tr>
+        <tr><td>nonce</td><td>Per-packet random nonce for XChaCha20-Poly1305 profile, or unique nonce material for another approved AEAD profile.</td></tr>
+        <tr><td>ciphertext_len / padding</td><td>Delivery sizing only. Padding may bucket sizes to reduce stable wire fingerprints.</td></tr>
+        <tr><td>ciphertext</td><td>AEAD ciphertext over MeshEvent with the outer header as associated data.</td></tr>
+      </table>
+      <p>Debug-visible encoding may use fixed magic and message types only for loopback, tests, or explicit inspection. WAN profile must minimize stable handshake and channel fingerprints; the native line should not inherit QUIC's visible handshake or stream shape.</p>
+    </section>
+
+    <section id="event-families">
+      <h2>Event Families</h2>
+      <table>
+        <tr><th>Family</th><th>Events</th><th>Owner</th></tr>
+        <tr><td>Stream</td><td>StreamOpen, StreamData, StreamShutdownWrite, StreamClose, StreamAck where required.</td><td>L5 FamilyState owns ordered-within-family delivery, retransmit policy, reassembly, and close. QUIC streams do not own these semantics.</td></tr>
+        <tr><td>Datagram</td><td>DatagramSend, DatagramReturn, DatagramClose.</td><td>L5 FamilyState preserves one logical datagram and source endpoint semantics.</td></tr>
+        <tr><td>Control</td><td>CapabilityAdvertise, RouteAdvertise, DeliveryPolicy, PortOpen, PortClose, PeerDrain, PeerDown.</td><td>L4/L5 policy cache treats them as evidence with epoch and expiry.</td></tr>
+        <tr><td>Observation</td><td>PathSample, FlowSummary, HealthSnapshot.</td><td>Schedulers and observers consume evidence; registry truth remains local config.</td></tr>
+      </table>
+      <p>Every MeshEvent carries event_id, sender_node_id, ttl, created_at or epoch, and optional session_id, seq, path_trace, route_group, target, service, and DataPackage according to its family. Receivers deduplicate by event identity before applying family semantics.</p>
+    </section>
+
+    <section id="control-plane">
+      <h2>Control Plane Messages</h2>
+      <table>
+        <tr><th>Message</th><th>Direction</th><th>Contract</th></tr>
+        <tr><td>Hello</td><td>both</td><td>Proves protocol version, node_id, binding_kind, instance nonce, and identity proof.</td></tr>
+        <tr><td>HelloReject</td><td>either</td><td>Rejects incompatible version, identity, or binding capability; version mismatch reports supported_versions before close.</td></tr>
+        <tr><td>CapabilityAdvertise</td><td>both</td><td>Publishes local stream/datagram exits, route_group, wan_id, max payload, cost labels, and health epoch.</td></tr>
+        <tr><td>RouteAdvertise</td><td>both</td><td>Publishes adjacent aggregated capabilities through a configured peer sink without exposing full topology or L7 syntax.</td></tr>
+        <tr><td>PortOpen / PortClose</td><td>both</td><td>Announces receiver ports or port pools for event delivery. It changes delivery coordinates only and never creates a channel, session, or route truth.</td></tr>
+        <tr><td>LinkSample</td><td>both</td><td>Reports RTT, loss, goodput, queue delay, close count, and saturation hints as best-effort scheduling evidence.</td></tr>
+        <tr><td>PeerDrain</td><td>either</td><td>Stops accepting new sessions on a path while existing sessions close.</td></tr>
+        <tr><td>PeerDown</td><td>either</td><td>Declares a link unusable and removes advertised paths from candidate lists.</td></tr>
+      </table>
+      <p>Control and observation messages carry epoch, seq, observed_at_ms, and source_node_id. Receivers treat them as scheduling evidence, not registry truth.</p>
+    </section>
+
+    <section id="native-data-shapes">
+      <h2>Native Data Shapes</h2>
+      <table>
+        <tr><th>Shape</th><th>Fields</th><th>Owner</th></tr>
+        <tr><td>Neighbor</td><td>peer_id, mouths, last_seen, capability_epoch, dedup_window</td><td>Adjacent peer cache. Soft state with TTL; it is not global topology.</td></tr>
+        <tr><td>ReceiverMouth</td><td>mouth_id, udp_addr, family_filter, advertised_capacity, epoch</td><td>Delivery receiver. Port changes are receiver allocation events.</td></tr>
+        <tr><td>LinkEvidence</td><td>srtt, rttvar, delivery_ratio, loss_burst, reorder_score, pmtu, queue_delay, cost_weight</td><td>L4 scheduler evidence for one sender-to-mouth relation.</td></tr>
+        <tr><td>AckNack</td><td>family_id, cumulative_seq, received_bitmap, missing_ranges</td><td>L5 family feedback. It confirms or requests DataPackages, not transport streams.</td></tr>
+        <tr><td>RepairFec</td><td>generation_id, data_count, parity_count, fragment_id, repair_timeout</td><td>L5/L6 repair data for loss-sensitive families.</td></tr>
+        <tr><td>FamilyState</td><td>next_expected_seq, received_bitmap, reorder_window, pending_packages, repair_deadline</td><td>L5 endpoint reconstruction and legality state.</td></tr>
+      </table>
+      <p>These shapes borrow Wi-Fi mesh style evidence loops: beacon/probe becomes Neighbor evidence, block-ack becomes AckNack bitmap, A-MPDU style aggregation becomes DataPackage bundling, and make-before-break roaming becomes PortOpen before PortClose. Mesh-bus rejects CSMA/CA, association state, fixed channels, and HWMP-style path truth.</p>
+    </section>
+
+    <section id="route-aggregation">
+      <h2>Route Advertise Aggregation</h2>
+      <ul>
+        <li>A parent aggregates local exits plus capabilities received from adjacent peers.</li>
+        <li>Aggregation is sent only to adjacent peers; it is not flooded across the full topology.</li>
+        <li>Each hop increments hop_count. Receivers reject hop_count greater than or equal to MAX_HOP_DEPTH and log a warning.</li>
+        <li>RouteAdvertise never creates SinkId values. It updates availability and metadata for configured peer egress sinks.</li>
+        <li>Child nodes see the parent aggregated view, not the topology above that parent.</li>
+        <li>Scheduler may penalize hop_count, but core dispatch must not parse Mesh Protocol payload.</li>
+      </ul>
+    </section>
+
+    <section id="data-plane">
+      <h2>Data Plane Messages</h2>
+      <table>
+        <tr><th>Message</th><th>Required fields</th><th>Semantics</th></tr>
+        <tr><td>StreamOpen</td><td>session_id, target, route_group, flow_semantics, return_semantics, source_node_id, path_trace</td><td>Asks the receiving mesh-peer ingress to create a local BusSessionRequest and re-enter its own pipeline.</td></tr>
+        <tr><td>StreamOpenReject</td><td>session_id, reason</td><td>Rejects a stream open without silent close.</td></tr>
+        <tr><td>StreamData</td><td>session_id, seq, payload</td><td>Carries opaque stream bytes as an event. A substrate may deliver it, but reliability truth, ordering, and reconstruction remain L5-owned.</td></tr>
+        <tr><td>StreamShutdownWrite</td><td>session_id</td><td>Propagates half-close.</td></tr>
+        <tr><td>StreamClose</td><td>session_id, close_reason</td><td>Closes the stream session and releases path state.</td></tr>
+        <tr><td>DatagramOpen</td><td>session_id, fixed_target, max_datagram_bytes</td><td>Opens one datagram session when a stable target exists.</td></tr>
+        <tr><td>DatagramSend</td><td>session_id, seq, target, payload</td><td>Sends one datagram and preserves target endpoint.</td></tr>
+        <tr><td>DatagramReturn</td><td>session_id, seq, source, payload</td><td>Returns one datagram and preserves source endpoint.</td></tr>
+        <tr><td>DatagramClose</td><td>session_id, close_reason</td><td>Closes the datagram session and clears pending seq/source state.</td></tr>
+      </table>
+    </section>
+
+    <section id="projection">
+      <h2>Projection Exchange</h2>
+      <p>Nodes exchange schema projections, never Rust internal types: NodeStatus, CapabilitySnapshot, HealthSnapshot, PathStats, and FlowSummary.</p>
+      <p>V1 projection exchange is read-only. Mutating remote management belongs to a future AdminIntent plane with authz, epoch checks, dry-run, audit log, and explicit allowlists.</p>
+    </section>
+
+    <section id="segmentation">
+      <h2>Delivery Segmentation</h2>
+      <p>Delivery segmentation is an event-level contract between adjacent peers. The same encrypted event fabric may segment by event, DataPackage, flow, family, chunk, replica, or policy epoch.</p>
+      <table>
+        <tr><th>Unit</th><th>Meaning</th></tr>
+        <tr><td>event</td><td>Each event is independently delivered and deduplicated. Good for control, datagram, samples, and adverts.</td></tr>
+        <tr><td>package</td><td>One DataPackage may steer, stripe, replicate, or repair independently from the transport port that carries it.</td></tr>
+        <tr><td>family</td><td>A family maps to a policy while L5 owns identity, ordering, and reassembly.</td></tr>
+        <tr><td>chunk</td><td>Stream chunks can stripe across receiver mouths and reorder at the endpoint.</td></tr>
+        <tr><td>replica</td><td>The same event can be sent across multiple paths; the first valid event wins and later copies are dropped.</td></tr>
+        <tr><td>policy_epoch</td><td>A time-bounded delivery policy controls port pool, path pool, hash key, replica count, and reorder window.</td></tr>
+      </table>
+      <p>DeliveryPolicy itself is a MeshEvent. It has epoch, expiry, and fallback semantics. Port selection is receiver allocation: a peer advertises where it will accept later events, and senders choose among those receiver mouths by policy. Unsupported policies fall back to single-port event delivery plus deduplication.</p>
+    </section>
+
+    <section id="delivery-policy">
+      <h2>Delivery Policy</h2>
+      <table>
+        <tr><th>Mode</th><th>Use</th><th>Rule</th></tr>
+        <tr><td>steer</td><td>Default path for cost-sensitive or stable links.</td><td>Choose the best receiver mouth from LinkEvidence.</td></tr>
+        <tr><td>stripe</td><td>Bulk stream packages when RTT spread is small.</td><td>Distribute consecutive DataPackages across mouths; FamilyState reorders by seq/offset.</td></tr>
+        <tr><td>replicate</td><td>Small critical events or stale/high-loss evidence.</td><td>Send the same event to disjoint mouths; first valid event wins.</td></tr>
+        <tr><td>repair</td><td>Gap recovery and deadline-sensitive loss.</td><td>Send retransmit or FEC parity through another mouth without changing family identity.</td></tr>
+        <tr><td>probe</td><td>Low-rate exploration.</td><td>Send bounded samples to refresh LinkEvidence; never creates route truth.</td></tr>
+      </table>
+      <p>Policy changes require hysteresis, dwell time, and budget caps. Replication and repair are powerful but must not grow without cost limits.</p>
+    </section>
+
+    <section id="reentry">
+      <h2>Event Re-Entry</h2>
+      <ol>
+        <li>Receive an envelope on any allowed port or binding.</li>
+        <li>Use receiver_hint/key_id/epoch_hint to select the peer key and derive the event key.</li>
+        <li>Decrypt and authenticate the MeshEvent. Failed decrypt is a fail-closed packet drop plus an <code>obs.meshsec.drop</code> owner fact; ciphertext and decrypted SDU stay opaque to observation.</li>
+        <li>Validate ttl, path_trace, replay cache, event_id, and family-specific required fields.</li>
+        <li>For open/control events, project the event into a local BusSessionRequest or policy evidence and run the peer node's local pipeline.</li>
+        <li>Let local EventBus/L4 scheduler choose a local or remote exit.</li>
+        <li>Preserve remote event/session identity and attach local FlowId/path labels for observation, dedup, reassembly, and close propagation.</li>
+      </ol>
+      <p>Pipeline reject, no exit, expired ttl, replay, or unsupported event family returns an observable event where the family requires a response. Otherwise it is a fail-closed drop with a typed observation edge: MeshSec envelope failures publish <code>obs.meshsec.drop</code>, native event package failures publish <code>obs.native.drop</code>, and projections are defined by <a href="dataplane-observation.html#drop-observation-contract">Dataplane and Observation</a>.</p>
+    </section>
+
+    <section id="security">
+      <h2>MeshSec Security Model</h2>
+      <p>MeshSec protects adjacent-peer event envelopes without making TLS, QUIC, or a channel protocol the source of truth. The lightweight profile is no-handshake PSK event encryption.</p>
+      <p>MeshSec has two separable scopes: hop envelope protection for adjacent-peer delivery and optional end-to-end event payload protection for logical session privacy across intermediate nodes. A transport binding may provide extra encryption, but that encryption is path evidence, not session truth.</p>
+      <table>
+        <tr><th>Profile</th><th>Contract</th></tr>
+        <tr><td>MeshSec-0RTT-PSK-XChaCha</td><td>Config stores a pairwise static_key. Sender derives epoch and per-sender traffic keys, uses XChaCha20-Poly1305, encrypts MeshEvent, and sends without handshake.</td></tr>
+        <tr><td>MeshSec-Noise</td><td>Optional hardened profile for forward secrecy. It may add Noise-style ephemeral key exchange, but it must still output encrypted MeshEvents and must not define session truth.</td></tr>
+        <tr><td>Debug-clear</td><td>Loopback/test only. WAN deployment must not send clear MeshEvents.</td></tr>
+      </table>
+      <p>Replay protection is event-level: receivers keep in-memory replay caches by peer, key epoch, nonce or event_id, and family sequence where applicable. Time slots limit key lifetime; they do not replace replay checks.</p>
+      <p>Static keys are identity and key material for a peer pair, not final traffic keys. Traffic keys derive from static_key, node pair, key epoch or time slot, direction, sender_id, and boot_salt. The same AEAD key and nonce pair must never repeat.</p>
+    </section>
+
+    <section id="meshsec-wire">
+      <h2>MeshSec Wire Contract</h2>
+      <table>
+        <tr><th>Offset</th><th>Size</th><th>Field</th><th>Contract</th></tr>
+        <tr><td>0</td><td>1</td><td>version_flags</td><td>wire_version plus profile flags; reserved bits must be zero and AAD-covered.</td></tr>
+        <tr><td>1</td><td>8</td><td>receiver_hint</td><td>Epoch-rotating opaque key selector. It is not node_id, peer_id, route truth, or session truth.</td></tr>
+        <tr><td>9</td><td>1</td><td>epoch_low</td><td>epoch_number mod 256. Cleartext because wall-clock timing already reveals coarse epoch.</td></tr>
+        <tr><td>10</td><td>4</td><td>boot_salt</td><td>Per-process CSPRNG salt. It prevents counter reuse after restart without persistent counters.</td></tr>
+        <tr><td>14</td><td>8</td><td>counter</td><td>Envelope nonce material only. It is not stream seq, channel seq, or session identity.</td></tr>
+        <tr><td>22</td><td>var</td><td>ciphertext</td><td>AEAD ciphertext over inner_len, MeshEvent, and padding.</td></tr>
+        <tr><td>end</td><td>16</td><td>tag</td><td>Poly1305 authentication tag.</td></tr>
+      </table>
+      <p>Header bytes 0..22 are AEAD associated data. Fixed overhead is 38 bytes before padding. The inner plaintext starts with a 16-bit real length, followed by MeshEvent and zero padding to the selected bucket.</p>
+      <p>receiver_hint = HMAC-SHA256(K_hint, LE64(epoch_number))[0..8]. K_hint = HKDF-SHA256(static_key, info="meshsec/v1/hint"). Receivers precompute hints for accepted epochs and configured peer keys.</p>
+      <p>K_epoch = HKDF-SHA256(static_key, salt=LE64(epoch_number), info="meshsec/v1/epoch"). K_tx = HKDF-SHA256(K_epoch, salt=sender_id, info="meshsec/v1/dir/" || direction || boot_salt). Per-sender key derivation is mandatory for N:N; without it, independent senders can reuse nonce space.</p>
+      <p>Default epoch_seconds is 600. Receivers accept current, previous, and next epochs. Replay state is allocated only after AEAD success and is keyed by resolved sender_id, epoch, and boot_salt because boot_salt scopes the per-sender traffic key after process restart. Each key uses a 1024-bit sliding window over envelope counter plus L5 event_id dedup after decrypt.</p>
+      <p>Padding buckets are 128, 384, and 1024 bytes. Larger MeshEvents must be split by L5 before encryption; the envelope layer does not fragment one event across multiple packets.</p>
+      <p>Machine contract: <a href="../../lib/mb-proto-mesh/schema.json">lib/mb-proto-mesh/schema.json</a>.</p>
+      <p><span class="ok">Schema status (2026-05-18, functional-verification level):</span> <code>meshsec_envelope_v1</code>, <code>mesh_event_v1</code>, <code>data_package_v1</code>, <code>receiver_mouth_v1</code>, <code>link_evidence_v1</code>, <code>ack_nack_v1</code>, <code>family_state_v1</code>, and <code>delivery_policy_v1</code> are runtime-implemented: native Secure UDP carries <code>encode_event</code> MeshEvent/DataPackage steered through <code>UdpPacketLoop</code>; per-(peer,family) <code>FamilyReorderState</code> owns ordering/dedup; <code>ReceiverMouth</code>/PortOpen/PortClose rotate delivery coordinates; <code>LinkEvidence</code> projects from <code>PathStats</code>; <code>AckNack</code> is the L5 feedback channel; <code>DeliveryMode</code> steer/replicate/stripe/repair/probe map onto delivery coordinates only. <code>event_family_v1</code> is realized as the per-(peer,family) reorder/identity state rather than a standalone wire frame. <code>repair_fec_v1</code>: one-XOR-parity is implemented as pure codec helpers (proven by codec unit test); a wire-integrated proactive FEC packet is a documented follow-up. Live WAN throughput stays directive-deferred.</p>
+    </section>
+
+    <section id="bindings">
+      <h2>Substrate Bindings</h2>
+      <table>
+        <tr><th>Substrate</th><th>Contract</th></tr>
+        <tr><td>Secure UDP</td><td>Primary production substrate. It delivers MeshSec envelopes over one initial port or an advertised port pool. Ports are delivery coordinates only.</td></tr>
+        <tr><td>Raw UDP</td><td>Debug/local only when not protected by MeshSec. It carries control, observation, and datagram best-effort; WAN cleartext is forbidden.</td></tr>
+        <tr><td>QUIC</td><td>Reference, fallback, and benchmark substrate only. The current implementation is own real QUIC over the shared UDP packet loop and can carry MeshFrames for compatibility tests. QUIC connection and stream state must not become route truth, session truth, reliability truth, security truth, or Mesh Protocol ontology.</td></tr>
+        <tr><td>TCP</td><td>Reference/debug substrate only. It may validate event re-entry semantics but is not the primary N:N production target.</td></tr>
+      </table>
+      <p>Raw UDP and QUIC report into the same PathStats projection. UdpPacketLoop, UdpBatchSend, UdpBatchRecv, UdpGso, UdpGro, UdpPacing, UdpPathMtu, and UdpBufferSizing are L4 transport capabilities, not core payload or route-truth changes.</p>
+    </section>
+
+    <section id="gates">
+      <h2>Acceptance Gates</h2>
+      <p><span class="ok">Local green:</span> two-node raw UDP debug-clear datagram forwarding, two-node Secure UDP MeshSec datagram forwarding with packet-capture no-cleartext and tamper/replay fail-closed proof, route_group peer selection, tamper/replay fail-closed behavior, and metrics labels with node/peer/path/hop/wan evidence.</p>
+      <p><span class="ok">Product gate passed:</span> L7 stream over MeshPeer is locally and remotely proven for SOCKS5 CONNECT / direct TCP style stream SDUs. The accepted path uses MeshPeerUdp as upstream egress and remote bus re-entry; it does not reintroduce MeshPeerQuic or assign stream ownership to QUIC.</p>
+      <p><span class="warn">Spec direction:</span> future Mesh Protocol work must preserve encrypted event fabric semantics. Channel-style transport state, QUIC-stream-owned reliability, fixed handshake identity, or port-bound session truth is a design regression.</p>
+      <p><span class="ok">Native Secure UDP reliability (2026-05-18, functional-verification level):</span> implemented and proven by local two-node e2e — ordered-within-family delivery without QUIC streams (<code>mesh_peer_secure_udp_ordered_family_e2e</code>), receiver-mouth rotation (M5), LinkEvidence projection + lock-free per-neighbor snapshot (M6), and DeliveryPolicy steer/replicate/stripe/repair/probe (<code>mesh_peer_secure_udp_{replicate_dedup,stripe_reorder,repair_gap}</code>, M7). Policy changes delivery coordinates only; family identity and ordering stay L5-owned in <code>FamilyReorderState</code>.</p>
+      <p><span class="warn">Remaining gaps:</span> Secure UDP MeshSec live WAN traffic is unverified (only local two-node proofs have run; live WAN + repeatable release throughput matrix stay directive-deferred — env-gated rows exist and skip clean). A wire-integrated proactive RepairFec FEC packet, multi-mouth Stripe/Steer-hysteresis wiring (one rotating coord today), an automatic Probe sender loop, local multi-hop hardening, reconnect/recovery hardening, migration, and mutating AdminIntent remain open follow-ups.</p>
+    </section>
+  </main>
+</body>
+</html>

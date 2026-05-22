@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-schema - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-schema - Owner Proof Contract</h1>
+    <p>Classification: <strong>schema type owner</strong>. This crate owns generated cross-module Rust types and schema-index governance.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-schema</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a>, <a href="build.rs">build.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-schema</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Data</th><th>Contract</th></tr>
+        <tr><td><code>Endpoint</code>, <code>Frame</code>, <code>ReturnEvent</code>, <code>TransformDescriptor</code></td><td>Cross-module serialized type surface exported for consumers.</td></tr>
+        <tr><td>Build-generated type module</td><td>Generated in <code>OUT_DIR</code> from workspace schema files only.</td></tr>
+      </table>
+      <p>Schema authority remains <code>../../schemas/*.schema.json</code>. This crate is the index and generator boundary, not a schema source extension point.</p>
+    </section>
+
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <ul>
+        <li><a href="../../schemas/">../../schemas/*.schema.json</a> (authoritative)</li>
+        <li><a href="tests/types.rs">tests/types.rs</a></li>
+        <li><a href="tests/schema_governance.rs">tests/schema_governance.rs</a></li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-schema</code></td><td>Type roundtrips + schema governance proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-schema -- types</code></td><td>Serialization/deserialization closure proofs per type.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Roundtrip correctness</td><td>Generated types serialize and deserialize to equivalent JSON for exported contracts.</td></tr>
+        <tr><td>Schema index closure</td><td><code>schema.json</code> points to workspace schema authority and blocks extra fields.</td></tr>
+        <tr><td>Cross-module consistency</td><td>Shared contracts (IDs, health fields, flow semantics wording) match runtime/core schema wording.</td></tr>
+        <tr><td>Protocol-openness</td><td>Core data contracts (e.g. <code>protocol</code>) remain opaque labels and not protocol parsers.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-core/runtime</td><td>Consume generated types for public bus/runtime interfaces.</td></tr>
+        <tr><td>Adapter crates</td><td>Consume serialized shape contracts without redefining shared schema.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Runtime and binary owners rely on stable generated contracts for config, session, and telemetry interoperability.</li>
+        <li>Schema governance tests are the source-of-truth proof before runtime integration.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Schema mutation tests that modify workspace schema files in crate</td><td>This crate owns no local schema definitions.</td></tr>
+        <tr><td>Runtime behavior/performance assertions</td><td>Not generated type ownership scope.</td></tr>
+        <tr><td>Protocol parser tests</td><td>Parser behavior belongs to adapter/protocol crates.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

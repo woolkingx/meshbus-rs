@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reassembly.schema.json",
+  "title": "ReassemblyPolicy",
+  "type": "object",
+  "required": ["mode"],
+  "properties": {
+    "mode": {
+      "title": "ReassemblyMode",
+      "enum": ["None", "Dedup", "Reorder", "Reassemble"],
+      "description": "How the return path collates fragment metadata before emitting upward."
+    },
+    "policy_ref": {
+      "type": ["string", "null"]
+    }
+  },
+  "additionalProperties": false
+}

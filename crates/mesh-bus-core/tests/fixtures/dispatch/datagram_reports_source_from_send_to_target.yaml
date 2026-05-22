@@ -1,0 +1,37 @@
+id: dispatch.datagram.reports_source_from_send_to_target
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.datagram.reports_source_from_send_to_target
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: "127.0.0.1"
+    port: 9000
+  egresses:
+    - id: e-udp-2
+      protocol: udp-test
+      supports_stream: false
+      supports_datagram: true
+      max_payload_bytes: 1200
+      groups: []
+  datagram:
+    open_target:
+      host: "127.0.0.1"
+      port: 9000
+    sends:
+      - target:
+          host: "127.0.0.2"
+          port: 9001
+        payload: "pkt"
+        expected_recv_source: "127.0.0.2:9001"
+expect:
+  open_ok: true
+  calls:
+    e-udp-2: 1
+  datagram_assertions:
+    recv_source_must_equal_send_target: true
+    payloads:
+      - "pkt"
+    expected_recv_source: "127.0.0.2:9001"
+observations: []
+tags: []

@@ -1,0 +1,37 @@
+id: dispatch.stream.dispatch_filters_candidates_by_flow_semantics_capability
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.dispatch_filters_candidates_by_flow_semantics_capability
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: udp-only
+      protocol: udp-test
+      supports_stream: false
+      supports_datagram: true
+      groups: []
+    - id: tcp-only
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups: []
+  scenario:
+    flow_semantics: ByteStream
+    expected_candidate_ids:
+      - tcp-only
+      - udp-only
+expect:
+  open_ok: true
+  exit_id: tcp-only
+  calls:
+    udp-only: 0
+    tcp-only: 1
+  assertions:
+    - kind: capability_filter
+      expected:
+        selected: tcp-only
+observations: []
+tags: []

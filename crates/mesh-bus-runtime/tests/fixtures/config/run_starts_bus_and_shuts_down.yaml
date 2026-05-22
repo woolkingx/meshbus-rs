@@ -1,0 +1,18 @@
+id: run_starts_bus_and_shuts_down
+owner: mesh-bus-runtime.config
+kind: service-composition
+case: config.boot_shutdown
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19082
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+observations: []
+tags: []

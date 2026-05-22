@@ -1,0 +1,43 @@
+id: dispatch.datagram.closed_shape_matches_opened_shape
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.datagram.closed_shape_matches_opened_shape
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: "127.0.0.1"
+    port: 9022
+  egresses:
+    - id: e-udp-shape
+      protocol: udp-test
+      supports_stream: false
+      supports_datagram: true
+      max_payload_bytes: 1200
+      groups: []
+  datagram:
+    open_target:
+      host: "127.0.0.1"
+      port: 9022
+    sends:
+      - target:
+          host: "127.0.0.1"
+          port: 9022
+        payload: "first"
+    close_after_send: true
+    expect_close:
+      observe_flow_shapes:
+        opened: 2
+        closed: 2
+expect:
+  open_ok: true
+  calls:
+    e-udp-shape: 0
+  datagram_assertions:
+    frame_sends: 0
+    direct_sends: 1
+    flow_opened_shape: 2
+    flow_closed_shape: 2
+    shapes_match: true
+    close_called_after_send: true
+observations: []
+tags: []

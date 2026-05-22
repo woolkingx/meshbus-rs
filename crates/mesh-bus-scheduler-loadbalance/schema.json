@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-scheduler-loadbalance/schema.json",
+  "title": "mesh-bus-scheduler-loadbalance",
+  "description": "Configurable load-balance scheduler for multi-WAN egress distribution.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "required": ["mode"],
+  "additionalProperties": false,
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["round-robin", "sticky-sessions", "consistent-hashing"]
+    },
+    "sticky_ttl_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 600000
+    },
+    "weights": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z0-9_.:-]+$" },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  }
+}

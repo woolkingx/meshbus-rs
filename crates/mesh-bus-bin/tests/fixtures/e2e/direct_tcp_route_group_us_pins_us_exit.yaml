@@ -1,0 +1,54 @@
+id: direct_tcp_route_group_us_pins_us_exit
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  rule_chain_yaml: |
+    default: allow
+    rules:
+      - dst_cidr: 127.0.0.0/8
+        action:
+          set_route_group: us
+  probe:
+    kind: direct_tcp
+    payload: "direct-tcp-route-group-us"
+  yaml: |
+    metrics:
+      kind: PrometheusHttp
+      listen: "{{METRICS_LISTEN}}"
+    ingresses:
+      - kind: Tcp
+        listen: "{{TCP_LISTEN}}"
+        target: "{{TCP_ECHO}}"
+    egresses:
+      - kind: Tcp
+        id: direct
+        wan_id: wan-default
+        timeout_ms: 1000
+      - kind: Tcp
+        id: cn
+        wan_id: wan-cn
+        groups: [cn]
+        timeout_ms: 1000
+      - kind: Tcp
+        id: us
+        wan_id: wan-us
+        groups: [us]
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: "{{RULE_CHAIN}}"
+      source:
+        ingress_index: 0
+expect:
+  ok: true
+  metrics:
+    dispatch_total:
+      us:
+        min: 1
+      direct:
+        exact: 0
+      cn:
+        exact: 0
+observations: []
+tags: []

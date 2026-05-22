@@ -1,0 +1,10 @@
+[package]
+name = "mb-proto-socks5"
+version = "0.1.8"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bytes = { workspace = true }
+mb-endpoint = { path = "../mb-endpoint" }
+thiserror = { workspace = true }

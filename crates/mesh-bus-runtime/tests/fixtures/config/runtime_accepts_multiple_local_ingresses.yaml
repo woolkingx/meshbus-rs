@@ -1,0 +1,26 @@
+id: runtime_accepts_multiple_local_ingresses
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    ingresses:
+      - kind: Tcp
+        listen: 127.0.0.1:19081
+        target: 127.0.0.1:8080
+      - kind: Udp
+        listen: 127.0.0.1:19082
+        target: 127.0.0.1:5353
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "node-a"
+observations: []
+tags: []

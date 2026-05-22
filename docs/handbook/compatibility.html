@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compatibility Plugins - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Compatibility Plugins</h1>
+    <p>Compatibility plugins project external protocol syntax into protocol-neutral bus session semantics. They are application participants at the edge, not the product skeleton and not the core ontology.</p>
+  </header>
+  <main>
+    <section id="boundary">
+      <h2>Boundary</h2>
+      <ul>
+        <li>Protocol parsing belongs in codec libs or edge adapter crates.</li>
+        <li>Core receives target, flow semantics, return semantics, route_group, policy metadata, and opaque payload.</li>
+        <li>Compatibility labels may preserve protocol details for logs, but scheduler and core decisions must stay protocol-neutral.</li>
+        <li>Each plugin proves protocol correctness in its own crate and proves system integration through runtime/binary e2e.</li>
+        <li>A compatibility adapter must stitch L6 codec + L5 session control + L4 transport; it must not name kernel data-plane internals.</li>
+      </ul>
+    </section>
+
+    <section id="substrate">
+      <h2>Substrate Pattern</h2>
+      <p>An application protocol is not a new layer inside the bus. It is a stitcher over three existing surfaces:</p>
+      <table>
+        <tr><th>Surface</th><th>Owner</th><th>Adapter responsibility</th></tr>
+        <tr><td>L6 content</td><td>Codec or transform crate</td><td>Encode/decode wire layout, such as method negotiation, request/reply fields, or datagram envelope.</td></tr>
+        <tr><td>L5 control</td><td>Bus session surface</td><td>Open stream/datagram sessions, map typed close reasons into protocol replies, expose selected path metadata.</td></tr>
+        <tr><td>L4 transport</td><td>Kernel forwarding substrate</td><td>Move opaque payload through route_group filtering, health, scheduling, fanout, and return semantics.</td></tr>
+      </table>
+      <p>If a compatibility feature requires an adapter to reach into <code>Frame</code>, <code>FrameKind</code>, scheduler internals, or egress-plugin internals, the feature is misplaced. Add the missing L5 control affordance or L4 metadata field instead.</p>
+    </section>
+
+    <section id="socks5">
+      <h2>SOCKS5 Status</h2>
+      <table>
+        <tr><th>Surface</th><th>Status</th><th>Contract</th></tr>
+        <tr><td>Codec</td><td><span class="ok">Local complete</span></td><td>Recognizes CONNECT, BIND, UDP ASSOCIATE; auth method tokens; strict RSV/ATYP; full REP mapping; UDP FRAG=0 only.</td></tr>
+        <tr><td>Ingress CONNECT</td><td><span class="ok">Local complete</span></td><td>Runs pipeline/rules, opens StreamSession, replies success only after upstream open, then moves opaque bytes.</td></tr>
+        <tr><td>Ingress UDP ASSOCIATE</td><td><span class="ok">Local complete</span></td><td>Relays target-bearing UDP packets through DatagramSession. Per-target response pump prevents forward-path send/recv lockstep.</td></tr>
+        <tr><td>Ingress BIND</td><td><span class="ok">Local complete</span></td><td>Client-facing local relay: first reply listener endpoint, accept one inbound peer, second reply peer endpoint, bidirectional copy. No bus egress session.</td></tr>
+        <tr><td>Egress upstream CONNECT</td><td><span class="ok">Local complete</span></td><td>NoAuth/UserPass negotiation, ATYP-aware request/reply, full handshake timeout coverage, stream session owns one upstream tunnel.</td></tr>
+        <tr><td>Egress upstream UDP ASSOCIATE</td><td><span class="ok">Local complete</span></td><td>Binds local UDP, opens and retains TCP control connection, sends UDP ASSOCIATE, resolves relay endpoint, wraps/unwraps datagrams.</td></tr>
+        <tr><td>GSSAPI</td><td><span class="warn">Reserved</span></td><td>Codec recognizes method 0x01. Adapter never negotiates it in default builds; default-off feature has no authenticator backend.</td></tr>
+      </table>
+    </section>
+
+    <section id="socks5-lifecycle">
+      <h2>SOCKS5 Lifecycle</h2>
+      <table>
+        <tr><th>Step</th><th>Layer</th><th>Contract</th></tr>
+        <tr><td>Greeting read</td><td>L6 codec</td><td>Decode client methods from raw bytes.</td></tr>
+        <tr><td>Method reply</td><td>L6 codec + L7 adapter</td><td>Encode NoAuth/UserPass/NoAcceptable according to configured adapter support.</td></tr>
+        <tr><td>Request read</td><td>L6 codec</td><td>Decode command, ATYP, target address, and port; reject invalid RSV/ATYP/FRAG contract violations.</td></tr>
+        <tr><td>Intent projection</td><td>L7 adapter</td><td>CONNECT becomes stream intent; UDP relay packets become datagram send intent; BIND remains local relay behavior.</td></tr>
+        <tr><td>Pipeline decision</td><td>Kernel control plane</td><td>Target-bearing CONNECT and UDP relay packets run the forward pipeline; adapter does not pick a sink.</td></tr>
+        <tr><td>Open / reply</td><td>L5 session</td><td>CONNECT replies success only after upstream open; failures map <code>DisconnectReason</code> to RFC1928 REP.</td></tr>
+        <tr><td>Relay</td><td>L4 transport</td><td>CONNECT moves opaque stream bytes; UDP wraps/unwraps SOCKS5 datagrams at the adapter boundary and preserves target-bearing datagram semantics.</td></tr>
+      </table>
+      <p>SOCKS5 command names are compatibility facts. New source metadata should prefer protocol-neutral <code>ext.operation</code> values such as <code>connect</code> and <code>datagram_send</code>.</p>
+    </section>
+
+    <section id="matrix">
+      <h2>Command/Auth Matrix</h2>
+      <p>The authoritative support truth is the four-column `command_auth_matrix` in `lib/mb-proto-socks5/schema.json`: codec recognized, live ingress, live egress stream, live egress datagram. Adapter docs and tests must reference that matrix instead of restating divergent support.</p>
+      <p>A test asserting command or auth support outside its column is a contract violation.</p>
+      <table>
+        <tr><th>Capability</th><th>Meaning</th><th>Boundary</th></tr>
+        <tr><td>Codec recognized</td><td>The wire token is parsed and encoded by the codec library.</td><td>Does not imply adapter negotiation or runtime support.</td></tr>
+        <tr><td>Live ingress</td><td>The client-facing adapter can accept the command/auth path.</td><td>Must still project to bus session semantics or local relay behavior.</td></tr>
+        <tr><td>Live egress stream</td><td>The upstream adapter can open a stream tunnel through a SOCKS5 server.</td><td>Requires handshake timeout and reply mapping.</td></tr>
+        <tr><td>Live egress datagram</td><td>The upstream adapter can maintain UDP ASSOCIATE control connection and relay datagrams.</td><td>Control TCP lifetime owns the UDP relay endpoint.</td></tr>
+      </table>
+    </section>
+
+    <section id="mapping">
+      <h2>Direct Request Mapping</h2>
+      <table>
+        <tr><th>Protocol</th><th>Projection</th></tr>
+        <tr><td>SOCKS5 CONNECT</td><td>Target-bearing request becomes DirectStreamOpen / BusSessionRequest with ByteStream semantics.</td></tr>
+        <tr><td>SOCKS5 UDP ASSOCIATE</td><td>Each target-bearing UDP relay datagram becomes DirectDatagramOpen / DatagramSession semantics.</td></tr>
+        <tr><td>SOCKS5 BIND</td><td>Client-facing local relay gated by policy/pipeline; does not open bus egress session in v1.</td></tr>
+        <tr><td>HTTP CONNECT</td><td>Future adapter maps authority to stream intent.</td></tr>
+        <tr><td>Transparent TCP/UDP capture</td><td>Future adapter maps original destination to stream/datagram intent.</td></tr>
+      </table>
+    </section>
+
+    <section id="rules-and-policy">
+      <h2>Rules and Policy</h2>
+      <p>Compatibility adapters may instantiate rule chains at their own boundary, but the rule engine is a pure DTO evaluator. It does not depend on core, codecs, or adapter crates.</p>
+      <table>
+        <tr><th>Rule action</th><th>SOCKS5 projection</th><th>Bus effect</th></tr>
+        <tr><td><code>Allow</code></td><td>Continue normal CONNECT or UDP relay flow.</td><td>No metadata change.</td></tr>
+        <tr><td><code>Deny</code></td><td>Reply RFC1928 connection-not-allowed where a reply is legal.</td><td>Rejects before data relay.</td></tr>
+        <tr><td><code>SetRouteGroup</code></td><td>Write the route-group label into the session or event metadata.</td><td>L4 filters candidates by declared group membership; no silent fallback on empty set.</td></tr>
+        <tr><td><code>SetScheduleHint</code></td><td>Project fanout/single-path intent when compatible with stream/datagram shape.</td><td>Runtime accepts compatible hints or returns typed unsupported errors.</td></tr>
+        <tr><td><code>SetCostBias</code></td><td>Forward-pipeline metadata only.</td><td>CAKE pick hook shifts effective RTT without changing payload opacity.</td></tr>
+      </table>
+    </section>
+
+    <section id="dns">
+      <h2>DNS Compatibility and Enrichment</h2>
+      <p>DNS is not a core protocol parser and not an active port-53 listener in the canonical architecture. It is a resolver/cache/enrichment capability consumed by source adapters and the forward pipeline.</p>
+      <table>
+        <tr><th>DNS path</th><th>Compatibility meaning</th><th>Canonical boundary</th></tr>
+        <tr><td>Hostname passthrough</td><td>A protocol such as SOCKS5 DOMAINNAME may carry the host end-to-end.</td><td>The bus may route on projected labels, but core does not parse DNS.</td></tr>
+        <tr><td>Resolver hook</td><td><code>net.resolve_or_recover</code> resolves hostnames or recovers host context from IP reverse map.</td><td>Hook fills typed metadata and may reject no-target events.</td></tr>
+        <tr><td>Cache and serve-stale</td><td>Positive, negative, reverse, and stale entries support decisions under upstream failure.</td><td>Resolver-owned; cache TTL semantics do not leak into core routing code.</td></tr>
+        <tr><td>Geo/ASN/geosite</td><td>Enrichment creates policy facts for route groups, cost bias, and diagnostics.</td><td>In-memory hook data; misses become neutral facts.</td></tr>
+        <tr><td>DNS wire codec</td><td>Future explicit DNS adapters or resolver internals may use a codec crate.</td><td>L6 codec only; kernel imports are forbidden.</td></tr>
+      </table>
+      <p>Resolver inner rules and forward-pipeline rules are separate. Resolver rules choose pools before resolution; forward rules use post-resolution metadata such as geo, ASN, geosite tags, and DNS RTT.</p>
+    </section>
+
+    <section id="future">
+      <h2>Future Compatibility Lines</h2>
+      <p>HTTP CONNECT, HTTP/3 CONNECT, VMess, XRAY, Shadowsocks-like protocols, DNS edge adapters, and transparent capture must enter as adapters. None may add parser branches to core or define route truth from wrapper state.</p>
+      <table>
+        <tr><th>Future line</th><th>Required projection</th><th>Forbidden shortcut</th></tr>
+        <tr><td>HTTP CONNECT / HTTP/3 CONNECT</td><td>Authority and stream intent into generic metadata and stream session open.</td><td>HTTP route table inside core.</td></tr>
+        <tr><td>Transparent capture</td><td>Original destination into stream/datagram intent.</td><td>Core reading socket-capture implementation details.</td></tr>
+        <tr><td>TUN / tunneled packet</td><td>Opaque tunneled packet shape plus policy labels.</td><td>Core parsing inner IP payload for policy.</td></tr>
+        <tr><td>Mesh peer</td><td>Adjacent peer as ordinary sink/source adapter re-entering the remote pipeline.</td><td>Global topology or cross-node pipeline sync inside the local kernel.</td></tr>
+        <tr><td>DNS listener</td><td>If added later, explicit L7 adapter plus L6 codec.</td><td>Port-53 listener as implicit bus-core responsibility.</td></tr>
+      </table>
+    </section>
+
+    <section id="readiness">
+      <h2>Readiness Rule</h2>
+      <p><span class="ok">Local functional readiness</span> means codec, adapter, runtime, and binary e2e pass for the affected path. <span class="warn">Deployment readiness</span> also requires env-gated live WAN smoke and metrics showing the intended upstream or peer path.</p>
+      <p>Compatibility completion is not declared by codec coverage alone. A path is ready only when the codec contract, adapter lifecycle, pipeline decision, session relay, observation, and boundary guard all agree.</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-geoip - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px 24px 18px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-geoip - Owner Proof Contract</h1>
+    <p>Classification: <strong>lib/lookup</strong>. This module owns IP geolocation enrichment and unknown/empty fallback behavior.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-geoip</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema/geoip_result.schema.json">schema/geoip_result.schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a>, <a href="src/data_handle.rs">src/data_handle.rs</a>, <a href="src/types.rs">src/types.rs</a></td></tr>
+        <tr><td>Tests</td><td><a href="tests/lookup.rs">tests/lookup.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-geoip</code></td></tr>
+      </table>
+    </section>
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <p><code>GeoIpDb</code> owns the optional mmdb handles and is the only source for geo/ASN data in this crate. <code>GeoIpResult</code> is the owned DTO.</p>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>GeoIpDb</code></td><td>Provides <code>open</code>, <code>empty</code>, and <code>lookup</code>; empty path returns <code>GeoIpResult::unknown()</code>.</td></tr>
+        <tr><td><code>GeoIpResult</code></td><td>Fields: <code>country</code> (alpha-2), <code>asn</code> (u32 range), <code>asn_org</code>.</td></tr>
+      </table>
+    </section>
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <table>
+        <tr><th>Source</th><th>Proof</th></tr>
+        <tr><td><a href="schema/geoip_result.schema.json">geoip_result.schema.json</a></td><td>Owner DTO contract for result fields and bounds.</td></tr>
+        <tr><td><a href="tests/lookup.rs">tests/lookup.rs</a></td><td>Empty DB fallback, IPv4/IPv6 lookup, and missing-file failure path.</td></tr>
+      </table>
+      <p>No local fixture files are stored in the crate; tests cover behavior directly.</p>
+    </section>
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mb-geoip</code></td><td>All owner proofs in <code>tests/lookup.rs</code>.</td></tr>
+        <tr><td><code>cargo test -p mb-geoip -- open_missing_file_returns_err_not_panic</code></td><td>Missing DB error contract.</td></tr>
+      </table>
+    </section>
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Unknown fallback</td><td>Empty DB lookup returns country <code>XX</code>, ASN <code>0</code>, org empty.</td></tr>
+        <tr><td>No panic on missing path</td><td><code>open</code> returns <code>GeoIpError::Open</code> for non-IO-not-found errors.</td></tr>
+        <tr><td>IPv4/IPv6 support</td><td>Both address families are accepted by <code>lookup</code>.</td></tr>
+      </table>
+    </section>
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td><code>mesh-bus-runtime</code>, <code>mesh-bus-pipeline-hooks</code></td><td>Consume <code>GeoIpResult</code> fields into <code>RuleCtx</code> enrichment.</td></tr>
+        <tr><td>Rule/scheduler layer</td><td>Interprets enriched fields only; never calls mmdb readers.</td></tr>
+      </table>
+    </section>
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Missing DB does not fail policy evaluation; rule layer still receives unknown values.</li>
+        <li>Downstream geolocation-routing behavior is asserted by pipeline/runtime tests.</li>
+      </ul>
+    </section>
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Socket/connect tests</td><td>No socket ownership in this crate.</td></tr>
+        <tr><td>Policy/scheduler/route truth tests</td><td>Those proofs belong to runtime/pipeline owners.</td></tr>
+        <tr><td>Fixture mutation tests</td><td>DB files are external read inputs, not module-owned fixtures.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

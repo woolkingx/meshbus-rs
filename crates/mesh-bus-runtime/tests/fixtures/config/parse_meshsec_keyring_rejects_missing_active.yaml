@@ -1,0 +1,33 @@
+id: parse_meshsec_keyring_rejects_missing_active
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    peers:
+      - id: parent-a
+        node_id: node-b
+        meshsec:
+          profile: MeshSec-0RTT-PSK-XChaCha
+          active_key_id: missing
+          keyring:
+            - id: k0
+              static_key_hex: 0000000000000000000000000000000000000000000000000000000000000000
+              role: accept
+    ingresses:
+      - kind: MeshPeerUdp
+        listen: 0.0.0.0:19000
+    egresses:
+      - kind: MeshPeerUdp
+        id: peer-udp
+        peer_id: parent-a
+        peer: 127.0.0.1:29001
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "active_key_id missing"
+observations: []
+tags: []

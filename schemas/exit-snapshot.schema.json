@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "exit-snapshot.schema.json",
+  "title": "ExitSnapshot",
+  "type": "object",
+  "required": [
+    "exit_id",
+    "protocol",
+    "supports_stream",
+    "supports_datagram",
+    "send_count",
+    "success_count",
+    "failure_count",
+    "last_rtt_ms",
+    "payload_bytes_total"
+  ],
+  "properties": {
+    "exit_id": { "$ref": "exit-id.schema.json" },
+    "protocol": {
+      "type": "string",
+      "minLength": 1,
+      "description": "opaque adapter protocol label for status and capability display; not a protocol parser or dispatch branch contract"
+    },
+    "supports_stream": { "type": "boolean" },
+    "supports_datagram": { "type": "boolean" },
+    "send_count": { "type": "integer", "minimum": 0 },
+    "success_count": { "type": "integer", "minimum": 0 },
+    "failure_count": { "type": "integer", "minimum": 0 },
+    "last_rtt_ms": { "type": "integer", "minimum": 0 },
+    "payload_bytes_total": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

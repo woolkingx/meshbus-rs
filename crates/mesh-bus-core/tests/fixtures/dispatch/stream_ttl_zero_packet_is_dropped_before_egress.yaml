@@ -1,0 +1,33 @@
+id: dispatch.stream.ttl_zero_packet_is_dropped_before_egress
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.ttl_zero_packet_is_dropped_before_egress
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: echo
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      max_payload_bytes: 1200
+      groups: []
+  scenario:
+    packets:
+      - seq: 0
+        payload: hello
+        ttl: 0
+        note: "ttl-zero packet should be dropped before egress"
+expect:
+  open_ok: true
+  exit_id: echo
+  calls:
+    echo: 0
+  assertions:
+    - kind: drop_before_egress
+      expected:
+        close_reason: TtlExpired
+observations: []
+tags: []

@@ -1,0 +1,31 @@
+id: dispatch.route_group.pins_matching_exit
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.route_group.pins_matching_exit
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.cn
+    port: 443
+  route_group: cn
+  egresses:
+    - id: e-cn
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups:
+        - cn
+    - id: e-us
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups:
+        - us
+expect:
+  open_ok: true
+  exit_id: e-cn
+  calls:
+    e-cn: 1
+    e-us: 0
+observations: []
+tags: []

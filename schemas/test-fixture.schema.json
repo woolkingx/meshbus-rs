@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "test-fixture.schema.json",
+  "title": "TestFixtureCase",
+  "description": "Parameter-driven test case. params select the product path/knobs; input is the data under test; expect is the defined output compared against actual.",
+  "type": "object",
+  "required": ["name", "params", "input", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "params": {
+      "type": "object",
+      "required": ["layer"],
+      "additionalProperties": false,
+      "properties": {
+        "layer": { "enum": ["runtime", "e2e", "codec", "registry"] },
+        "exercise": { "enum": ["parse_only", "boot_shutdown", "decode", "encode", "verify"], "default": "parse_only" },
+        "ingress_listen": { "type": "string" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "yaml": { "type": "string" },
+        "hex": { "type": "string", "pattern": "^[0-9a-fA-F]*$" },
+        "json": {}
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean" },
+        "error_contains": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "value"],
+            "additionalProperties": false,
+            "properties": { "path": { "type": "string" }, "value": {} }
+          }
+        },
+        "debug_contains": { "type": "array", "items": { "type": "string" } },
+        "encoded_hex": { "type": "string" }
+      }
+    }
+  }
+}

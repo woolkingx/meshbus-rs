@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-ingress-udp/schema.json",
+  "title": "mesh-bus-ingress-udp",
+  "description": "UDP ingress plugin configuration and behavior.",
+  "type": "object",
+  "required": ["listen", "target"],
+  "properties": {
+    "listen": { "type": "string", "description": "host:port UDP socket bind address" },
+    "target": { "type": "string", "description": "fixed upstream host:port target for each datagram" },
+    "socket_recv_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_RCVBUF size in bytes for the bound UDP ingress socket."
+    },
+    "socket_send_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_SNDBUF size in bytes for the bound UDP ingress socket."
+    },
+    "flow_semantics": { "const": "Datagram" },
+    "return_semantics": { "const": "PacketDedup" },
+    "datagram_boundary": {
+      "type": "string",
+      "const": "one-recv-one-send",
+      "description": "Each UDP socket recv_from is projected as exactly one DatagramSession::send_to call; payload boundaries are not parsed, coalesced, or split by this adapter."
+    },
+    "session_model": {
+      "type": "string",
+      "const": "split-pump",
+      "description": "Per-peer split data-path contract: first datagram from a peer opens a DatagramSession, splits it into send/recv halves, and spawns a response pump task. The main recv loop only calls send half; the pump task forwards egress responses back to the peer socket independently."
+    }
+  },
+  "additionalProperties": false
+}

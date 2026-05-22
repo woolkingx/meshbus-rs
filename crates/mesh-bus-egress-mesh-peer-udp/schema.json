@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-egress-mesh-peer-udp/schema.json",
+  "title": "mesh-bus-egress-mesh-peer-udp",
+  "description": "Configured adjacent MeshPeer upstream egress. Runtime capability is stream + datagram; payload remains opaque Mesh Protocol SDU.",
+  "type": "object",
+  "required": ["id", "peer_id", "peer", "timeout_ms"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "peer_id": { "type": "string", "minLength": 1 },
+    "peer": { "type": "string", "minLength": 1 },
+    "groups": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "timeout_ms": { "type": "integer", "minimum": 1 }
+  }
+}

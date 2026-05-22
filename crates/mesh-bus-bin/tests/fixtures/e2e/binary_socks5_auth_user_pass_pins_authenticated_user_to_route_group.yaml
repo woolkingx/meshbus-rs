@@ -1,0 +1,49 @@
+id: binary_socks5_auth_user_pass_pins_authenticated_user_to_route_group
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  rule_chain_yaml: |
+    default: allow
+    rules:
+      - authenticated_user: alice
+        action:
+          set_route_group: vip
+  probe:
+    kind: socks5_auth_tcp
+    username: alice
+    password: s3cret
+    payload: "auth-vip-pin"
+  yaml: |
+    metrics:
+      kind: PrometheusHttp
+      listen: "{{METRICS_LISTEN}}"
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+        rule_chain_path: "{{RULE_CHAIN}}"
+        auth:
+          users:
+            - name: alice
+              password: s3cret
+    egresses:
+      - kind: Tcp
+        id: direct
+        wan_id: wan-default
+        timeout_ms: 1000
+      - kind: Tcp
+        id: vip
+        wan_id: wan-vip
+        groups: [vip]
+        timeout_ms: 1000
+expect:
+  ok: true
+  metrics:
+    dispatch_total:
+      vip:
+        min: 1
+      direct:
+        exact: 0
+observations: []
+tags: []

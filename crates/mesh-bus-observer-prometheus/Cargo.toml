@@ -1,0 +1,11 @@
+[package]
+name = "mesh-bus-observer-prometheus"
+version = "0.1.3"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+tokio = { workspace = true }
+tracing = { workspace = true }

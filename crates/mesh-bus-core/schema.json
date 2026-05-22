@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-core/schema.json",
+  "title": "mesh-bus-core",
+  "description": "Bus substrate types and plugin trait surface; runtime data types are imported from /schemas/ via mesh-bus-schema.",
+  "type": "object",
+  "properties": {
+    "packet_header": {
+      "type": "object",
+      "required": ["packet_id", "flow_id", "traffic_class", "flow_semantics", "return_semantics", "ttl_guard"],
+      "properties": {
+        "packet_id": {
+          "type": "boolean",
+          "const": true,
+          "description": "Every Frame carries a packet_id derived from its sequence unless explicitly constructed otherwise."
+        },
+        "flow_id": {
+          "type": "boolean",
+          "const": true,
+          "description": "Every Frame carries a flow_id derived from session and target for router policy and queueing."
+        },
+        "traffic_class": {
+          "type": "boolean",
+          "const": true,
+          "description": "Every Frame has a traffic class for future queueing discipline."
+        },
+        "flow_semantics": {
+          "type": "boolean",
+          "const": true,
+          "description": "Every Frame declares generic L4 flow-shape metadata: ByteStream, Datagram, or Message."
+        },
+        "return_semantics": {
+          "type": "boolean",
+          "const": true,
+          "description": "Every Frame carries the return aggregation semantics selected for the dispatch path."
+        },
+        "ttl_guard": {
+          "type": "boolean",
+          "const": true,
+          "description": "The bus drops ttl=0 packets before scheduler ranking or egress dispatch."
+        }
+      },
+      "additionalProperties": false
+    },
+    "session_dispatch": {
+      "type": "object",
+      "required": ["ordered", "flow_pinning", "close_releases_pin"],
+      "properties": {
+        "ordered": {
+          "type": "boolean",
+          "const": true,
+          "description": "Frames submitted by one SessionHandle are acknowledged one at a time before the next frame is dispatched."
+        },
+        "flow_pinning": {
+          "type": "boolean",
+          "const": true,
+          "description": "A flow is pinned to the first successful egress index and future frames in that flow prefer that egress."
+        },
+        "close_releases_pin": {
+          "type": "boolean",
+          "const": true,
+          "description": "Close and Cancel frames close the pinned egress session and remove the bus pin."
+        }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_context": {
+      "type": "object",
+      "required": ["flow_id", "traffic_class", "deadline", "policy_ref", "schedule_hint", "flow_semantics", "return_semantics"],
+      "properties": {
+        "flow_id": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives FlowId through RankContext."
+        },
+        "traffic_class": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives TrafficClass through RankContext."
+        },
+        "deadline": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives optional deadline_ms through RankContext."
+        },
+        "policy_ref": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives optional policy_ref through RankContext."
+        },
+        "schedule_hint": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives ScheduleHint through RankContext; runtime may also realize Datagram FanOut before calling the scheduler."
+        },
+        "flow_semantics": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives FlowSemantics through RankContext."
+        },
+        "return_semantics": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives ReturnSemantics through RankContext."
+        }
+      },
+      "additionalProperties": false
+    },
+    "path_trace": {
+      "type": "object",
+      "required": ["egress_append"],
+      "properties": {
+        "egress_append": {
+          "type": "boolean",
+          "const": true,
+          "description": "Bus appends the selected ExitId to Frame.path_trace before egress send."
+        }
+      },
+      "additionalProperties": false
+    },
+    "schedule_decision": {
+      "type": "object",
+      "required": ["ordered", "replicate"],
+      "properties": {
+        "ordered": {
+          "type": "boolean",
+          "const": true,
+          "description": "SchedulerPlugin can return an ordered candidate list for first-success dispatch."
+        },
+        "replicate": {
+          "type": "boolean",
+          "const": true,
+          "description": "SchedulerPlugin can return a replicate candidate list for multi-egress fan-out."
+        }
+      },
+      "additionalProperties": false
+    },
+    "return_aggregator": {
+      "type": "object",
+      "required": ["direct", "packet_id_dedup", "sequence_reorder_reserved", "first_success"],
+      "properties": {
+        "direct": {
+          "type": "boolean",
+          "const": true,
+          "description": "Ordered byte-stream returns are emitted directly without packet_id dedup."
+        },
+        "packet_id_dedup": {
+          "type": "boolean",
+          "const": true,
+          "description": "Replicate and datagram return paths can record returned (flow_id, packet_id) pairs and suppress duplicate ReturnEvent emission."
+        },
+        "sequence_reorder_reserved": {
+          "type": "boolean",
+          "const": true,
+          "description": "Sequence reordering is reserved for future ByteStream + Striping dispatch, not for Ordered or Replicate."
+        },
+        "first_success": {
+          "type": "boolean",
+          "const": true,
+          "description": "Replicate dispatch emits the first successful egress return and continues collecting feedback from remaining replicas."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

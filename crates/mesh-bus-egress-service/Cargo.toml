@@ -1,0 +1,17 @@
+[package]
+name = "mesh-bus-egress-service"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mesh-bus-egress-tcp = { path = "../mesh-bus-egress-tcp" }
+mesh-bus-egress-udp = { path = "../mesh-bus-egress-udp" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-socket-tune = { path = "../../lib/mb-socket-tune" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "net", "io-util"] }
+bytes = { workspace = true }

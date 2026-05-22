@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-observer-metrics - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-observer-metrics - Owner Proof Contract</h1>
+    <p>Classification: <strong>observer plugin</strong>. Owns dispatch counting by exit and a thread-safe snapshot surface.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-observer-metrics</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>CounterObserver</code></td><td>Owns an <code>Arc&lt;Mutex&lt;HashMap&lt;String, u64&gt;&gt;&gt;</code> snapshot store for selected exit counters.</td></tr>
+        <tr><td><code>snapshot()</code></td><td>Returns a cloned map of exit_id =&gt; dispatch count.</td></tr>
+      </table>
+      <p>Observer plugin owns only counting state, no scheduling, routing, or network transport state.</p>
+    </section>
+
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema.json">schema.json</a> declares no runtime fields; construction is via <code>CounterObserver::new()</code>.</p>
+      <ul>
+        <li><a href="tests/schema.rs">tests/schema.rs</a>: closed-schema proof by text check.</li>
+        <li><a href="tests/counter.rs">tests/counter.rs</a>: count increments on <code>FlowOpened</code> and snapshots.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-observer-metrics</code></td><td>All owner proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-observer-metrics --test counter</code></td><td>Lifecycle counting.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-observer-metrics --test schema</code></td><td>Runtime-config closure check.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Scope-only counting</td><td>Only <code>BusEvent::Core</code> with <code>CoreEventId::FlowOpened</code> increments count.</td></tr>
+        <tr><td>Exit identity source</td><td>Counter key preference follows <code>selected_exit</code> then <code>exit_id</code>.</td></tr>
+        <tr><td>Schema close</td><td>Schema is closed because runtime config is intentionally absent.</td></tr>
+        <tr><td>Snapshot immutability</td><td><code>snapshot()</code> is clone-based; callers cannot mutate internal map.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-core</td><td>Publishes <code>Core(CoreEventId::FlowOpened)</code> envelopes; this module consumes them only.</td></tr>
+        <tr><td>runtime and pipeline hooks</td><td>Injects observer plugin instances; no path ownership in this module.</td></tr>
+        <tr><td>mesh-bus-observer-prometheus</td><td>Shares event stream assumptions but different ownership target and output sink.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Dispatch-open counters can be projected into runtime-level observability exports.</li>
+        <li>Proof of zero-configuration constructor supports operators that want a “fire-and-count” observer.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>HTTP serving, textfile writes, or Prometheus formatting</td><td>Not owned by this observer.</td></tr>
+        <tr><td>Scheduler decision proof</td><td>Observer only counts observations.</td></tr>
+        <tr><td>Payload parsing / protocol inspection</td><td>Flow metadata only; no protocol decode.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,32 @@
+id: dispatch.stream.dispatch_appends_exit_id_to_path_trace
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.dispatch_appends_exit_id_to_path_trace
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: trace-exit
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups: []
+  scenario:
+    packets:
+      - seq: 0
+        payload: hello
+        path_trace_seed: []
+        note: selected exit id should be appended to path_trace
+expect:
+  open_ok: true
+  exit_id: trace-exit
+  calls:
+    trace-exit: 1
+  assertions:
+    - kind: path_trace
+      expected:
+        append_exit_id: trace-exit
+observations: []
+tags: []

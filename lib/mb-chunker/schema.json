@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-chunker/schema.json",
+  "title": "mb-chunker",
+  "description": "This crate provides stream-to-frame chunking with monotonic sequence assignment; data types are imported from /schemas/ via mesh-bus-schema.",
+  "type": "object"
+}

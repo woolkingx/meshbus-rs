@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mesh-bus.local/handbook/spec/observation-graph.schema.json",
+  "title": "mesh-bus Observation Graph Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_types",
+    "payload_fields",
+    "projections",
+    "pull_sources"
+  ],
+  "properties": {
+    "event_types": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/event_type"
+      },
+      "properties": {
+        "core.flow_opened": { "const": { "id": 0, "delivery": "reliable", "writer": "kernel" } },
+        "core.flow_path_changed": { "const": { "id": 1, "delivery": "reliable", "writer": "kernel" } },
+        "core.flow_closed": { "const": { "id": 2, "delivery": "reliable", "writer": "kernel" } },
+        "core.path_io_error": { "const": { "id": 3, "delivery": "lossy", "writer": "kernel" } },
+        "obs.meshsec.drop": { "const": { "id": 16, "delivery": "lossy", "writer": "mesh-bus-ingress-mesh-peer-udp" } },
+        "obs.native.drop": { "const": { "id": 17, "delivery": "lossy", "writer": "mesh-bus-ingress-mesh-peer-udp" } }
+      }
+    },
+    "payload_fields": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/payload_field"
+      },
+      "properties": {
+        "reason": { "const": { "type": "string" } },
+        "reason_code": { "const": { "type": "integer" } },
+        "peer_id": { "const": { "type": "string" } },
+        "source_addr": { "const": { "type": "string" } },
+        "transport_mode": { "const": { "type": "string" } },
+        "secure": { "const": { "type": "boolean" } }
+      }
+    },
+    "projections": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" },
+        "minItems": 1
+      },
+      "properties": {
+        "meshsec_drop_total": { "const": ["obs.meshsec.drop"] },
+        "native_drop_total": { "const": ["obs.native.drop"] }
+      }
+    },
+    "pull_sources": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/pull_source"
+      },
+      "properties": {
+        "pull.flow_counters": { "const": { "owner": "FlowCounters", "cadence": "sampler" } },
+        "pull.path_stats": { "const": { "owner": "PathStatsProvider", "cadence": "sampler" } }
+      }
+    }
+  },
+  "$defs": {
+    "event_type": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "delivery", "writer"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "delivery": { "enum": ["lossy", "reliable"] },
+        "writer": { "type": "string", "minLength": 1 }
+      }
+    },
+    "payload_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["string", "integer", "boolean"] }
+      }
+    },
+    "pull_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "cadence"],
+      "properties": {
+        "owner": { "type": "string", "minLength": 1 },
+        "cadence": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

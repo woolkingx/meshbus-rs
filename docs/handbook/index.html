@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MeshBus-rs Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --muted:#5f6b75; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9da7b1; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing: border-box; }
+    body { margin:0; font:16px/1.5 system-ui, sans-serif; color:var(--fg); background:var(--bg); }
+    header { padding:28px 32px 18px; border-bottom:1px solid var(--line); background:var(--panel); }
+    main { display:grid; grid-template-columns:260px minmax(0,1fr); gap:24px; padding:24px 32px 48px; }
+    nav { position:sticky; top:16px; align-self:start; border:1px solid var(--line); border-radius:8px; padding:14px; background:var(--panel); }
+    nav a { display:block; padding:5px 0; color:var(--accent); text-decoration:none; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1, h2, h3 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+    .card { border:1px solid var(--line); border-radius:8px; padding:12px; }
+    .tag { display:inline-block; margin:2px 6px 2px 0; padding:2px 7px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:13px; }
+    .ok { color:var(--ok); font-weight:600; }
+    .warn { color:var(--warn); font-weight:600; }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
+    .topology { white-space:pre; padding:12px; border:1px solid var(--line); border-radius:8px; background:rgba(127,127,127,.10); overflow:auto; line-height:1.35; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    @media (max-width:800px) { main { display:block; padding:16px; } nav { position:static; margin-bottom:16px; } header { padding:22px 16px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MeshBus-rs Handbook</h1>
+    <p>Top-down architecture and spec truth for MeshBus-rs. Plans decompose active work, CLAUDE.md governs execution, schema.json defines machine contracts, and code/tests prove the result.</p>
+    <p>
+      <span class="tag">HTML-first spec</span>
+      <span class="tag">OSI ownership</span>
+      <span class="tag">rule-driven direct path</span>
+      <span class="tag">compatibility as plugins</span>
+    </p>
+  </header>
+  <main>
+    <nav aria-label="Handbook navigation">
+      <strong>Sections</strong>
+      <a href="#source-hierarchy">Source Hierarchy</a>
+      <a href="#source-map">Source Map</a>
+      <a href="#plan-consolidation">Plan Consolidation</a>
+      <a href="#task-plans">Task Plans</a>
+      <a href="#canonical-chapters">Canonical Chapters</a>
+      <a href="#directory-structure">Directory Structure</a>
+      <a href="#product-skeleton">Product Skeleton</a>
+      <a href="#osi-ownership">OSI Ownership</a>
+      <a href="#direct-proxy">Direct Proxy Foundation</a>
+      <a href="#mesh-protocol">Mesh Protocol</a>
+      <a href="#compatibility">Compatibility Plugins</a>
+      <a href="#operator-plane">Operator Plane</a>
+      <a href="#transport">UDP / QUIC Transport</a>
+      <a href="#testing">Testing Gates</a>
+      <a href="#production">Production Readiness</a>
+      <a href="#decisions">Decision Timeline</a>
+      <a href="#next">Next Integration</a>
+    </nav>
+    <div>
+      <section id="source-hierarchy">
+        <h2>Source Hierarchy</h2>
+        <div class="flow">handbook = topologic / logic schema
+schema.json = data / structure schema
+docs/plan = task decomposition
+CLAUDE.md = execution boot card
+code/tests = implementation and proof</div>
+        <p>This index is only a navigation spine. The full documentation source hierarchy is owned by <a href="documentation-architecture.html">Documentation architecture</a>.</p>
+      </section>
+
+      <section id="plan-consolidation">
+        <h2>Plan Consolidation</h2>
+        <p>Durable architecture, spec decisions, current completion status, and remaining gaps recovered from Markdown plans/specs are consolidated in <a href="plan-consolidation.html">Plan Consolidation</a>. After absorption, plans remain active task decomposition only and do not define architecture.</p>
+      </section>
+
+      <section id="task-plans">
+        <h2>Task Plans</h2>
+        <p><a href="task-plans.html">Task Plans</a> is the active work control chapter. It maps runnable files in <code>docs/plan</code> to their owning handbook sections, current status, blockers, and verification gates so progress cannot drift away from the spec layer.</p>
+      </section>
+
+      <section id="canonical-chapters">
+        <h2>Canonical Chapters</h2>
+        <p>Use these chapters as the topologic/logic schema before reading plans, module rules, schema, code, or tests. Detailed authoring rules live in <a href="documentation-architecture.html">Documentation architecture</a>.</p>
+        <pre class="topology">product-roadmap
+  -> direct-proxy
+  -> system-architecture
+       -> mesh-protocol
+            -> transport
+            -> compatibility
+            -> operator-plane
+            -> testing-gates
+            -> production-readiness
+
+Rule: downstream chapters link to owner chapters; they do not redefine owner terms.</pre>
+        <div class="grid">
+          <div class="card"><h3>Product</h3><p><a href="product-roadmap.html">Product roadmap</a> and <a href="direct-proxy.html">direct proxy foundation</a>.</p></div>
+          <div class="card"><h3>Core</h3><p><a href="system-architecture.html">System architecture</a> and <a href="dataplane-observation.html">dataplane/observation</a>.</p></div>
+          <div class="card"><h3>Mesh</h3><p><a href="mesh-protocol.html">Mesh Protocol</a> and <a href="transport.html">UDP/QUIC transport</a>.</p></div>
+          <div class="card"><h3>Edges</h3><p><a href="compatibility.html">Compatibility plugins</a>, <a href="operator-plane.html">operator plane</a>, <a href="testing-gates.html">testing gates</a>, and <a href="production-readiness.html">production readiness</a>.</p></div>
+        </div>
+      </section>
+
+      <section id="source-map">
+        <h2>Source Map</h2>
+        <p>This map links the current handbook spine to owner chapters, module boot cards, schema contracts, code surfaces, and proving tests. Plans decompose work; they do not replace the spec layer.</p>
+        <details open>
+          <summary>Canonical handbook chapters</summary>
+          <ul>
+            <li><a href="product-roadmap.html">Product roadmap</a></li>
+            <li><a href="system-architecture.html">System architecture and core logic</a></li>
+            <li><a href="direct-proxy.html">Direct proxy foundation</a></li>
+            <li><a href="mesh-protocol.html">Mesh Protocol</a></li>
+            <li><a href="dataplane-observation.html">Dataplane and observation</a></li>
+            <li><a href="transport.html">UDP and QUIC transport</a></li>
+            <li><a href="compatibility.html">Compatibility plugins</a></li>
+            <li><a href="operator-plane.html">Operator plane</a></li>
+            <li><a href="testing-gates.html">Testing gates</a></li>
+            <li><a href="production-readiness.html">Production readiness</a></li>
+            <li><a href="testing-index.html">Generated module test index</a></li>
+            <li><a href="documentation-architecture.html">Documentation architecture</a></li>
+            <li><a href="plan-consolidation.html">Plan consolidation</a></li>
+            <li><a href="task-plans.html">Task plans</a></li>
+          </ul>
+        </details>
+        <details>
+          <summary>Active task decomposition</summary>
+          <ul>
+            <li><code>docs/plan</code> contains runnable task plans, command order, checkpoints, and handoff status.</li>
+            <li>Plan content that changes architecture, ownership, acceptance gates, or durable status must be moved into the owning handbook chapter before code changes depend on it.</li>
+            <li>Plans may cite handbook sections as inputs; the handbook must not depend on old plan/spec links to explain the system.</li>
+          </ul>
+        </details>
+        <details>
+          <summary>Module contracts and schemas</summary>
+          <ul>
+            <li>Root and tests: <a href="../../CLAUDE.md">root CLAUDE.md</a>, <a href="../../tests/CLAUDE.md">tests/CLAUDE.md</a></li>
+            <li>Runtime/bin/core: <a href="../../crates/mesh-bus-core/CLAUDE.md">core</a> / <a href="../../crates/mesh-bus-core/schema.json">schema</a>, <a href="../../crates/mesh-bus-runtime/CLAUDE.md">runtime</a> / <a href="../../crates/mesh-bus-runtime/schema.json">schema</a>, <a href="../../crates/mesh-bus-bin/CLAUDE.md">bin</a> / <a href="../../crates/mesh-bus-bin/schema.json">schema</a></li>
+            <li>Ingress: <a href="../../crates/mesh-bus-ingress-tcp/CLAUDE.md">tcp</a>, <a href="../../crates/mesh-bus-ingress-udp/CLAUDE.md">udp</a>, <a href="../../crates/mesh-bus-ingress-socks5/CLAUDE.md">socks5</a>, <a href="../../crates/mesh-bus-ingress-mesh-peer-udp/CLAUDE.md">mesh-peer-udp</a></li>
+            <li>Egress: <a href="../../crates/mesh-bus-egress-tcp/CLAUDE.md">tcp</a>, <a href="../../crates/mesh-bus-egress-udp/CLAUDE.md">udp</a>, <a href="../../crates/mesh-bus-egress-socks5/CLAUDE.md">socks5</a>, <a href="../../crates/mesh-bus-egress-mesh-peer-udp/CLAUDE.md">mesh-peer-udp</a></li>
+            <li>Hooks/schedulers/observers: <a href="../../crates/mesh-bus-pipeline-hooks/CLAUDE.md">pipeline-hooks</a>, <a href="../../crates/mesh-bus-scheduler-cake/CLAUDE.md">cake</a>, <a href="../../crates/mesh-bus-scheduler-loadbalance/CLAUDE.md">loadbalance</a>, <a href="../../crates/mesh-bus-scheduler-replicate/CLAUDE.md">replicate</a>, <a href="../../crates/mesh-bus-observer-metrics/CLAUDE.md">metrics</a>, <a href="../../crates/mesh-bus-observer-prometheus/CLAUDE.md">prometheus</a></li>
+            <li>Protocol libs: <a href="../../lib/mb-proto-socks5/CLAUDE.md">socks5</a> / <a href="../../lib/mb-proto-socks5/schema.json">schema</a>, <a href="../../lib/mb-proto-mesh/CLAUDE.md">mesh</a> / <a href="../../lib/mb-proto-mesh/schema.json">schema</a>, <a href="../../lib/mb-quic/CLAUDE.md">quic</a> / <a href="../../lib/mb-quic/schema.json">schema</a>, <a href="../../lib/mb-proto-dns/CLAUDE.md">dns</a></li>
+            <li>Algorithm/libs: <a href="../../lib/mb-rule/CLAUDE.md">rule</a>, <a href="../../lib/mb-cake/CLAUDE.md">cake</a>, <a href="../../lib/mb-health/CLAUDE.md">health</a>, <a href="../../lib/mb-reorder/CLAUDE.md">reorder</a>, <a href="../../lib/mb-endpoint/CLAUDE.md">endpoint</a></li>
+          </ul>
+        </details>
+      </section>
+
+      <section id="directory-structure">
+        <h2>Directory Structure</h2>
+        <table>
+          <tr><th>Path</th><th>Role</th><th>Canonical links</th></tr>
+          <tr><td><code>docs/handbook/</code></td><td>HTML topologic/logic schema plus handbook-owned spec attachments under <code>docs/handbook/spec</code>.</td><td><a href="documentation-architecture.html">documentation architecture</a>, <a href="product-roadmap.html">product roadmap</a>, <a href="system-architecture.html">system architecture</a></td></tr>
+          <tr><td><code>docs/plan/</code></td><td>Active task decomposition, command order, checkpoint state, and handoff notes.</td><td><a href="task-plans.html">task plan control</a>, <a href="plan-consolidation.html">plan consolidation rules</a></td></tr>
+          <tr><td><code>CLAUDE.md</code></td><td>Execution rules, owner navigation, local invariants, and latest decision summary.</td><td><a href="../../CLAUDE.md">root boot card</a></td></tr>
+          <tr><td><code>crates/mesh-bus-*</code></td><td>Runtime, adapters, schedulers, observers, and binary e2e surfaces.</td><td><a href="../../crates/mesh-bus-runtime/CLAUDE.md">runtime</a>, <a href="../../crates/mesh-bus-core/CLAUDE.md">core</a>, <a href="../../crates/mesh-bus-bin/CLAUDE.md">bin</a></td></tr>
+          <tr><td><code>lib/mb-*</code></td><td>Pure algorithms, codecs, endpoint/health/rule utilities.</td><td><a href="../../lib/mb-rule/CLAUDE.md">rule</a>, <a href="../../lib/mb-proto-socks5/CLAUDE.md">socks5 codec</a>, <a href="../../lib/mb-proto-mesh/CLAUDE.md">mesh codec</a></td></tr>
+          <tr><td><code>tests/</code></td><td>System test handbook and cross-module completion gates.</td><td><a href="../../tests/CLAUDE.md">tests guide</a></td></tr>
+          <tr><td><code>*/schema.json</code></td><td>Machine-verifiable config, capability, and protocol contracts.</td><td><a href="../../crates/mesh-bus-runtime/schema.json">runtime schema</a>, <a href="../../lib/mb-proto-socks5/schema.json">SOCKS5 schema</a>, <a href="../../lib/mb-proto-mesh/schema.json">MeshSec schema</a></td></tr>
+        </table>
+      </section>
+
+      <section id="product-skeleton">
+        <h2>Product Skeleton</h2>
+        <p>MeshBus-rs is the Rust implementation of MeshBus: an OSI-aware transport substrate for programmable direct proxy and mesh transport systems. It is not defined by SOCKS5, HTTP CONNECT, VMess, XRAY, QUIC, or any other edge protocol.</p>
+        <div class="flow">source intent -> metadata enrichment -> rule/policy -> scheduler -> exit | service | upstream peer</div>
+        <p>Direct forward and direct reverse paths are the foundation. MVP product lanes are L4 reverse TCP/UDP, SOCKS5 forward, and HTTP CONNECT forward. Compatibility protocols are reach; Mesh Protocol, Secure UDP, optional QUIC reference binding, multi-hop, striping, and reorder are amplifiers over that base.</p>
+        <p>Canonical chapter: <a href="product-roadmap.html">product roadmap</a>.</p>
+      </section>
+
+      <section id="osi-ownership">
+        <h2>OSI Ownership</h2>
+        <table>
+          <tr><th>Layer</th><th>Owner</th><th>Boundary</th></tr>
+          <tr><td>L7</td><td>Application participants</td><td>Translate external syntax into bus semantics only.</td></tr>
+          <tr><td>L6</td><td>Transforms/codecs</td><td>Protocol-neutral payload shape, envelope, fragmentation, checksum, compression, encryption.</td></tr>
+          <tr><td>L5</td><td>Session plane</td><td>Session identity, flow semantics, return semantics, lifecycle, path labels.</td></tr>
+          <tr><td>L4</td><td>Scheduler/transport</td><td>Capability matching, route_group, policy, path scoring, dispatch.</td></tr>
+          <tr><td>Core</td><td>Kernel + transport substrate</td><td>Opaque payload. No protocol parser dependencies.</td></tr>
+        </table>
+        <p>OSI is a data ownership model. Each layer owns its native protocol data unit: the layer receives an upper-layer SDU, adds its own PCI and state, and produces its own PDU. Transport carries datagrams, crypto proves peer/event facts, L5 reconstructs logical sessions, and L4 chooses local paths from evidence. Channel state is always a projection.</p>
+        <p>The architecture question is always: what data is this, who owns it, and which CRUD or transition is legal for that owner. Lower layers carry upper-layer SDU as opaque data; they do not read upward-owned data.</p>
+        <p>Canonical chapter: <a href="system-architecture.html">system architecture</a>. Root boot pointer: <a href="../../CLAUDE.md">CLAUDE.md</a>.</p>
+      </section>
+
+      <section id="direct-proxy">
+        <h2>Direct Proxy Foundation</h2>
+        <p>The direct path is rule-first, not speed-only. It makes source intent visible to rule/policy/scheduler before bytes move.</p>
+        <div class="grid">
+          <div class="card"><h3>Forward</h3><p>Direct stream/datagram source to TCP/UDP egress through normal pipeline selection.</p></div>
+          <div class="card"><h3>Reverse</h3><p>Local service exposed as scheduler-selectable sink, without an L7 route table in core.</p></div>
+          <div class="card"><h3>Future Chain</h3><p>Squid/Dante-like chaining after single-node direct foundation is proven.</p></div>
+        </div>
+        <p>Canonical chapter: <a href="direct-proxy.html">direct proxy foundation</a>.</p>
+      </section>
+
+      <section id="mesh-protocol">
+        <h2>Mesh Protocol</h2>
+        <p>Canonical topology, semantics, owner rules, MeshSec wire contract, and native event-family status live in <a href="mesh-protocol.html">Mesh Protocol</a>. Consolidated release status lives in <a href="plan-consolidation.html">plan consolidation</a>.</p>
+      </section>
+
+      <section id="compatibility">
+        <h2>Compatibility Plugins</h2>
+        <p>Compatibility protocols are adapter lines. They project protocol syntax into direct request semantics and must not define the product skeleton.</p>
+        <table>
+          <tr><th>Plugin</th><th>Role</th><th>Contract</th></tr>
+          <tr><td>SOCKS5</td><td>Client-facing and upstream compatibility</td><td>Full RFC track is local-green; secure live smoke to <code>198.51.100.36</code> passed for HTTPS through remote egress.</td></tr>
+          <tr><td>HTTP CONNECT</td><td>Functional edge adapter</td><td>Maps RFC 9110/9112 authority to stream intent, then relays opaque bytes; secure live smoke to <code>198.51.100.36</code> passed.</td></tr>
+          <tr><td>Transparent capture</td><td>Future deployment adapter</td><td>Maps original destination to stream/datagram intent.</td></tr>
+        </table>
+        <p>Canonical chapter: <a href="compatibility.html">compatibility plugins</a>.</p>
+      </section>
+
+      <section id="operator-plane">
+        <h2>Operator Plane</h2>
+        <p>The system management interface is API-first. Config, status, metrics, probes, deployment, hot reload, Web dashboard, remote admin, and future cluster control compose through the <a href="operator-plane.html">operator plane</a>, not through ad hoc CLI/Web logic or core dispatch shortcuts.</p>
+        <pre class="topology">human/tool
+  -> Operator API
+       -> config/status/metrics/probe/deploy/rule owners
+  -> CLI client
+  -> Web client
+  -> future MeshSec remote admin</pre>
+        <p>Operational probes are traffic, not shortcuts: they enter configured SOCKS5, HTTP CONNECT, UDP, or mesh-peer paths and prove behavior by metrics deltas and close reasons. Diagnose bundles compose status, metrics, redacted config, host state, and journal facts without leaking secrets.</p>
+      </section>
+
+      <section id="transport">
+        <h2>UDP / QUIC Transport</h2>
+        <p>Delivery substrate mechanics, UDP packet loop, QUIC reference binding, and transport throughput gates live in <a href="transport.html">UDP and QUIC transport</a>. Mesh semantics are owned by <a href="mesh-protocol.html">Mesh Protocol</a>.</p>
+      </section>
+
+      <section id="testing">
+        <h2>Testing Gates</h2>
+        <p>A feature is not complete until codec, adapter, core session/runtime, pipeline hooks, observers, scheduler behavior, binary e2e, and required live WAN smoke pass for the affected path.</p>
+        <p>Canonical chapter: <a href="testing-gates.html">testing gates</a>. Generated topology: <a href="testing-index.html">module test index</a>. Execution guide: <a href="../../tests/CLAUDE.md">tests/CLAUDE.md</a>.</p>
+      </section>
+
+      <section id="production">
+        <h2>Production Readiness</h2>
+        <p><a href="production-readiness.html">Production Readiness</a> owns the deployment and operation layer: config check, service supervision, MeshSec fail-closed gates, secret redaction, metrics, live two-node acceptance, rollback, and release evidence.</p>
+        <pre class="topology">local SOCKS5
+  -> MeshSec MeshPeerUdp
+  -> remote mesh node
+  -> TCP / UDP / SOCKS5 / service egress
+
+Rule: production support hardens this existing path; it does not create new core semantics.</pre>
+        <p>Service readiness follows the owner graph: deploy checksums and backup artifacts, runtime config fingerprints, Operator probe deltas, MeshSec fail-closed evidence, and redacted diagnose artifacts.</p>
+      </section>
+
+      <section id="decisions">
+        <h2>Decision Timeline</h2>
+        <ul>
+          <li><strong>0.4.30</strong>: Native direct forward/reverse proxy slice is functionally verified; live WAN timing and datagram per-exit dispatch telemetry remain gaps.</li>
+          <li><strong>0.4.29</strong>: Mesh Protocol stays under OSI owner boundaries; channel, port, socket, and QUIC connection state are projections, not session truth.</li>
+          <li><strong>0.4.28</strong>: Documentation roles are pinned: handbook/spec owns architecture, CLAUDE.md owns execution rules, plans own task decomposition, schema owns machine contracts, code implements, tests prove.</li>
+        </ul>
+        <p>Latest operational decision summaries remain in <a href="../../CLAUDE.md">CLAUDE.md</a>; durable architecture consequences belong in the owning handbook chapter.</p>
+      </section>
+
+      <section id="next">
+        <h2>Next Integration</h2>
+        <ol>
+          <li>Trim module CLAUDE.md files to scope, keypoints, rules, and handbook links.</li>
+          <li>Move remaining machine contracts into schema links beside each handbook chapter.</li>
+          <li>Keep <code>docs/plan</code> focused on active task decomposition and checkpoint evidence.</li>
+          <li>Run live WAN gates before claiming deployment readiness for SOCKS5 upstream, mesh-peer, or transport throughput.</li>
+        </ol>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,36 @@
+id: dispatch.datagram.unsupported_probe_falls_back_without_empty_send
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.datagram.unsupported_probe_falls_back_without_empty_send
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: "127.0.0.1"
+    port: 9020
+  egresses:
+    - id: e-udp-fallback
+      protocol: udp-test
+      supports_stream: false
+      supports_datagram: true
+      max_payload_bytes: 1200
+      groups: []
+  datagram:
+    open_target:
+      host: "127.0.0.1"
+      port: 9020
+    sends:
+      - target:
+          host: "127.0.0.1"
+          port: 9020
+        payload: "hello"
+    unsupported_probe: true
+expect:
+  open_ok: true
+  calls:
+    e-udp-fallback: 1
+  datagram_assertions:
+    fallback_used: true
+    allow_probe_empty_send: false
+    expected_real_send_calls: 1
+observations: []
+tags: []

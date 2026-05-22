@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mesh-bus-core.kernel.registry",
+  "$ref": "#/$defs/KernelRegistry",
+  "$defs": {
+    "SourceId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "SinkId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "HookId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "PipelineId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "HookFn": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Symbolic hook function registration label; Rust stores a non-serializable fn pointer."
+    },
+    "Pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/PipelineId" },
+        "hooks": { "type": "array", "items": { "$ref": "#/$defs/HookId" } }
+      },
+      "required": ["id", "hooks"]
+    },
+    "Wiring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "$ref": "#/$defs/SourceId" },
+        "pipeline": { "$ref": "#/$defs/PipelineId" }
+      },
+      "required": ["source", "pipeline"]
+    },
+    "KernelRegistry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sources": { "type": "object", "propertyNames": { "$ref": "#/$defs/SourceId" }, "additionalProperties": { "$ref": "#/$defs/SourceSpec" } },
+        "sinks": { "type": "object", "propertyNames": { "$ref": "#/$defs/SinkId" }, "additionalProperties": { "$ref": "#/$defs/SinkSpec" } },
+        "hooks": { "type": "object", "propertyNames": { "$ref": "#/$defs/HookId" }, "additionalProperties": { "$ref": "#/$defs/HookSpec" } },
+        "pipelines": { "type": "object", "propertyNames": { "$ref": "#/$defs/PipelineId" }, "additionalProperties": { "$ref": "#/$defs/Pipeline" } },
+        "wirings": { "type": "array", "items": { "$ref": "#/$defs/Wiring" } },
+        "fns": { "type": "object", "propertyNames": { "$ref": "#/$defs/HookId" }, "additionalProperties": { "$ref": "#/$defs/HookFn" } }
+      },
+      "required": ["sources", "sinks", "hooks", "pipelines", "wirings", "fns"]
+    },
+    "HookKind": {
+      "type": "string",
+      "enum": ["net", "transport", "policy", "auth", "side_effect"]
+    },
+    "NamespacePattern": {
+      "type": "string",
+      "pattern": "^(net|transport|policy|auth|trace|ext)\\.\\*$",
+      "description": "Glob form `<head>.*` where head is one of net|transport|policy|auth|trace|ext. The match is 'metadata key starts with <head>.'."
+    },
+    "MetadataKey": {
+      "type": "string",
+      "pattern": "^(net|transport|policy|auth|trace|ext)\\.[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)*$",
+      "description": "Concrete metadata key. Bare namespace heads are invalid; use dotted keys such as net.dst_host or ext.geosite_tags. Namespace authoring/role ownership is defined by docs/handbook/spec/data-ontology.schema.json#metadata_namespace_ownership; operator source.initial_writes is restricted to namespaces with source_initial_writes_allowed=true (enforced at the runtime operator boundary)."
+    },
+    "HookSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id":                  { "$ref": "#/$defs/HookId" },
+        "kind":                { "$ref": "#/$defs/HookKind" },
+        "allowed_namespaces":  {
+          "type": "array",
+          "description": "Namespace whitelist for reads/writes. Empty is not wildcard; any declared read/write must be covered by a `<head>.*` pattern.",
+          "items": { "$ref": "#/$defs/NamespacePattern" }
+        },
+        "reads":               { "type": "array", "items": { "$ref": "#/$defs/MetadataKey" } },
+        "writes":              { "type": "array", "items": { "$ref": "#/$defs/MetadataKey" } },
+        "may_terminate":       { "type": "boolean" },
+        "may_jump":            { "type": "boolean" },
+        "may_jump_to":         { "type": "array", "items": { "$ref": "#/$defs/PipelineId" } },
+        "may_accept_to":       { "type": "array", "items": { "$ref": "#/$defs/SinkId" } },
+        "side_effect_only":    { "type": "boolean" }
+      },
+      "required": ["id", "kind", "allowed_namespaces", "reads", "writes", "may_terminate", "may_jump", "may_jump_to", "may_accept_to", "side_effect_only"]
+    },
+    "SourceSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "$ref": "#/$defs/SourceId" },
+        "kind": {
+          "const": "application/source",
+          "description": "protocol-neutral SourceSpec kind for application source adapters; future adapters use this same kind instead of protocol-specific source kinds."
+        },
+        "initial_writes": { "type": "array", "items": { "$ref": "#/$defs/MetadataKey" } }
+      },
+      "required": ["id", "kind", "initial_writes"]
+    },
+    "SinkSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id":   { "$ref": "#/$defs/SinkId" },
+        "kind": {
+          "enum": ["stream_egress", "datagram_egress"],
+          "description": "capability-shaped SinkSpec kind; future adapters use stream_egress or datagram_egress instead of adapter-specific sink kinds."
+        }
+      },
+      "required": ["id", "kind"]
+    },
+    "VerifyError": {
+      "type": "string",
+      "enum": [
+        "UnknownHook", "MissingHookFn", "UnknownHookFn", "RegistryIdentityMismatch",
+        "InvalidSourceId", "InvalidSinkId", "InvalidPipelineId", "InvalidHookId",
+        "InvalidSourceKind", "InvalidSinkKind",
+        "UnknownSource", "UnknownWiringPipeline", "DuplicateWiringSource",
+        "MissingSourceWiring",
+        "UnknownSink", "InvalidAcceptDeclaration", "UnknownPipelineJumpTarget",
+        "InvalidJumpDeclaration", "JumpCycle", "UnsatisfiedRead", "NamespaceViolation",
+        "InvalidMetadataKey", "InvalidNamespacePattern",
+        "PolicyReadsPayload", "SideEffectMutatesVerdict",
+        "PipelineDoesNotTerminate"
+      ]
+    }
+  }
+}

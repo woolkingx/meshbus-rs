@@ -1,0 +1,41 @@
+id: dispatch.datagram.fixed_target_skips_scheduler_after_open
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.datagram.fixed_target_skips_scheduler_after_open
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: "127.0.0.1"
+    port: 9021
+  egresses:
+    - id: e-udp-direct
+      protocol: udp-test
+      supports_stream: false
+      supports_datagram: true
+      max_payload_bytes: 1200
+      groups: []
+  datagram:
+    open_target:
+      host: "127.0.0.1"
+      port: 9021
+    sends:
+      - target:
+          host: "127.0.0.1"
+          port: 9021
+        payload: "first"
+      - target:
+          host: "127.0.0.1"
+          port: 9021
+        payload: "second"
+    fixed_target: true
+expect:
+  open_ok: true
+  calls:
+    e-udp-direct: 0
+  datagram_assertions:
+    schedule_after_open_skipped: true
+    frame_sends: 0
+    direct_sends: 2
+    direct_mode_entered_before_second_send: true
+observations: []
+tags: []

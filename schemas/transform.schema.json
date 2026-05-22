@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "transform.schema.json",
+  "title": "TransformDescriptor",
+  "type": "object",
+  "required": ["kind"],
+  "properties": {
+    "kind": {
+      "title": "TransformKind",
+      "enum": ["None", "Fragment", "Compress", "Encrypt", "Checksum", "Parity"],
+      "description": "Protocol-agnostic L6 transform category. Algorithm parameters live in policy_ref."
+    },
+    "policy_ref": {
+      "type": ["string", "null"],
+      "description": "Opaque reference to an external transform policy; bus core does not parse it."
+    }
+  },
+  "additionalProperties": false
+}

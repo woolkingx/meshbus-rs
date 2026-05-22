@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "endpoint.schema.json",
+  "title": "Endpoint",
+  "type": "object",
+  "required": ["host", "port"],
+  "properties": {
+    "host": { "type": "string", "minLength": 1, "maxLength": 255 },
+    "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+  },
+  "additionalProperties": false
+}

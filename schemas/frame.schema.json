@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "frame.schema.json",
+  "title": "Frame",
+  "type": "object",
+  "required": [
+    "packet_id",
+    "flow_id",
+    "session_id",
+    "seq",
+    "kind",
+    "target",
+    "ttl",
+    "traffic_class",
+    "flow_semantics",
+    "return_semantics"
+  ],
+  "properties": {
+    "packet_id": { "type": "integer", "minimum": 0 },
+    "flow_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string" },
+    "seq": { "type": "integer", "minimum": 0 },
+    "kind": { "enum": ["Open", "Data", "Datagram", "ShutdownWrite", "Close", "Cancel", "Probe"] },
+    "payload": { "type": "string", "contentEncoding": "base64" },
+    "target": { "$ref": "endpoint.schema.json" },
+    "ttl": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "traffic_class": { "enum": ["Interactive", "Bulk", "Control", "Probe"] },
+    "flow_semantics": {
+      "enum": ["ByteStream", "Datagram", "Message"],
+      "description": "generic L4 flow-shape metadata declared by ingress for capability matching and dispatch placement; not a protocol parser or L7 policy input."
+    },
+    "return_semantics": {
+      "enum": ["Direct", "PacketDedup", "SequenceReorder"],
+      "description": "Return aggregation semantics selected from flow semantics and dispatch mode."
+    },
+    "policy_ref": { "type": "string" },
+    "deadline_ms": { "type": "integer", "minimum": 0 },
+    "schedule_hint": {
+      "oneOf": [
+        { "const": "Auto" },
+        { "const": "SinglePath" },
+        {
+          "type": "object",
+          "required": ["kind", "k"],
+          "properties": {
+            "kind": { "const": "FanOut" },
+            "k": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "n"],
+          "properties": {
+            "kind": { "const": "Stripe" },
+            "n": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "L4Session scheduling intent copied from SessionRequest; runtime may realize or downgrade it."
+    },
+    "path_trace": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

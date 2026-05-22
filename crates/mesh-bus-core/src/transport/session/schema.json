@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "mesh-bus-core.session.schema.json",
+  "title": "MeshBusCoreSessionDomain",
+  "description": "Data shapes for the L5 session domain: session request/info, path proof, stream and datagram session traits, split halves, egress factories, and error types.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "domain": { "const": "session" }
+  },
+  "definitions": {
+    "BusSessionRequest": {
+      "description": "Parameters for opening a new L5 session through the bus.",
+      "type": "object",
+      "required": ["target", "flow_semantics", "traffic_class", "return_semantics", "schedule_hint"],
+      "properties": {
+        "target": { "type": "string", "description": "Opaque endpoint string (host:port)." },
+        "flow_semantics": { "$ref": "../forwarding/schema.json#/definitions/FlowSemantics" },
+        "traffic_class": { "$ref": "../forwarding/schema.json#/definitions/TrafficClass" },
+        "deadline_ms": { "type": "integer", "minimum": 0 },
+        "policy_ref": { "type": "string" },
+        "return_semantics": { "$ref": "../forwarding/schema.json#/definitions/ReturnSemantics" },
+        "schedule_hint": { "$ref": "../forwarding/schema.json#/definitions/ScheduleHint" },
+        "source_key": { "type": "string", "description": "Opaque ingress-supplied affinity key for source." },
+        "target_key": { "type": "string", "description": "Opaque ingress-supplied affinity key for target." },
+        "route_group": { "type": "string", "description": "Optional route group label; bus filters candidate exits by Capabilities.groups membership." }
+      },
+      "additionalProperties": false
+    },
+    "BusSessionInfo": {
+      "description": "Runtime metadata for an open L5 session.",
+      "type": "object",
+      "required": ["session_id", "flow_id", "schedule_mode", "paths", "primary", "path_trace", "started_at_ms"],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1 },
+        "flow_id": { "type": "string", "minLength": 1 },
+        "schedule_mode": { "$ref": "../forwarding/schema.json#/definitions/ScheduleMode" },
+        "paths": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BusPathInfo" }
+        },
+        "primary": { "type": "integer", "minimum": 0, "description": "Index into paths for the primary exit." },
+        "path_trace": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Sequence of ExitIds the session traversed."
+        },
+        "started_at_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "BusPathInfo": {
+      "description": "A single resolved network path within a session.",
+      "type": "object",
+      "required": ["exit_id", "local", "remote", "measurement", "state"],
+      "properties": {
+        "exit_id": { "type": "string", "minLength": 1 },
+        "local": { "type": "string", "description": "Local endpoint for this path." },
+        "remote": { "type": "string", "description": "Remote endpoint for this path." },
+        "measurement": { "$ref": "../../../../../schemas/measurement.schema.json" },
+        "state": { "$ref": "#/definitions/PathState" }
+      },
+      "additionalProperties": false
+    },
+    "PathState": {
+      "description": "Lifecycle state of a network path.",
+      "type": "string",
+      "enum": ["Connecting", "Active", "Degraded", "Closed"]
+    },
+    "DisconnectReason": {
+      "description": "Typed reason for a session or connection failure.",
+      "oneOf": [
+        { "const": "ConnectionRefused" },
+        { "const": "NetworkUnreachable" },
+        { "const": "HostUnreachable" },
+        { "const": "TtlExpired" },
+        { "const": "TimedOut" },
+        { "const": "UpstreamEof" },
+        { "const": "ConnectionReset" },
+        { "const": "NotConnected" },
+        { "const": "NoUsableExit" },
+        { "const": "SessionClosed" },
+        { "const": "ReaderClosed" },
+        { "const": "AddressNotSupported" },
+        {
+          "type": "object",
+          "required": ["Other"],
+          "properties": {
+            "Other": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SendError": {
+      "description": "Error returned by a datagram session send.",
+      "type": "string",
+      "enum": ["BufferFull", "AddressNotSupported", "PayloadTooLarge", "Closed"]
+    },
+    "BusStreamSession": {
+      "type": "trait",
+      "description": "L5 byte-stream session over the bus.",
+      "capabilities": ["connect", "split", "abort", "info", "last_error"]
+    },
+    "BusStreamSendHalf": {
+      "type": "trait",
+      "description": "Write half of a split stream session.",
+      "capabilities": ["send", "shutdown_write", "abort"]
+    },
+    "BusStreamRecvHalf": {
+      "type": "trait",
+      "description": "Read half of a split stream session.",
+      "capabilities": ["recv", "last_error"]
+    },
+    "BusDatagramSession": {
+      "type": "trait",
+      "description": "L5 datagram session over the bus.",
+      "capabilities": ["send_to", "recv_from", "info", "max_payload_bytes", "close", "split"]
+    },
+    "BusDatagramSendHalf": {
+      "type": "trait",
+      "description": "Write half of a split L5 datagram session.",
+      "capabilities": ["send_to", "close"]
+    },
+    "BusDatagramRecvHalf": {
+      "type": "trait",
+      "description": "Read half of a split L5 datagram session.",
+      "capabilities": ["recv_from", "last_error"]
+    },
+    "BusStreamEgress": {
+      "type": "trait",
+      "description": "Factory that creates byte-stream sessions toward an upstream exit.",
+      "capabilities": ["id", "capabilities", "open_stream"]
+    },
+    "BusDatagramEgress": {
+      "type": "trait",
+      "description": "Factory that creates datagram sessions toward an upstream exit.",
+      "capabilities": ["id", "capabilities", "max_payload_bytes", "open_datagram"]
+    }
+  }
+}

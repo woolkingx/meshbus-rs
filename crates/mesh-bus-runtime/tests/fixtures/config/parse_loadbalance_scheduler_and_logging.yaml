@@ -1,0 +1,50 @@
+id: parse_loadbalance_scheduler_and_logging
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    logging:
+      level: debug
+      format: json
+    health:
+      failure_threshold: 3
+      recovery_window_ms: 60000
+      probe_after_ms: 1500
+    metrics:
+      kind: PrometheusTextfile
+      path: /tmp/mesh-bus-test.prom
+    scheduler:
+      kind: LoadBalance
+      mode: sticky-sessions
+      sticky_ttl_secs: 30
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19086
+    egresses:
+      - kind: Socks5
+        id: wan20
+        wan_id: wan-a
+        priority: 2
+        upstream: 198.51.100.20:1080
+        timeout_ms: 1000
+      - kind: Socks5
+        id: wan21
+        wan_id: wan-b
+        priority: 1
+        upstream: 198.51.100.21:1080
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "StickySessions"
+    - "sticky_ttl_secs: 30"
+    - "debug"
+    - "Json"
+    - "failure_threshold: 3"
+    - "probe_after_ms: 1500"
+    - "wan-a"
+    - "priority: 2"
+observations: []
+tags: []

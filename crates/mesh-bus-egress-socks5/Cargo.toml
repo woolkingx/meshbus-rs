@@ -1,0 +1,16 @@
+[package]
+name = "mesh-bus-egress-socks5"
+version = "0.1.9"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-proto-socks5 = { path = "../../lib/mb-proto-socks5" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }

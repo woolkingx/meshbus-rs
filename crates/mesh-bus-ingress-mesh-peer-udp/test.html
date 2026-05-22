@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-ingress-mesh-peer-udp - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-ingress-mesh-peer-udp - Owner Proof Contract</h1>
+    <p>Classification: <strong>mesh peer raw UDP ingress adapter</strong>. Owns Mesh Protocol frame decoding, stream re-entry, and datagram session entry.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-ingress-mesh-peer-udp</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-ingress-mesh-peer-udp</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td>Config</td><td><code>listen</code> bound for peer socket.</td></tr>
+        <tr><td>Stream session</td><td>Per-peer stream state that maps Mesh Protocol <code>StreamOpen/Data/Close</code> to local bus stream re-entry.</td></tr>
+        <tr><td>Datagram session</td><td>Per-packet decode and datagram session handoff to core.</td></tr>
+        <tr><td>MeshSec decode surface</td><td>Sealed/clear open path and fail-closed handling.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-fixtures">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema.json">schema.json</a> and proof tests in <a href="tests/ingress.rs">tests/ingress.rs</a>, <a href="tests/eviction.rs">tests/eviction.rs</a>.</p>
+      <ul>
+        <li>StreamOpen re-entry into local bus and failure mapping to StreamOpenReject.</li>
+        <li>Datagram open/return behavior.</li>
+        <li>Peer endpoint/source preservation and MeshSec fail-closed cases.</li>
+        <li>Session stop/ejection behavior under scheduler eviction.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-ingress-mesh-peer-udp</code></td><td>All owner proofs.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Ingress shape</td><td>Accepts stream and datagram Mesh Protocol events; stream opens re-enter the local bus and datagrams preserve endpoint identity.</td></tr>
+        <tr><td>Decode ownership</td><td>Two-layer decode and family routing preserve packet identity.</td></tr>
+        <tr><td>MeshSec policy</td><td>Malformed and tampered packets fail closed without creating sessions.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-runtime</td><td>Instantiates <code>IngressCfg::MeshPeerUdp</code> and injects this plugin at mesh boundary.</td></tr>
+        <tr><td>mesh-bus-core</td><td>Consumes <code>IngressPlugin</code> and datagram session primitives.</td></tr>
+        <tr><td>mb-proto-mesh</td><td>Owns protocol constants and frame codecs.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Mesh peer traffic reaches core via stream re-entry or datagram sessions from this ingress.</li>
+        <li>StreamOpen rejection is valid only for local open failure, malformed input, or explicit policy failure.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Stream/session scheduling policy tests</td><td>Scheduling ownership belongs to scheduler modules.</td></tr>
+        <tr><td>Socket/HTTP metrics assertions</td><td>Observer modules own these metrics.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

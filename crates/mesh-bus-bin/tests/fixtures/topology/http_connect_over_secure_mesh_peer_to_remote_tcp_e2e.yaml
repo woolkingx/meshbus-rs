@@ -1,0 +1,77 @@
+id: http_connect_over_secure_mesh_peer_to_remote_tcp_e2e
+owner: mesh-bus-bin.product-topology
+kind: service-composition
+case: e2e.product_topology
+schema_ref: schemas/test-runtime.schema.json
+input:
+  resources:
+    - name: NODE_A_HTTP
+      kind: tcp_addr
+    - name: NODE_B_MESH
+      kind: udp_addr
+    - name: RELAY
+      kind: udp_relay
+      forward_to: "{{NODE_B_MESH}}"
+      capture: true
+    - name: TCP_ECHO
+      kind: tcp_echo
+  nodes:
+    - name: node-b
+      start_after_ms: 200
+      config_yaml: |
+        node:
+          id: node-b
+        peers:
+          - id: peer-a
+            node_id: node-a
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: "1111111111111111111111111111111111111111111111111111111111111111"
+        ingresses:
+          - kind: MeshPeerUdp
+            listen: "{{NODE_B_MESH}}"
+        egresses:
+          - kind: Tcp
+            id: node-b-tcp
+            timeout_ms: 1000
+    - name: node-a
+      start_after_ms: 200
+      config_yaml: |
+        node:
+          id: node-a
+        peers:
+          - id: parent-b
+            node_id: node-b
+            route_groups: [mesh-upstream]
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: "1111111111111111111111111111111111111111111111111111111111111111"
+        ingresses:
+          - kind: HttpConnect
+            listen: "{{NODE_A_HTTP}}"
+        egresses:
+          - kind: MeshPeerUdp
+            id: peer-b
+            peer_id: parent-b
+            peer: "{{RELAY}}"
+            timeout_ms: 1000
+            groups: [mesh-upstream]
+  probe:
+    kind: http_connect_tcp
+    listen: "{{NODE_A_HTTP}}"
+    target: "{{TCP_ECHO}}"
+    payload: "http-connect-over-secure-mesh"
+expect:
+  echo_payload: "http-connect-over-secure-mesh"
+  wire:
+    capture: RELAY
+    fail_closed_target: "{{NODE_B_MESH}}"
+    no_magic: "4d42"
+    no_plaintext:
+      - "http-connect-over-secure-mesh"
+      - "mesh-upstream"
+      - "127.0.0.1"
+    tamper_fail_closed: true
+    replay_fail_closed: true
+observations: []
+tags: []

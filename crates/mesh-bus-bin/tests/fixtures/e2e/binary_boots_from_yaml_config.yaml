@@ -1,0 +1,18 @@
+id: binary_boots_from_yaml_config
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.boot_shutdown
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:0
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+observations: []
+tags: []

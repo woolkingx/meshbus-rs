@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-cake/schema.json",
+  "title": "mb-cake",
+  "description": "This crate provides CAKE ranking composition over cost scores; data types are imported from /schemas/ via mesh-bus-schema.",
+  "type": "object"
+}

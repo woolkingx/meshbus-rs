@@ -1,0 +1,23 @@
+id: parse_pipeline_rejects_empty_geoip_asn_path
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      geoip:
+        asn_path: ""
+expect:
+  ok: false
+  error_contains: "pipeline geoip.asn_path must not be empty"
+observations: []
+tags: []

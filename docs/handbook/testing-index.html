@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test Proof Graph Index - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1180px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    .ok { color:var(--ok); font-weight:600; }
+    .missing { color:var(--bad); font-weight:600; }
+    .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Test Proof Graph Index</h1>
+    <p>Generated proof-contract graph. Source of truth stays in each owner-local <code>test.html</code>; this page is navigation and gap detection only.</p>
+  </header>
+  <main>
+    <section id="contract">
+      <h2>Graph Contract</h2>
+      <table>
+        <tr><th>Surface</th><th>Role</th></tr>
+        <tr><td><code>CLAUDE.md</code></td><td>Agent entry, local rules, and navigation.</td></tr>
+        <tr><td><code>schema.json</code></td><td>Owned data contract and legal shape.</td></tr>
+        <tr><td><code>test.html</code></td><td>Proof contract: fixtures, runner, boundaries, e2e projections, and forbidden tests.</td></tr>
+        <tr><td>code</td><td>Implementation: legal operators over schema data when the node owns implementation code.</td></tr>
+      </table>
+      <p>Regenerate with <code>node docs/handbook/generate-test-index.mjs</code>. Check freshness with <code>node docs/handbook/generate-test-index.mjs --check</code>.</p>
+    </section>
+    <section id="summary">
+      <h2>Summary</h2>
+      <p><strong>37</strong> of <strong>45</strong> proof graph nodes currently have their required surfaces. Generated: <code>2026-05-21</code>.</p>
+    </section>
+    <section id="modules">
+      <h2>Proof Graph Nodes</h2>
+      <table>
+        <tr><th>Node</th><th>Kind</th><th>CLAUDE.md</th><th>schema.json</th><th>test.html</th><th>code</th><th>Status</th></tr>
+        <tr><td><code>crates/mesh-bus-bin</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-bin/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-bin/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-bin/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-core</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-core/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-core/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-core/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-egress-mesh-peer-udp</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-egress-mesh-peer-udp/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-egress-mesh-peer-udp/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-egress-mesh-peer-udp/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-egress-service</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-egress-service/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-egress-service/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-egress-service/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-egress-socks5</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-egress-socks5/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-egress-socks5/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-egress-socks5/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-egress-tcp</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-egress-tcp/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-egress-tcp/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-egress-tcp/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-egress-udp</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-egress-udp/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-egress-udp/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-egress-udp/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-ingress-http-connect</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-ingress-http-connect/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-ingress-http-connect/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-ingress-http-connect/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-ingress-mesh-peer-udp</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-ingress-mesh-peer-udp/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-ingress-mesh-peer-udp/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-ingress-mesh-peer-udp/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-ingress-socks5</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-ingress-socks5/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-ingress-socks5/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-ingress-socks5/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-ingress-tcp</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-ingress-tcp/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-ingress-tcp/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-ingress-tcp/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-ingress-udp</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-ingress-udp/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-ingress-udp/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-ingress-udp/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-observer-metrics</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-observer-metrics/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-observer-metrics/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-observer-metrics/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-observer-prometheus</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-observer-prometheus/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-observer-prometheus/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-observer-prometheus/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-operator-api</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-operator-api/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-operator-api/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-operator-api/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-pipeline-hooks</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-pipeline-hooks/CLAUDE.md">CLAUDE.md</a></td><td><span class="missing">missing</span></td><td><a href="../../crates/mesh-bus-pipeline-hooks/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing schema.json</span></td></tr>
+        <tr><td><code>crates/mesh-bus-resolver</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-resolver/CLAUDE.md">CLAUDE.md</a></td><td><span class="missing">missing</span></td><td><a href="../../crates/mesh-bus-resolver/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing schema.json</span></td></tr>
+        <tr><td><code>crates/mesh-bus-runtime</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-runtime/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-runtime/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-runtime/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-scheduler-cake</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-scheduler-cake/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-scheduler-cake/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-scheduler-cake/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-scheduler-loadbalance</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-scheduler-loadbalance/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-scheduler-loadbalance/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-scheduler-loadbalance/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-scheduler-replicate</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-scheduler-replicate/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-scheduler-replicate/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-scheduler-replicate/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>crates/mesh-bus-schema</code></td><td>module owner</td><td><a href="../../crates/mesh-bus-schema/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../crates/mesh-bus-schema/schema.json">schema.json</a></td><td><a href="../../crates/mesh-bus-schema/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-cake</code></td><td>module owner</td><td><a href="../../lib/mb-cake/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-cake/schema.json">schema.json</a></td><td><a href="../../lib/mb-cake/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-chunker</code></td><td>module owner</td><td><a href="../../lib/mb-chunker/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-chunker/schema.json">schema.json</a></td><td><a href="../../lib/mb-chunker/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-cost</code></td><td>module owner</td><td><a href="../../lib/mb-cost/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-cost/schema.json">schema.json</a></td><td><a href="../../lib/mb-cost/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-endpoint</code></td><td>module owner</td><td><a href="../../lib/mb-endpoint/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-endpoint/schema.json">schema.json</a></td><td><a href="../../lib/mb-endpoint/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-geoip</code></td><td>module owner</td><td><a href="../../lib/mb-geoip/CLAUDE.md">CLAUDE.md</a></td><td><span class="missing">missing</span></td><td><a href="../../lib/mb-geoip/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing schema.json</span></td></tr>
+        <tr><td><code>lib/mb-geosite</code></td><td>module owner</td><td><a href="../../lib/mb-geosite/CLAUDE.md">CLAUDE.md</a></td><td><span class="missing">missing</span></td><td><a href="../../lib/mb-geosite/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing schema.json</span></td></tr>
+        <tr><td><code>lib/mb-health</code></td><td>module owner</td><td><a href="../../lib/mb-health/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-health/schema.json">schema.json</a></td><td><a href="../../lib/mb-health/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-loadbalance</code></td><td>module owner</td><td><a href="../../lib/mb-loadbalance/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-loadbalance/schema.json">schema.json</a></td><td><a href="../../lib/mb-loadbalance/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-pool</code></td><td>module owner</td><td><a href="../../lib/mb-pool/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-pool/schema.json">schema.json</a></td><td><a href="../../lib/mb-pool/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-proto-dns</code></td><td>module owner</td><td><a href="../../lib/mb-proto-dns/CLAUDE.md">CLAUDE.md</a></td><td><span class="missing">missing</span></td><td><a href="../../lib/mb-proto-dns/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing schema.json</span></td></tr>
+        <tr><td><code>lib/mb-proto-http-proxy</code></td><td>module owner</td><td><a href="../../lib/mb-proto-http-proxy/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-proto-http-proxy/schema.json">schema.json</a></td><td><a href="../../lib/mb-proto-http-proxy/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-proto-mesh</code></td><td>module owner</td><td><a href="../../lib/mb-proto-mesh/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-proto-mesh/schema.json">schema.json</a></td><td><a href="../../lib/mb-proto-mesh/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-proto-socks5</code></td><td>module owner</td><td><a href="../../lib/mb-proto-socks5/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-proto-socks5/schema.json">schema.json</a></td><td><a href="../../lib/mb-proto-socks5/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-quic</code></td><td>module owner</td><td><a href="../../lib/mb-quic/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-quic/schema.json">schema.json</a></td><td><a href="../../lib/mb-quic/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-reorder</code></td><td>module owner</td><td><a href="../../lib/mb-reorder/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../lib/mb-reorder/schema.json">schema.json</a></td><td><a href="../../lib/mb-reorder/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>lib/mb-rule</code></td><td>module owner</td><td><a href="../../lib/mb-rule/CLAUDE.md">CLAUDE.md</a></td><td><span class="missing">missing</span></td><td><a href="../../lib/mb-rule/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing schema.json</span></td></tr>
+        <tr><td><code>lib/mb-socket-tune</code></td><td>module owner</td><td><span class="missing">missing</span></td><td><span class="missing">missing</span></td><td><a href="../../lib/mb-socket-tune/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing CLAUDE.md, schema.json</span></td></tr>
+        <tr><td><code>lib/mb-splice</code></td><td>module owner</td><td><span class="missing">missing</span></td><td><span class="missing">missing</span></td><td><a href="../../lib/mb-splice/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="warn">missing CLAUDE.md, schema.json</span></td></tr>
+        <tr><td><code>config</code></td><td>module owner</td><td><a href="../../config/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../config/schema.json">schema.json</a></td><td><a href="../../config/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>schemas</code></td><td>schema collection</td><td><a href="../../schemas/CLAUDE.md">CLAUDE.md</a></td><td><span class="warn">n/a</span></td><td><a href="../../schemas/test.html">test.html</a></td><td><span class="warn">n/a</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>deploy/systemd</code></td><td>deployment contract</td><td><a href="../../deploy/systemd/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../deploy/systemd/schema.json">schema.json</a></td><td><a href="../../deploy/systemd/test.html">test.html</a></td><td><span class="warn">n/a</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>deploy/service</code></td><td>deployment action owner</td><td><a href="../../deploy/service/CLAUDE.md">CLAUDE.md</a></td><td><a href="../../deploy/service/schema.json">schema.json</a></td><td><a href="../../deploy/service/test.html">test.html</a></td><td><span class="ok">present</span></td><td><span class="ok">complete</span></td></tr>
+        <tr><td><code>tests</code></td><td>service/e2e composition</td><td><a href="../../tests/CLAUDE.md">CLAUDE.md</a></td><td><span class="warn">n/a</span></td><td><a href="../../tests/test.html">test.html</a></td><td><span class="warn">n/a</span></td><td><span class="ok">complete</span></td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

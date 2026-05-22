@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-scheduler-cake - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-scheduler-cake - Owner Proof Contract</h1>
+    <p>Classification: <strong>scheduler plugin</strong>. Owns L4 metadata-only ranking with health-window feedback.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-scheduler-cake</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a>, <a href="src/observer.rs">src/observer.rs</a></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>HealthWindow</code> map</td><td>Per-exit recent RTT/jitter/success/goodput window for ranking inputs.</td></tr>
+        <tr><td><code>snapshot</code></td><td>Lock-free read cache of metric snapshots via <code>ArcSwap</code>.</td></tr>
+        <tr><td><code>CakeFeedbackObserver</code></td><td>Async sink forwarding core lifecycle events into scheduler feedback.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema.json">schema.json</a> documents metadata-only ranking context and <code>RankContext</code> usage vocabulary.</p>
+      <ul>
+        <li><a href="tests/schema.rs">tests/schema.rs</a>: closed schema and metadata-only wording.</li>
+        <li><a href="tests/cake.rs">tests/cake.rs</a>: ranking, unknown exits, and jitter/success weighting.</li>
+        <li><a href="tests/feedback_goodput.rs">tests/feedback_goodput.rs</a>: goodput and score consistency from feedback.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-scheduler-cake</code></td><td>All scheduler and observer-surface proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-scheduler-cake --test schema</code></td><td>Schema closure and owner wording checks.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-scheduler-cake --test cake</code></td><td>Ranking and unknown-exit semantics.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Metadata-only scheduling</td><td>Ranking uses flow id, RTT, jitter, success, and goodput only.</td></tr>
+        <tr><td>Feedback ingestion</td><td>Observations from <code>FlowOpened</code>/<code>FlowClosed</code>/<code>PathIoError</code> update windows.</td></tr>
+        <tr><td>Unknown exit behavior</td><td>Unknown exits use a conservative RTT probe baseline until feedback exists.</td></tr>
+        <tr><td>Score visibility</td><td><code>score_for</code> and <code>goodput_bps_for</code> reflect measured windows.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-core</td><td>Calls <code>schedule</code> and <code>feedback</code> via <code>SchedulerPlugin</code>.</td></tr>
+        <tr><td>mesh-bus-runtime</td><td>Constructs scheduler from runtime config; does not own candidate evidence math.</td></tr>
+        <tr><td>mb-health / mb-cost</td><td>Health snapshot and score function are read by this module only for ranking.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Combined routing + scheduler policies in e2e are observed through ordered index decisions produced by this module.</li>
+        <li>Traffic class shifts score config by <code>RankContext.traffic_class</code>.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Frame.payload protocol assertions</td><td>Scheduler boundary is metadata-only.</td></tr>
+        <tr><td>Transport timing benchmarks</td><td>Owned by dataplane/runtime e2e, not ranking policy.</td></tr>
+        <tr><td>Global scheduling policy claims</td><td>Per-module owner proof only; product behavior crosses modules.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,27 @@
+id: binary_socks5_concurrent_fifty_connect_smoke_keeps_resources_bounded
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  probe:
+    kind: socks5_concurrent_tcp
+    count: 50
+    payload_len: 4096
+    expect_dispatch_min: 50
+  yaml: |
+    metrics:
+      kind: PrometheusHttp
+      listen: "{{METRICS_LISTEN}}"
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+    egresses:
+      - kind: Tcp
+        id: direct
+        wan_id: local
+        timeout_ms: 2000
+expect:
+  ok: true
+observations: []
+tags: []

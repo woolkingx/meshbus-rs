@@ -1,0 +1,10 @@
+[package]
+name = "mb-proto-http-proxy"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bytes = { workspace = true }
+mb-endpoint = { path = "../mb-endpoint" }
+thiserror = { workspace = true }

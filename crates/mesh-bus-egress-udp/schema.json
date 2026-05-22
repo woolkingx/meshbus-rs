@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-egress-udp/schema.json",
+  "title": "mesh-bus-egress-udp",
+  "description": "UDP egress plugin configuration and behavior. Each DatagramSession binds one persistent UdpSocket; send_to fires immediately without waiting for a response. split() returns UdpDatagramSendHalf (fire-and-forget) and UdpDatagramRecvHalf (continuous recv_from loop) backed by a shared Arc<UdpSocket>.",
+  "type": "object",
+  "required": ["id", "timeout_ms"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "timeout_ms": { "type": "integer", "minimum": 1 },
+    "socket_recv_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_RCVBUF size in bytes for UDP egress sockets."
+    },
+    "socket_send_buffer_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Optional SO_SNDBUF size in bytes for UDP egress sockets."
+    },
+    "supports_datagram": { "type": "boolean", "const": true },
+    "supports_stream": { "type": "boolean", "const": false },
+    "datagram_boundary": {
+      "type": "string",
+      "const": "one-send-one-datagram",
+      "description": "Each DatagramSession::send_to call is emitted as exactly one UDP datagram; payload boundaries are not coalesced or split by this adapter."
+    },
+    "fixed_target_mode": {
+      "type": "string",
+      "const": "request-target-is-intent-metadata",
+      "description": "Optional service-sink mode: send_to target is ignored for the socket send and the configured fixed endpoint is used instead."
+    }
+  },
+  "additionalProperties": false
+}

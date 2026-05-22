@@ -1,0 +1,32 @@
+name: Documentation issue
+description: Report drift, broken links, or unclear handbook/spec text.
+title: "docs: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: location
+    attributes:
+      label: Location
+      description: File, section id, or link.
+      placeholder: docs/handbook/product-roadmap.html#public-name
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue
+      description: What is wrong, stale, duplicated, or unclear?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected correction
+  - type: checkboxes
+    id: owner
+    attributes:
+      label: Owner check
+      options:
+        - label: This belongs in the handbook if it changes topology, architecture, status, or acceptance gates.
+        - label: This belongs in schema.json if it changes data shape.
+        - label: This belongs in CLAUDE.md only if it changes local execution rules or keypoints.

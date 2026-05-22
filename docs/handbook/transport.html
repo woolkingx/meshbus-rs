@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UDP and QUIC Transport - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>UDP and QUIC Transport</h1>
+    <p>Secure UDP is the native delivery line for encrypted Mesh Protocol events. QUIC and TCP are reference, fallback, and benchmark bindings. Transport connection, port, socket, and channel state are path evidence, not session truth.</p>
+    <p>Canonical Mesh Protocol semantics live in <a href="mesh-protocol.html">Mesh Protocol</a>. This chapter owns delivery mechanics only.</p>
+  </header>
+  <main>
+    <section id="ownership">
+      <h2>Ownership</h2>
+      <table>
+        <tr><th>Binding</th><th>Owns</th><th>Must not claim</th></tr>
+        <tr><td>Secure UDP</td><td>Primary production event-envelope binding, including receiver hints, key epochs, nonce material, padding, packet-loop metadata, batching, and port-pool delivery.</td><td>Session identity, route truth, or decrypted event semantics.</td></tr>
+        <tr><td>Raw UDP</td><td>Loopback/debug delivery of Mesh Protocol events and packet-loop experiments.</td><td>WAN cleartext or production security.</td></tr>
+        <tr><td>QUIC</td><td>Reference, fallback, and benchmark delivery substrate for encrypted events and existing regression tests.</td><td>Native mesh target, reliability owner, route truth, security source of truth, or session truth. Connection health is path evidence only.</td></tr>
+        <tr><td>TCP</td><td>Reference/debug stream binding.</td><td>Primary production mesh transport target.</td></tr>
+      </table>
+    </section>
+
+    <section id="terminology-guardrail">
+      <h2>Terminology Guardrail</h2>
+      <table>
+        <tr><th>Name</th><th>Meaning</th><th>Forbidden interpretation</th></tr>
+        <tr><td>Quinn</td><td>Former reference binding and regression baseline; removed from the dependency graph in M6 once own QUIC passed the same functional gates.</td><td>A live runtime binding, target architecture, or a dependency to reintroduce.</td></tr>
+        <tr><td>quiche source</td><td>Read-only implementation reference for UDP packet-loop practice and QUIC internals.</td><td>Runtime binding, Cargo dependency, or product architecture.</td></tr>
+        <tr><td>own QUIC (mb-quic)</td><td>Implemented real IETF QUIC engine over UdpPacketLoop: packet protection, TLS handshake, recovery, congestion, streams, flow control, datagrams, close, timers. It is a comparison/reference engine and data-shape source.</td><td>Native mesh protocol, private reliability channel, reliability owner, or Mesh Protocol wire format.</td></tr>
+        <tr><td>Secure UDP / MeshSec</td><td>Primary production mesh transport line for encrypted event envelopes.</td><td>Debug raw UDP or optional QUIC reference/fallback substrate.</td></tr>
+      </table>
+      <p>The fixed execution order is complete: UDP substrate first, own real QUIC second, Quinn reference binding removed third (M6). That work proves the UDP substrate and gives a QUIC comparison baseline; it does not make QUIC the mesh target. Secure UDP with MeshSec is the production mesh transport path; its AEAD/KDF/replay envelope and raw-UDP seal/open integration are implemented and proven at local two-node functional level.</p>
+      <p><span class="ok">Native mesh completion line (2026-05-18, functional-verification level):</span> the native mesh event package plan is complete — native Secure UDP carries MeshEvent/DataPackage with per-(peer,family) <code>FamilyReorderState</code> ordering, receiver-mouth rotation, <code>LinkEvidence</code> projected from the same <code>PathStats</code> the UDP and QUIC reference bindings report, and DeliveryPolicy steer/replicate/stripe/repair/probe that change delivery coordinates only. QUIC stays a reference/fallback/benchmark binding and is no longer the reliability path; it cannot be cited as proof that native mesh reliability is complete. Live WAN secure UDP and the repeatable release throughput matrix remain directive-deferred (env-gated rows exist and skip clean).</p>
+      <p><span class="ok">Correctness gates (2026-05-17):</span> the core substrate correctness plan proves the transport-facing truths at functional-verification level. M3 QUIC reader/demux evidence is retained as historical reference data only; it is not an active mesh peer runtime gate. M4: oversize and queue-full on <code>UdpPacketLoop</code> return typed failures, never silent success. M5: evicted datagram sessions close and stop their pumps across UDP and mesh-peer UDP bindings. <code>cargo check --workspace</code> exit 0. This records correctness only; transport throughput is <em>not</em> claimed complete — the release throughput matrix and live WAN traffic stay directive-deferred.</p>
+    </section>
+
+    <section id="port-policy">
+      <h2>Port Policy</h2>
+      <p>UDP ports are delivery coordinates and receiver mouths, not service identity, not session identity, and not channels. A peer may expose an initial rendezvous port and then advertise a port pool through encrypted PortOpen / DeliveryPolicy events. The meaning is "send future events to these receivers", not "bind this flow to a channel".</p>
+      <table>
+        <tr><th>Policy</th><th>Contract</th></tr>
+        <tr><td>single_port</td><td>All envelopes use the configured rendezvous port. This is the safe fallback and simplest deployment profile.</td></tr>
+        <tr><td>port_pool_flow_hash</td><td>Flow/session identity hashes to a stable port in the advertised pool to reduce reordering.</td></tr>
+        <tr><td>port_pool_event_hash</td><td>Event identity hashes to a port in the advertised pool, minimizing fixed delivery shape.</td></tr>
+        <tr><td>port_pool_replicate</td><td>The same encrypted event is sent across multiple ports or paths; receiver deduplicates by event identity.</td></tr>
+      </table>
+      <p>Port policy is negotiated as event semantics. It must not create a channel or override L5 endpoint reconstruction. Port rotation is receiver reallocation only; event identity, deduplication, ordering, and repair stay in MeshEvent/L5 PCI.</p>
+    </section>
+
+    <section id="packet-loop">
+      <h2>UDP Packet Architecture Gate</h2>
+      <p>The shared UDP shape follows Cloudflare quiche source as implementation reference: the application owns socket readiness, packet metadata, batching, pacing, PMTU guards, and path stats projection before throughput features land.</p>
+      <table>
+        <tr><th>Mechanism</th><th>Contract</th></tr>
+        <tr><td>UdpPacketLoop</td><td>Application-owned socket readiness, receive metadata, send batching, pacing hints, and path evidence.</td></tr>
+        <tr><td>UdpBatchSend / UdpBatchRecv</td><td>Optional sendmmsg/recvmmsg capability for high PPS paths.</td></tr>
+        <tr><td>UdpGso</td><td>Linux UDP_SEGMENT only for one receiver address and one segment size per super-buffer.</td></tr>
+        <tr><td>UdpGro</td><td>Linux UDP_GRO receive coalescing; split by cmsg segment size before Mesh Protocol datagram semantics.</td></tr>
+        <tr><td>UdpPacing</td><td>SO_TXTIME/fq qdisc or userspace pacing fallback.</td></tr>
+        <tr><td>UdpPathMtu</td><td>Conservative guard first, future probe evidence later.</td></tr>
+        <tr><td>UdpBufferSizing</td><td>Operator hint with warnings when OS limits refuse requested sizes.</td></tr>
+      </table>
+      <p>Batching, GSO, GRO, pacing, and PMTU are transport-binding capabilities. They must preserve one logical Mesh Protocol datagram per message after receive-side splitting, and they must not change scheduler ownership or payload opacity.</p>
+    </section>
+
+    <section id="datagram-split">
+      <h2>Datagram Split Baseline</h2>
+      <p>The L5 datagram contract exposes split send and recv halves so UDP ingress, UDP egress, SOCKS5 UDP ASSOCIATE, raw UDP mesh-peer, QUIC datagram, and future DTLS-style bindings can send and receive independently.</p>
+      <table>
+        <tr><th>Baseline</th><th>Contract</th></tr>
+        <tr><td>Persistent session</td><td>A datagram egress keeps a session/socket surface instead of opening a one-shot socket per frame.</td></tr>
+        <tr><td>Non-lockstep send/recv</td><td>Send paths do not wait for the previous response before accepting the next datagram.</td></tr>
+        <tr><td>Endpoint preservation</td><td>Return mapping uses source endpoint semantics, not FIFO source guesses.</td></tr>
+        <tr><td>Protocol neutrality</td><td>Core owns datagram halves and session lifecycle; protocol parsing remains in adapters.</td></tr>
+      </table>
+    </section>
+
+    <section id="datagram-forwarder">
+      <h2>Datagram Forwarder</h2>
+      <p>Fixed-target datagram sessions may bypass per-packet dispatch after the first approved routing decision. The direct path mirrors stream Forwarder: open once, split send/recv halves, and return `(Endpoint, Bytes)` directly from the egress recv half.</p>
+      <table>
+        <tr><th>Eligible</th><th>FrameRouter fallback</th></tr>
+        <tr>
+          <td>Datagram flow, fixed target, one realized path, no transform, egress can open direct datagram halves.</td>
+          <td>Fan-out datagrams, route changes, transforms, multi-target sessions, SOCKS5 UDP association-level multi-target use, unsupported direct egresses.</td>
+        </tr>
+      </table>
+      <p>Direct-probe fallback must not reuse ordinary idle semantics. It must be a distinct one-shot control result.</p>
+      <p>Direct datagram mode is valid for UDP fixed target, QUIC datagram fixed target, and DTLS-style datagram bindings when security state is plugin-owned and no bus-level transform is required. SCTP-style reliable messages require a future message forwarder instead of being forced into datagram semantics.</p>
+    </section>
+
+    <section id="meshsec">
+      <h2>MeshSec Binding</h2>
+      <ul>
+        <li>Production WAN UDP uses encrypted event envelopes. Clear MeshEvents are loopback/debug only.</li>
+        <li>The lightweight profile uses pairwise static keys from config, HKDF-SHA256 epoch derivation, per-sender traffic keys, XChaCha20-Poly1305, per-process boot_salt, envelope counters, and in-memory replay caches.</li>
+        <li>Time slots limit key lifetime. Replay protection remains event_id, nonce, and family sequence deduplication.</li>
+        <li>The outer envelope must not expose event kind, session id, node id, route_group, target, or payload.</li>
+        <li>Wire fingerprint minimization is an envelope policy: masked header fields, jitter, and padding buckets. It is not the cryptographic security boundary.</li>
+        <li>Envelope counter is crypto nonce material only; L5 event_id and family seq remain the owners of session dedup, ordering, and reassembly.</li>
+        <li>Machine contract: <a href="../../lib/mb-proto-mesh/schema.json">lib/mb-proto-mesh/schema.json</a>.</li>
+        <li><span class="ok">Schema status:</span> MeshSec and native event-package runtime status is owned by <a href="mesh-protocol.html#meshsec-wire">Mesh Protocol / MeshSec Wire Contract</a>. This chapter records only how the transport binding carries those envelopes.</li>
+      </ul>
+    </section>
+
+    <section id="quic">
+      <h2>QUIC Reference Binding</h2>
+      <ul>
+        <li>QUIC may carry Mesh Protocol events for reference, fallback, and benchmark purposes; it is not Mesh Protocol and not the native mesh transport target.</li>
+        <li>The current compatibility path may map BusSession streams to QUIC streams, but endpoint reconstruction, reliability ownership, ordering, deduplication, and route truth remain mesh/session-owned.</li>
+        <li>Control, observation, and datagram events may use QUIC datagram or a dedicated control stream.</li>
+        <li>SPKI pinning binds peer identity to public key, not issuer metadata or route truth.</li>
+        <li>Connection migration may migrate delivery substrate but must not mutate EventBus route truth.</li>
+        <li>The implementation is own real QUIC (mb-quic) over UdpPacketLoop with a shared connection pool inside the transport binding. The Quinn reference binding was removed in M6 after own QUIC passed the same functional gates.</li>
+        <li>Mesh Protocol may borrow QUIC data shapes such as ack ranges, packet number spaces, stream offsets, flow windows, and path validation samples, but must not inherit QUIC stream/channel ontology or TLS certificate identity as mesh truth.</li>
+      </ul>
+    </section>
+
+    <section id="raw-udp">
+      <h2>Raw UDP Binding</h2>
+      <ul>
+        <li>Raw UDP carries best-effort control, observation, and datagram messages for loopback/debug and packet-loop experiments.</li>
+        <li>Raw UDP must reject reliable StreamOpen until an explicit reliable-UDP phase exists.</li>
+        <li>Source endpoint, node_id, peer_id, path_id, route_group, hop_count, bytes, datagrams, closes, and link samples feed the same path evidence shape as QUIC.</li>
+        <li>Production WAN UDP must use MeshSec envelopes; clear MeshEvents remain debug-only.</li>
+      </ul>
+    </section>
+
+    <section id="udp-fastpath">
+      <h2>UDP Fast Path</h2>
+      <p>UDP acceleration belongs to the L4 <code>UdpPacketLoop</code> owner. Mesh Protocol, QUIC reference delivery, SOCKS5, and rule plugins see only opaque datagram/event data and path evidence; they must not branch on kernel send mechanics.</p>
+      <table>
+        <tr><th>Plan</th><th>Shape</th><th>Owner Rule</th></tr>
+        <tr><td><code>PlainSendmmsg</code></td><td>one logical datagram per <code>mmsghdr</code></td><td>baseline Linux batch path; preserves datagram boundaries</td></tr>
+        <tr><td><code>GsoSendmsg</code></td><td>same-destination, same-size datagrams coalesced into one super-buffer with per-message <code>UDP_SEGMENT</code> cmsg</td><td>optional L4 send-plan; never a socket-global option</td></tr>
+        <tr><td>Fallback</td><td><code>EINVAL</code>, <code>EIO</code>, or <code>EMSGSIZE</code> disables GSO for that socket/path and retries <code>PlainSendmmsg</code></td><td>capability evidence, not route truth</td></tr>
+      </table>
+      <p>Socket-level <code>UDP_SEGMENT</code> is forbidden for the current mesh substrate because it changes every send on the socket and can make a one-datagram-per-<code>sendmmsg</code> batch fail on older kernels. Real GSO is data-shaped: it is selected per outbound batch after the L4 owner proves that coalescing preserves the SDU boundary.</p>
+    </section>
+
+    <section id="status">
+      <h2>Status</h2>
+      <p><span class="ok">Local green:</span> own UDP substrate (UdpPacketLoop with sendmmsg/recvmmsg batch I/O, per-message GSO send-plan fallback, GRO probe-with-disable, software pacing, conservative PMTU guard, Linux cfg fallback), own real QUIC protocol library (mb-quic: packet protection, TLS handshake, recovery, congestion, streams, flow control, datagrams, close, timers, deterministic tests), Mesh Protocol codec, split raw UDP peer crates delegating to UdpPacketLoop, runtime topology schema, capability-preserving MeshPeerUdp runtime variants, local raw UDP datagram e2e, Secure UDP MeshSec AEAD/KDF/replay envelope with raw-UDP seal/open integration and a two-node secure datagram e2e proving packet-capture no-cleartext plus tamper/replay fail-closed (<code>mesh_peer_secure_udp_two_node_datagram_e2e</code>), and the env-gated release transport throughput matrix harness (<code>throughput_transport.rs</code>, seven rows, builds and skips clean).</p>
+      <p><span class="warn">Remaining:</span> live WAN secure UDP traffic runs, reconnect/recovery hardening, and sustained multi-host release throughput evidence. MeshSec and native event-family reliability are proven at local two-node functional level; QUIC is a comparison baseline, not the target completion gate.</p>
+    </section>
+
+    <section id="gates">
+      <h2>Acceptance Gates</h2>
+      <ul>
+        <li>Secure UDP carries encrypted MeshEvents and exposes no event family, session id, node id, route group, target, or payload in the outer envelope.</li>
+        <li>Raw UDP is loopback/debug only unless protected by MeshSec.</li>
+        <li>QUIC reference binding may carry event delivery across two nodes after Mesh Protocol re-entry is accepted; this is a regression baseline, not native mesh completion.</li>
+        <li>Both bindings report path evidence into the same PathStats shape.</li>
+        <li>Release matrix compares normal UDP, batching, GSO, GRO, GSO+GRO, pacing, PMTU, QUIC stream, and QUIC datagram where supported.</li>
+        <li>WAN smoke proves real remote exits and services with per-path metrics.</li>
+        <li>Raw UDP never claims reliable stream support before an explicit reliable-UDP phase.</li>
+        <li>Native mesh completion requires Secure UDP event reliability without assigning reliability ownership to QUIC streams.</li>
+        <li>SOCKS5 upstream UDP completion remains in the SOCKS5 compatibility line and does not block this transport architecture.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

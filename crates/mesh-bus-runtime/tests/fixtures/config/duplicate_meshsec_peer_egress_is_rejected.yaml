@@ -1,0 +1,37 @@
+id: duplicate_meshsec_peer_egress_is_rejected
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-a
+    peers:
+      - id: parent-a
+        node_id: node-b
+        route_groups: [wan-us]
+        meshsec:
+          profile: MeshSec-0RTT-PSK-XChaCha
+          static_key_hex: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: MeshPeerUdp
+        id: peer-udp-1
+        peer_id: parent-a
+        peer: 127.0.0.1:29001
+        timeout_ms: 1000
+        groups: [wan-us]
+      - kind: MeshPeerUdp
+        id: peer-udp-2
+        peer_id: parent-a
+        peer: 127.0.0.1:29002
+        timeout_ms: 1000
+        groups: [wan-us]
+expect:
+  ok: false
+  error_contains: "parent-a"
+observations: []
+tags: []

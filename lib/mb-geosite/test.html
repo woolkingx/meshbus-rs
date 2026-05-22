@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-geosite - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px 24px 18px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-geosite - Owner Proof Contract</h1>
+    <p>Classification: <strong>lib/lookup</strong>. This module owns hostname suffix tag matching and packed tag output.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-geosite</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Tests</td><td><a href="tests/lookup.rs">tests/lookup.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-geosite</code></td></tr>
+      </table>
+    </section>
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <p><code>GeositeDb</code> stores tag suffix trie nodes and owns sync lookup helpers. Public types include <code>GeositeError</code> and DB open/parse helpers.</p>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>GeositeDb</code></td><td>Owns suffix-tree data and lookup behavior for exact and suffix hits.</td></tr>
+        <tr><td><code>GeositeError</code></td><td>Signals read/parse failures; parser rejects malformed tags/domains.</td></tr>
+      </table>
+    </section>
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <table>
+        <tr><th>Source</th><th>Proof</th></tr>
+        <tr><td><code>tests/lookup.rs</code></td><td>Parses temp datafile input and validates exact/subdomain/tag-packed behavior.</td></tr>
+      </table>
+      <p>No schema.json is defined in this crate; behavior is enforced via parse/tested invariants and <code>GeositeError</code> contracts.</p>
+    </section>
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mb-geosite</code></td><td>Full owner test file.</td></tr>
+        <tr><td><code>cargo test -p mb-geosite -- parse_rejects_invalid_tag_or_domain</code></td><td>Parser hardening assertions.</td></tr>
+      </table>
+    </section>
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Exact and suffix lookup</td><td><code>EXAMPLE.cn.</code> and <code>www.example.cn</code> both match <code>cn</code>.</td></tr>
+        <tr><td>Packed projection</td><td><code>lookup_packed</code> emits NUL-separated tags in one allocation-free pass.</td></tr>
+        <tr><td>Missing-file fallback</td><td><code>open</code> returns empty DB for NotFound without error.</td></tr>
+        <tr><td>Parse rejection</td><td>Malformed tag/domain lines return <code>GeositeError::InvalidLine</code>.</td></tr>
+        <tr><td>Post-open sync behavior</td><td>Subsequent lookups only read in-memory state.</td></tr>
+      </table>
+    </section>
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td><code>mesh-bus-runtime</code>, <code>mesh-bus-pipeline-hooks</code></td><td>Consume tags from <code>GeositeDb::lookup</code> and apply to <code>RuleCtx.geosite_tags</code>.</td></tr>
+        <tr><td>Rule evaluator</td><td>Uses tags as predicates; geosite parsing remains in this module.</td></tr>
+      </table>
+    </section>
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Pipeline enrichment uses geosite tags for policy match; ordering and allow/deny remain in higher layers.</li>
+        <li>Subdomain and exact suffix behavior is validated directly by integration-level unit tests.</li>
+      </ul>
+    </section>
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>MMDB/QUIC/route transport tests</td><td>Outside this module’s ownership.</td></tr>
+        <tr><td>Policy composition tests</td><td>Handled by mb-rule consumers.</td></tr>
+        <tr><td>Cross-crate benchmark/perf tests</td><td>Not in geosite scope.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

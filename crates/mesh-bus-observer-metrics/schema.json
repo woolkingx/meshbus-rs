@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-observer-metrics/schema.json",
+  "title": "mesh-bus-observer-metrics",
+  "description": "Dispatch counter observer. No runtime config; constructed with CounterObserver::new().",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "Snapshot": {
+      "type": "object",
+      "description": "Map of ExitId string -> dispatch count.",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    }
+  }
+}

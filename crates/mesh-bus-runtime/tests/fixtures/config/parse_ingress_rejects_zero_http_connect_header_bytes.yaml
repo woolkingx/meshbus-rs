@@ -1,0 +1,20 @@
+id: parse_ingress_rejects_zero_http_connect_header_bytes
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: HttpConnect
+        listen: 127.0.0.1:19091
+        max_header_bytes: 0
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "HttpConnect ingress max_header_bytes must be >= 1"
+observations: []
+tags: []

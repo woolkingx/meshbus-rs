@@ -1,0 +1,27 @@
+id: parse_socks5_ingress_new_knobs_round_trip
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19093
+        handshake_timeout_ms: 3000
+        accept_backoff_ms: 100
+        max_connections: 512
+        udp_forward_concurrency: 32
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "handshake_timeout_ms: Some(3000)"
+    - "accept_backoff_ms: Some(100)"
+    - "max_connections: Some(512)"
+    - "udp_forward_concurrency: Some(32)"
+observations: []
+tags: []

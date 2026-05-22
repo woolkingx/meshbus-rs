@@ -1,0 +1,80 @@
+id: udp_reverse_over_secure_mesh_peer_to_remote_service_e2e
+owner: mesh-bus-bin.product-topology
+kind: service-composition
+case: e2e.product_topology
+schema_ref: schemas/test-runtime.schema.json
+input:
+  resources:
+    - name: NODE_A_UDP
+      kind: udp_addr
+    - name: NODE_B_MESH
+      kind: udp_addr
+    - name: RELAY
+      kind: udp_relay
+      forward_to: "{{NODE_B_MESH}}"
+      capture: true
+    - name: UDP_ECHO
+      kind: udp_echo
+  nodes:
+    - name: node-b
+      start_after_ms: 200
+      config_yaml: |
+        node:
+          id: node-b
+        peers:
+          - id: peer-a
+            node_id: node-a
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: "1111111111111111111111111111111111111111111111111111111111111111"
+        ingresses:
+          - kind: MeshPeerUdp
+            listen: "{{NODE_B_MESH}}"
+        egresses:
+          - kind: ServiceUdp
+            id: node-b-udp-service
+            service_id: remote-udp-echo
+            connect: "{{UDP_ECHO}}"
+            timeout_ms: 1000
+    - name: node-a
+      start_after_ms: 200
+      config_yaml: |
+        node:
+          id: node-a
+        peers:
+          - id: parent-b
+            node_id: node-b
+            route_groups: [remote-service]
+            meshsec:
+              profile: MeshSec-0RTT-PSK-XChaCha
+              static_key_hex: "1111111111111111111111111111111111111111111111111111111111111111"
+        ingresses:
+          - kind: Udp
+            listen: "{{NODE_A_UDP}}"
+            target: "198.51.100.20:53"
+        egresses:
+          - kind: MeshPeerUdp
+            id: peer-b
+            peer_id: parent-b
+            peer: "{{RELAY}}"
+            timeout_ms: 1000
+            groups: [remote-service]
+  probe:
+    kind: udp_roundtrip
+    target: "{{NODE_A_UDP}}"
+    payload: "udp-reverse-over-secure-mesh-service"
+    timeout_ms: 2000
+expect:
+  echo_payload: "udp-reverse-over-secure-mesh-service"
+  wire:
+    capture: RELAY
+    fail_closed_target: "{{NODE_B_MESH}}"
+    no_magic: "4d42"
+    no_plaintext:
+      - "udp-reverse-over-secure-mesh-service"
+      - "remote-service"
+      - "127.0.0.1"
+    tamper_fail_closed: true
+    replay_fail_closed: true
+observations: []
+tags: []

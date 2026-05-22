@@ -1,0 +1,14 @@
+{
+  "name": "missing_hook_fn",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [{ "id": "allow", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }],
+      "pipelines": [{ "id": "main", "hooks": ["allow"] }],
+      "wirings": [{ "source": "src", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "has no registered HookFn" }
+}

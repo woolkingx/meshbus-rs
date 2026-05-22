@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-proto-http-proxy - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-proto-http-proxy - Owner Proof Contract</h1>
+    <p>Classification: <strong>lib/protocol</strong>. Pure HTTP/1.1 proxy request-head codec only, no socket ownership.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-proto-http-proxy</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Tests</td><td><a href="tests/codec.rs">tests/codec.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-proto-http-proxy</code></td></tr>
+      </table>
+    </section>
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Data</th><th>Proofed contract</th></tr>
+        <tr><td><code>RequestKind</code></td><td>CONNECT tunnel versus absolute-form HTTP forward request.</td></tr>
+        <tr><td><code>RequestHead</code></td><td>Parsed target, consumed header bytes, proxy auth header, and upstream-safe forwarded request head.</td></tr>
+        <tr><td><code>HttpProxyError</code></td><td>Malformed target/version/header and bounded-buffer failures.</td></tr>
+      </table>
+    </section>
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>CONNECT authority-form</td><td><code>CONNECT example.com:443 HTTP/1.1</code> yields target <code>example.com:443</code>.</td></tr>
+        <tr><td>CONNECT malformed target</td><td>Origin-form or absolute-form CONNECT targets reject.</td></tr>
+        <tr><td>Absolute-form rewrite</td><td><code>GET http://example.com/a?q=1 HTTP/1.1</code> rewrites to origin-form and Host from URI authority.</td></tr>
+        <tr><td>Bounded request-head</td><td>Headers beyond caller max return <code>HeaderTooLarge</code>.</td></tr>
+      </table>
+    </section>
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Socket, bus, scheduler, or policy tests</td><td>This owner is a pure codec.</td></tr>
+        <tr><td>TLS payload parsing after CONNECT</td><td>RFC tunnel payload belongs to the opaque relay adapter.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,35 @@
+id: dispatch.stream.bytestream_poll_returns_continue_after_single_send
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.bytestream_poll_returns_continue_after_single_send
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: polling
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      groups: []
+  scenario:
+    poll_mode: continue_after_single_send
+    preloaded_events:
+      - seq: 0
+        payload: first
+      - seq: 1
+        payload: second
+expect:
+  open_ok: true
+  exit_id: polling
+  calls:
+    polling: 1
+  assertions:
+    - kind: poll_returns_continue
+      expected:
+        payloads:
+          - first
+          - second
+observations: []
+tags: []

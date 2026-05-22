@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "mesh-bus-core.forwarding.schema.json",
+  "title": "MeshBusCoreForwardingDomain",
+  "description": "Data shapes for the L4 forwarding domain: capability matching, rank context, schedule decisions, flow and return semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "domain": { "const": "forwarding" }
+  },
+  "definitions": {
+    "TrafficClass": {
+      "description": "Priority class assigned to a packet at ingress.",
+      "type": "string",
+      "enum": ["Interactive", "Bulk", "Control", "Probe"]
+    },
+    "FlowSemantics": {
+      "description": "generic L4 flow-shape metadata declared by ingress for capability matching and dispatch placement; not a protocol parser or L7 policy input.",
+      "type": "string",
+      "enum": ["ByteStream", "Datagram", "Message"]
+    },
+    "ReturnSemantics": {
+      "description": "Return aggregation rule for the session.",
+      "type": "string",
+      "enum": ["Direct", "PacketDedup", "SequenceReorder"]
+    },
+    "ScheduleHint": {
+      "description": "Scheduling intent from the L4Session; runtime may realize or downgrade it.",
+      "oneOf": [
+        { "const": "Auto" },
+        { "const": "SinglePath" },
+        {
+          "type": "object",
+          "required": ["kind", "k"],
+          "properties": {
+            "kind": { "const": "FanOut" },
+            "k": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "n"],
+          "properties": {
+            "kind": { "const": "Stripe" },
+            "n": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ScheduleMode": {
+      "description": "Resolved dispatch mode chosen by the runtime.",
+      "type": "string",
+      "enum": ["Ordered", "Replicate", "Stripe"]
+    },
+    "ScheduleDecision": {
+      "description": "Scheduler output: a ranked list of egress indices and the dispatch mode.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "order"],
+          "properties": {
+            "kind": { "const": "Ordered" },
+            "order": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "order"],
+          "properties": {
+            "kind": { "const": "Replicate" },
+            "order": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Capabilities": {
+      "$ref": "../../../../../schemas/capability.schema.json"
+    },
+    "Measurement": {
+      "$ref": "../../../../../schemas/measurement.schema.json"
+    },
+    "RankContext": {
+      "description": "Forwarding metadata passed from a Frame to the scheduler for exit ranking.",
+      "type": "object",
+      "required": ["packet_id", "flow_id", "session_id", "target", "traffic_class", "flow_semantics", "return_semantics", "schedule_hint"],
+      "properties": {
+        "packet_id": { "type": "integer", "minimum": 0 },
+        "flow_id": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string" },
+        "target": { "type": "string", "description": "Opaque endpoint string." },
+        "traffic_class": { "$ref": "#/definitions/TrafficClass" },
+        "policy_ref": { "type": "string" },
+        "deadline_ms": { "type": "integer", "minimum": 0 },
+        "schedule_hint": { "$ref": "#/definitions/ScheduleHint" },
+        "flow_semantics": { "$ref": "#/definitions/FlowSemantics" },
+        "return_semantics": { "$ref": "#/definitions/ReturnSemantics" },
+        "source_key": { "type": "string" },
+        "target_key": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "ExitResult": {
+      "description": "Outcome of a single egress dispatch attempt.",
+      "type": "object",
+      "required": ["exit_id", "success", "rtt_ms"],
+      "properties": {
+        "exit_id": { "type": "string", "minLength": 1 },
+        "success": { "type": "boolean" },
+        "rtt_ms": { "type": "integer", "minimum": 0 },
+        "local_endpoint": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "CloseReason": {
+      "description": "Typed reason why a session or connection was closed.",
+      "oneOf": [
+        { "const": "TtlExpired" },
+        { "const": "SessionClosed" },
+        { "const": "NoUsableExit" },
+        { "const": "ConnectionRefused" },
+        { "const": "NetworkUnreachable" },
+        { "const": "HostUnreachable" },
+        { "const": "TimedOut" },
+        { "const": "NotConnected" },
+        { "const": "ConnectionReset" },
+        { "const": "UpstreamEof" },
+        { "const": "ReaderClosed" },
+        { "const": "AddressNotSupported" },
+        {
+          "type": "object",
+          "required": ["Other"],
+          "properties": {
+            "Other": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

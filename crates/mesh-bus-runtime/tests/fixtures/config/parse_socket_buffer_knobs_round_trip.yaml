@@ -1,0 +1,40 @@
+id: parse_socket_buffer_knobs_round_trip
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19300
+        socket_recv_buffer_bytes: 1048576
+        socket_send_buffer_bytes: 2097152
+      - kind: Tcp
+        listen: 127.0.0.1:19301
+        target: 127.0.0.1:80
+        socket_recv_buffer_bytes: 262144
+        socket_send_buffer_bytes: 524288
+      - kind: Udp
+        listen: 127.0.0.1:19302
+        target: 127.0.0.1:53
+        socket_recv_buffer_bytes: 131072
+        socket_send_buffer_bytes: 262144
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+        socket_recv_buffer_bytes: 1048576
+        socket_send_buffer_bytes: 1048576
+      - kind: Udp
+        id: dns
+        timeout_ms: 1000
+        socket_recv_buffer_bytes: 65536
+        socket_send_buffer_bytes: 65536
+expect:
+  ok: true
+  debug_contains:
+    - "socket_recv_buffer_bytes: Some(1048576)"
+    - "socket_send_buffer_bytes: Some(2097152)"
+observations: []
+tags: []

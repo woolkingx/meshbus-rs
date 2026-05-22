@@ -1,0 +1,23 @@
+id: parse_pipeline_source_rejects_out_of_range_ingress_index
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      source:
+        ingress_index: 1
+expect:
+  ok: false
+  error_contains: "ingress_index 1 is out of range"
+observations: []
+tags: []

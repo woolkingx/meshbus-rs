@@ -1,0 +1,24 @@
+id: parse_pipeline_source_rejects_invalid_initial_write_key_slash
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19204
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: /etc/mesh-bus/forward.yaml
+      source:
+        initial_writes:
+          - "net.bad/key"
+expect:
+  ok: false
+  error_contains: "pipeline source initial_writes contains invalid metadata key `net.bad/key`"
+observations: []
+tags: []

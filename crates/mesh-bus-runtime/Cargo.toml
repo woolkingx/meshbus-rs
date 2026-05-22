@@ -1,0 +1,43 @@
+[package]
+name = "mesh-bus-runtime"
+version = "0.1.15"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mesh-bus-ingress-socks5 = { path = "../mesh-bus-ingress-socks5" }
+mesh-bus-ingress-http-connect = { path = "../mesh-bus-ingress-http-connect" }
+mesh-bus-ingress-tcp = { path = "../mesh-bus-ingress-tcp" }
+mesh-bus-ingress-udp = { path = "../mesh-bus-ingress-udp" }
+mesh-bus-ingress-mesh-peer-udp = { path = "../mesh-bus-ingress-mesh-peer-udp" }
+mesh-bus-egress-tcp = { path = "../mesh-bus-egress-tcp" }
+mesh-bus-egress-service = { path = "../mesh-bus-egress-service" }
+mesh-bus-egress-udp = { path = "../mesh-bus-egress-udp" }
+mesh-bus-egress-mesh-peer-udp = { path = "../mesh-bus-egress-mesh-peer-udp" }
+mesh-bus-egress-socks5 = { path = "../mesh-bus-egress-socks5" }
+mesh-bus-scheduler-cake = { path = "../mesh-bus-scheduler-cake" }
+mesh-bus-scheduler-replicate = { path = "../mesh-bus-scheduler-replicate" }
+mesh-bus-scheduler-loadbalance = { path = "../mesh-bus-scheduler-loadbalance" }
+mesh-bus-observer-metrics = { path = "../mesh-bus-observer-metrics" }
+mesh-bus-observer-prometheus = { path = "../mesh-bus-observer-prometheus" }
+mesh-bus-pipeline-hooks = { path = "../mesh-bus-pipeline-hooks" }
+mesh-bus-resolver = { path = "../mesh-bus-resolver" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-proto-mesh = { path = "../../lib/mb-proto-mesh" }
+mb-geoip = { path = "../../lib/mb-geoip" }
+mb-geosite = { path = "../../lib/mb-geosite" }
+mb-health = { path = "../../lib/mb-health" }
+mb-rule = { path = "../../lib/mb-rule" }
+mb-socket-tune = { path = "../../lib/mb-socket-tune" }
+rand = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+mesh-bus-core = { path = "../mesh-bus-core" }

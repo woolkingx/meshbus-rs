@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible MeshBus-rs defect.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for correctness defects. For security issues, do not include exploit details publicly; follow SECURITY.md.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What failed, in one or two sentences?
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Owner boundary
+      options:
+        - config/schema
+        - mesh protocol / MeshSec
+        - core dispatch/session
+        - ingress adapter
+        - egress adapter
+        - scheduler/rule/hook
+        - observer/operator
+        - deploy/systemd
+        - tests/fixtures
+        - documentation
+        - unknown
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Commands, config shape, traffic path, or fixture row.
+      placeholder: |
+        cargo test -p ...
+        mesh-bus run --config ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, metrics, close reason, config fingerprint, or packet-capture summary. Do not paste secrets or payload bytes.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        commit:
+        OS/kernel:
+        Rust:
+        runtime config:
+        live/local:

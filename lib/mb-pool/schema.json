@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-pool/schema.json",
+  "title": "mb-pool",
+  "description": "This crate provides a generic per-key async connection pool with idle eviction; data types are imported from /schemas/ via mesh-bus-schema.",
+  "type": "object"
+}

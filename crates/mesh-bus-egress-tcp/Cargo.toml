@@ -1,0 +1,16 @@
+[package]
+name = "mesh-bus-egress-tcp"
+version = "0.1.11"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+mesh-bus-core = { path = "../mesh-bus-core" }
+mb-endpoint = { path = "../../lib/mb-endpoint" }
+mb-socket-tune = { path = "../../lib/mb-socket-tune" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }

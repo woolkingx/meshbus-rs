@@ -1,0 +1,25 @@
+id: parse_egress_groups_round_trip
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19089
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+      - kind: Tcp
+        id: cn
+        groups: [cn, fast]
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "groups: []"
+    - "\"cn\""
+observations: []
+tags: []

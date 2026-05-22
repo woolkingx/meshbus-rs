@@ -1,0 +1,20 @@
+{
+  "name": "jump_cycle",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "src", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "jump_b", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": false, "may_jump": true, "may_jump_to": ["b"], "may_accept_to": [], "side_effect_only": false },
+        { "id": "jump_a", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": false, "may_jump": true, "may_jump_to": ["a"], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [
+        { "id": "a", "hooks": ["jump_b"] },
+        { "id": "b", "hooks": ["jump_a"] }
+      ],
+      "wirings": [{ "source": "src", "pipeline": "a" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "cycle" }
+}

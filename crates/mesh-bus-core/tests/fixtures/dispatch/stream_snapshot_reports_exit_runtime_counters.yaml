@@ -1,0 +1,39 @@
+id: dispatch.stream.snapshot_reports_exit_runtime_counters
+owner: mesh-bus-core.dispatch
+kind: service-composition
+case: dispatch.stream.snapshot_reports_exit_runtime_counters
+schema_ref: schemas/test-runtime.schema.json
+input:
+  target:
+    host: example.com
+    port: 443
+  egresses:
+    - id: echo
+      protocol: test
+      supports_stream: true
+      supports_datagram: false
+      max_payload_bytes: 1200
+      groups: []
+  scenario:
+    sessions:
+      - flow_id: 1
+        frames:
+          - seq: 0
+            payload: hello
+          - seq: 1
+            payload: world
+expect:
+  open_ok: true
+  exit_id: echo
+  calls:
+    echo: 2
+  assertions:
+    - kind: snapshot
+      expected:
+        exit_id: echo
+        send_count: 2
+        success_count: 2
+        failure_count: 0
+        payload_bytes_total: 10
+observations: []
+tags: []

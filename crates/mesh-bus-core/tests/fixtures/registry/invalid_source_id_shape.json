@@ -1,0 +1,16 @@
+{
+  "name": "invalid_source_id_shape",
+  "params": { "layer": "registry", "exercise": "verify" },
+  "input": {
+    "json": {
+      "sources": [{ "id": "bad/id", "kind": "application/source", "initial_writes": [] }],
+      "sinks": [{ "id": "direct", "kind": "stream_egress" }],
+      "hooks": [
+        { "id": "allow", "kind": "Net", "allowed_namespaces": [], "reads": [], "writes": [], "may_terminate": true, "may_jump": false, "may_jump_to": [], "may_accept_to": [], "side_effect_only": false }
+      ],
+      "pipelines": [{ "id": "main", "hooks": ["allow"] }],
+      "wirings": [{ "source": "bad/id", "pipeline": "main" }]
+    }
+  },
+  "expect": { "ok": false, "error_contains": "invalid SourceId" }
+}

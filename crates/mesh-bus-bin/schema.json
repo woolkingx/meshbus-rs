@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-bin/schema.json",
+  "title": "mesh-bus-bin",
+  "description": "Binary entrypoint; delegates config parsing, validation, and bus assembly to mesh-bus-runtime.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "properties": {
+    "commands": {
+      "type": "array",
+      "items": {
+        "enum": ["run", "check", "status", "admin"]
+      },
+      "default": ["run", "check", "status", "admin"]
+    },
+    "admin_commands": {
+      "type": "array",
+      "items": {
+        "enum": ["status", "config-check", "config-effective", "metrics-snapshot"]
+      },
+      "default": ["status", "config-check", "config-effective", "metrics-snapshot"]
+    },
+    "config_arg": {
+      "type": "string",
+      "const": "--config"
+    },
+    "api_arg": {
+      "type": "string",
+      "const": "--api"
+    }
+  }
+}

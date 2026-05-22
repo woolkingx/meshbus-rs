@@ -1,0 +1,22 @@
+id: parse_metrics_rejects_empty_textfile_path
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    metrics:
+      kind: PrometheusTextfile
+      path: ""
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19090
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "metrics PrometheusTextfile path must not be empty"
+observations: []
+tags: []

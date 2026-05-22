@@ -1,0 +1,28 @@
+id: direct_tcp_reverse_reaches_service_sink
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  probe:
+    kind: direct_tcp
+    payload: "reverse-smoke"
+  yaml: |
+    ingresses:
+      - kind: Tcp
+        listen: "{{TCP_LISTEN}}"
+        target: 10.255.255.1:9
+    egresses:
+      - kind: ServiceTcp
+        id: svc
+        service_id: echo-service
+        connect: "{{TCP_ECHO}}"
+        timeout_ms: 1000
+    pipeline:
+      rule_chain_forward: "{{ALLOW_RULE_CHAIN}}"
+      source:
+        ingress_index: 0
+expect:
+  ok: true
+observations: []
+tags: []

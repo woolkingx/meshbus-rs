@@ -1,0 +1,540 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus.test-runtime.schema.json",
+  "title": "mesh-bus test runtime fixture",
+  "description": "Schema-driven fixture row for module owner, library table, service composition, timing invariant, and performance evidence tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "owner",
+    "kind",
+    "case",
+    "schema_ref",
+    "input",
+    "expect",
+    "observations",
+    "tags"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "owner": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "data-owner",
+        "lib-table",
+        "service-composition",
+        "timing-invariant",
+        "perf-evidence"
+      ]
+    },
+    "case": {
+      "type": "string",
+      "enum": [
+        "config.parse_ok",
+        "config.parse_err",
+        "config.boot_shutdown",
+        "registry.verify_ok",
+        "registry.verify_err",
+        "dispatch.frame_result",
+        "dispatch.route_group.pins_matching_exit",
+        "dispatch.route_group.no_match_fails_no_usable_exit",
+        "dispatch.route_group.absent_uses_any_capability_match",
+        "dispatch.stream.round_trip_through_bus",
+        "dispatch.stream.ttl_zero_packet_is_dropped_before_egress",
+        "dispatch.stream.scheduler_receives_packet_rank_context",
+        "dispatch.stream.dispatch_appends_exit_id_to_path_trace",
+        "dispatch.stream.ordered_duplicate_packet_id_for_flow_returns_directly",
+        "dispatch.stream.unhealthy_exit_is_skipped_after_repeated_failures",
+        "dispatch.stream.dispatch_filters_candidates_by_flow_semantics_capability",
+        "dispatch.stream.snapshot_reports_exit_runtime_counters",
+        "dispatch.stream.bytestream_poll_returns_continue_after_single_send",
+        "dispatch.datagram.preserves_one_call_one_datagram",
+        "dispatch.datagram.reports_source_from_send_to_target",
+        "dispatch.datagram.unsupported_probe_falls_back_without_empty_send",
+        "dispatch.datagram.fixed_target_skips_scheduler_after_open",
+        "dispatch.datagram.replicate_stays_frame_router",
+        "dispatch.datagram.closed_shape_matches_opened_shape",
+        "cli.command_table",
+        "e2e.product_topology",
+        "e2e.boot_shutdown",
+        "e2e.roundtrip",
+        "socks5.handshake",
+        "socks5.udp_associate",
+        "rule.yaml_case"
+      ]
+    },
+    "schema_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.:-]+$"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "case": {
+            "const": "e2e.product_topology"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "owner": {
+            "const": "mesh-bus-bin.product-topology"
+          },
+          "kind": {
+            "const": "service-composition"
+          },
+          "input": {
+            "$ref": "#/$defs/product_topology_input"
+          },
+          "expect": {
+            "$ref": "#/$defs/product_topology_expect"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "product_topology_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resources",
+        "nodes"
+      ],
+      "properties": {
+        "resources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/product_topology_resource"
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/product_topology_node"
+          }
+        },
+        "probe": {
+          "$ref": "#/$defs/product_topology_probe"
+        },
+        "probes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/product_topology_probe"
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "probe"
+          ]
+        },
+        {
+          "required": [
+            "probes"
+          ]
+        }
+      ]
+    },
+    "product_topology_resource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "kind"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/placeholder_name"
+            },
+            "kind": {
+              "enum": [
+                "tcp_addr",
+                "udp_addr",
+                "tcp_echo",
+                "udp_echo",
+                "socks5_stream_proxy"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "kind"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/placeholder_name"
+            },
+            "kind": {
+              "const": "udp_recorder"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "kind",
+            "yaml"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/placeholder_name"
+            },
+            "kind": {
+              "const": "rule_chain"
+            },
+            "yaml": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "kind",
+            "forward_to"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/placeholder_name"
+            },
+            "kind": {
+              "const": "udp_relay"
+            },
+            "forward_to": {
+              "type": "string",
+              "minLength": 1
+            },
+            "capture": {
+              "type": "boolean"
+            },
+            "policy": {
+              "$ref": "#/$defs/product_topology_relay_policy"
+            }
+          }
+        }
+      ]
+    },
+    "product_topology_relay_policy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "pass_through"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "hold_index",
+            "release_after"
+          ],
+          "properties": {
+            "kind": {
+              "const": "reorder"
+            },
+            "hold_index": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "release_after": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "index"
+          ],
+          "properties": {
+            "kind": {
+              "const": "drop_index"
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "product_topology_node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "config_yaml"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "start_after_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "config_yaml": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "product_topology_probe": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "target",
+            "payload"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "udp_roundtrip",
+                "tcp_roundtrip"
+              ]
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payload": {
+              "type": "string"
+            },
+            "expect_payload": {
+              "type": "string"
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "target",
+            "payloads"
+          ],
+          "properties": {
+            "kind": {
+              "const": "udp_sequence"
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payloads": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "delay_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "listen",
+            "target",
+            "payload"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "socks5_tcp",
+                "socks5_udp",
+                "http_connect_tcp"
+              ]
+            },
+            "listen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payload": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "listen",
+            "target",
+            "size_bytes"
+          ],
+          "properties": {
+            "kind": {
+              "const": "socks5_tcp_sized"
+            },
+            "listen": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      ]
+    },
+    "product_topology_expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "echo_payload": {
+          "type": "string"
+        },
+        "recorders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/product_topology_recorder_expect"
+          }
+        },
+        "wire": {
+          "$ref": "#/$defs/product_topology_wire_expect"
+        }
+      }
+    },
+    "product_topology_recorder_expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "payloads"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/placeholder_name"
+        },
+        "payloads": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "product_topology_wire_expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture"
+      ],
+      "properties": {
+        "capture": {
+          "$ref": "#/$defs/placeholder_name"
+        },
+        "fail_closed_target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "no_magic": {
+          "type": "string",
+          "pattern": "^[0-9A-Fa-f]+$"
+        },
+        "no_plaintext": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tamper_fail_closed": {
+          "type": "boolean"
+        },
+        "replay_fail_closed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "placeholder_name": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    }
+  }
+}

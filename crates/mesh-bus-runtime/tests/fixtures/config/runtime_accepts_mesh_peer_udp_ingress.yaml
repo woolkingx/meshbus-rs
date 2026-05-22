@@ -1,0 +1,22 @@
+id: runtime_accepts_mesh_peer_udp_ingress
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-b
+    ingresses:
+      - kind: MeshPeerUdp
+        listen: 127.0.0.1:29000
+    egresses:
+      - kind: Udp
+        id: udp
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "MeshPeerUdp {"
+observations: []
+tags: []

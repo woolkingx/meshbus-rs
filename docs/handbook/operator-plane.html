@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operator Plane - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .topology { white-space:pre; padding:12px; border:1px solid var(--line); border-radius:8px; background:rgba(127,127,127,.10); overflow:auto; line-height:1.35; }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Operator Plane</h1>
+    <p>The Operator Plane is the system management interface for config, status, metrics, probes, deployment, and future admin control. It is an adapter over existing owners, not the data plane, control plane, or mesh protocol.</p>
+  </header>
+  <main>
+    <section id="thesis">
+      <h2>Thesis</h2>
+      <pre class="topology">Data Plane
+  client traffic -> ingress -> bus session/frame -> egress -> upstream
+
+Control Plane
+  event -> hooks -> rule -> scheduler -> verdict
+
+Operator Plane
+  human/tool -> Operator API -> config/status/metrics/probe/deploy owners
+             -> CLI client
+             -> Web client
+             -> future remote admin client</pre>
+      <p>The management surface must be API-first. CLI and Web UI are clients of the same Operator API. They must not each grow their own config parser, runtime reader, probe runner, or service controller.</p>
+    </section>
+
+    <section id="boundary">
+      <h2>Plane Boundary</h2>
+      <table>
+        <tr><th>Plane</th><th>Owns</th><th>Must not</th></tr>
+        <tr><td>Data Plane</td><td>Opaque stream bytes and datagrams after a path is selected.</td><td>Parse operator commands, mutate config, or run management probes outside normal ingress/egress paths.</td></tr>
+        <tr><td>Control Plane</td><td>Event metadata, hook execution, rule decisions, scheduler verdicts.</td><td>Move payload bytes, own systemd, or expose an admin API directly.</td></tr>
+        <tr><td>Operator Plane</td><td>Operator intent, config inspection, validation, status, metrics snapshots, probes, deployment actions, and admin audit.</td><td>Become route truth, bypass core path, mutate dispatch internals, or become Mesh Protocol.</td></tr>
+      </table>
+      <p>Operator actions can control hooks, rules, config, and service lifecycle through owner APIs. They cannot become hidden branches inside core dispatch or scheduler code.</p>
+    </section>
+
+    <section id="api-first">
+      <h2>API-First Contract</h2>
+      <pre class="topology">operator intent
+  -> Operator API contract
+       -> Config Owner
+       -> Runtime Owner
+       -> Metrics Owner
+       -> Probe Owner
+       -> Deploy Owner
+       -> Rule/Hook Owner
+  -> mesh-bus admin CLI
+  -> local Web dashboard
+  -> remote admin over MeshSec</pre>
+      <table>
+        <tr><th>Surface</th><th>First shape</th><th>Reason</th></tr>
+        <tr><td>Local API</td><td>Unix domain socket or loopback HTTP, disabled unless configured; optional Bearer token file auth is available for loopback HTTP.</td><td>Local ownership and OS permissions are simpler than remote auth for M0.</td></tr>
+        <tr><td>Wire format</td><td>JSON request/response with schema-backed types.</td><td>Human-readable, easy for CLI/Web/tests, can evolve to MessagePack later.</td></tr>
+        <tr><td>CLI</td><td><code>mesh-bus admin ...</code> or <code>mesh-busctl</code> as API client.</td><td>Automation-friendly product window before Web.</td></tr>
+        <tr><td>Web UI</td><td>Dashboard client over Operator API.</td><td>UI must not read config files or parse metrics directly.</td></tr>
+        <tr><td>Remote admin</td><td>MeshSec-protected admin event family after local semantics are proven.</td><td>Remote write needs peer auth, replay protection, audit, and rollback.</td></tr>
+      </table>
+      <p>Machine contract: <a href="../../crates/mesh-bus-operator-api/schema.json">crates/mesh-bus-operator-api/schema.json</a>.</p>
+    </section>
+
+    <section id="capability-phases">
+      <h2>Capability Phases</h2>
+      <table>
+        <tr><th>Phase</th><th>Capability</th><th>Acceptance</th></tr>
+        <tr><td>M0 Config-only CLI</td><td>offline status, effective config, config check, peers, routes, egresses.</td><td><span class="ok">Implemented.</span> CLI calls Operator API response builders over config/runtime preflight owners and never changes runtime state.</td></tr>
+        <tr><td>M0 Live local API</td><td>running daemon status, redacted effective config, metrics snapshot.</td><td><span class="ok">Implemented.</span> Local API is disabled unless configured, loopback-only, can require Bearer token file auth, and reads live state through runtime snapshot owners.</td></tr>
+        <tr><td>M1 Probe</td><td>SOCKS5, HTTP CONNECT, UDP DNS, mesh peer path, service sink probes.</td><td>Probes generate normal traffic through configured ingress/egress paths; no private shortcut.</td></tr>
+        <tr><td>M2 Local write</td><td>config edit/render, rule reload, service reload, route enable/disable.</td><td>Writes are local-only, schema-checked, auditable, and rollbackable.</td></tr>
+        <tr><td>M3 Hot runtime</td><td>hot reload rules, live mutate route, drain, health override, peer disable.</td><td>Every mutation targets an owner and emits an audit event with old/new fingerprints.</td></tr>
+        <tr><td>M4 Web admin</td><td>Dashboard similar in role to Mihomo-style admin UI.</td><td>Web calls the same API as CLI; no duplicated management logic.</td></tr>
+        <tr><td>M5 Remote admin</td><td>Remote read/write over MeshSec.</td><td>Peer-bound auth, replay protection, authorization policy, and dry-run gates are mandatory.</td></tr>
+        <tr><td>M6 Cluster control</td><td>Inventory, topology view, policy rollout, multi-node health.</td><td>Cluster controller composes node Operator APIs; it does not replace Mesh Protocol.</td></tr>
+      </table>
+    </section>
+
+    <section id="resource-model">
+      <h2>Resource Model</h2>
+      <table>
+        <tr><th>Resource</th><th>Owner</th><th>Operations</th></tr>
+        <tr><td>Config</td><td><code>mesh-bus-runtime</code></td><td>check, render, explain, effective, diff, apply-local.</td></tr>
+        <tr><td>Rules and hooks</td><td><code>mesh-bus-pipeline-hooks</code> plus rule data owners.</td><td>list, validate, dry-run, reload, enable, disable.</td></tr>
+        <tr><td>Runtime status</td><td><code>mesh-bus-runtime</code> and <code>mesh-bus-bin</code>.</td><td>status, version, config fingerprint, listener state, service state.</td></tr>
+        <tr><td>Metrics</td><td>Observer crates.</td><td>snapshot, summarize, compare-before-after, export.</td></tr>
+        <tr><td>Probes</td><td>Probe owner in operator layer.</td><td>socks5, http-connect, udp-dns, mesh-peer, service-reverse, throughput-smoke.</td></tr>
+        <tr><td>Deployment</td><td>Operator deployment adapter.</td><td>preflight, install, restart, reload, rollback, journal-tail, systemd-status.</td></tr>
+        <tr><td>Peers and routes</td><td>Config owner plus runtime observation owners.</td><td>list, explain selection, disable, drain, future remote mutation.</td></tr>
+      </table>
+    </section>
+
+    <section id="service-control-loop">
+      <h2>Service Control Loop</h2>
+      <p>When mesh-bus is operated as a service, the Operator Plane is the control loop around the running substrate. It reads owner state, validates intended changes, applies only through the owning adapter, and records evidence. It does not become the data plane.</p>
+      <pre class="topology">operator intent
+  -> read current owner data
+  -> validate intended data
+  -> dry-run owner operation
+  -> apply through owner boundary
+  -> observe metrics/log deltas
+  -> emit audit/diagnose evidence</pre>
+      <table>
+        <tr><th>Operation class</th><th>Input data</th><th>Owner boundary</th><th>Proof</th></tr>
+        <tr><td>Deploy</td><td>binary path, config path, remote host, service name.</td><td>Deployment adapter + systemd.</td><td>Backup paths, checksum, active service, live acceptance.</td></tr>
+        <tr><td>Probe</td><td>target endpoint, protocol adapter, timeout, expected route group.</td><td>Configured ingress/egress path.</td><td>Dispatch delta and close reason through normal data path.</td></tr>
+        <tr><td>Diagnose</td><td>status, metrics, journal window, socket/process summary.</td><td>Operator API + host adapter.</td><td>Redacted JSON artifact.</td></tr>
+        <tr><td>Rule/config apply</td><td>candidate YAML or rule bundle plus actor.</td><td>Runtime config owner and rule owner.</td><td>Schema validation, diff, dry-run result, old/new fingerprint.</td></tr>
+        <tr><td>Key rollover</td><td>MeshSec key ids, active key, accept keys.</td><td>MeshSec config owner.</td><td>Old accept, new send, wrong-key fail-closed.</td></tr>
+      </table>
+    </section>
+
+    <section id="probe-contract">
+      <h2>Probe Contract</h2>
+      <p>Operator probes are production questions expressed as normal traffic. A probe may choose an ingress adapter, target, timeout, and expected route group; it must not call dispatch internals, mutate route state, or decode opaque SDU bytes after the protocol adapter has projected target intent.</p>
+      <pre class="topology">probe request
+  -> Operator API request schema
+  -> configured ingress listener
+  -> normal control-plane verdict
+  -> normal L4/L5/L6 data movement
+  -> metrics snapshot delta
+  -> probe response</pre>
+      <table>
+        <tr><th>Probe</th><th>Input data</th><th>Normal path proof</th><th>Response fields</th></tr>
+        <tr><td>SOCKS5 connect</td><td>target URI or host:port, timeout, optional route_group expectation.</td><td>SOCKS5 handshake enters the configured SOCKS5 ingress and opens a stream session through the same pipeline as a client.</td><td>ok, route_group, close_reason, dispatch_success_delta, dispatch_failure_delta, duration_ms.</td></tr>
+        <tr><td>HTTP CONNECT</td><td>authority target, timeout, optional route_group expectation.</td><td>CONNECT request enters the configured HTTP CONNECT ingress and then relays opaque stream bytes.</td><td>ok, route_group, close_reason, dispatch_success_delta, dispatch_failure_delta, duration_ms.</td></tr>
+        <tr><td>UDP DNS</td><td>DNS server target, query name, timeout, optional route_group expectation.</td><td>UDP ingress sends one datagram through the configured datagram path and receives a response through return semantics.</td><td>ok, route_group, close_reason, datagram_success_delta, dispatch_failure_delta, duration_ms.</td></tr>
+        <tr><td>Mesh peer</td><td>peer id or route_group, timeout, optional target service.</td><td>Uses a public local ingress or service sink over MeshPeerUdp/MeshSec; it never sends a private test packet directly into the mesh-peer crate.</td><td>ok, peer_id, route_group, close_reason, dispatch deltas, MeshSec drop deltas when available.</td></tr>
+      </table>
+      <p>A successful probe proves only the selected path and time window. It does not declare global mesh health, WAN performance, or protocol completeness.</p>
+    </section>
+
+    <section id="diagnose-contract">
+      <h2>Diagnose Bundle Contract</h2>
+      <p>A diagnose bundle is a redacted evidence object for support and self-operation. It composes existing owners and host adapters; it is not a second telemetry backend.</p>
+      <pre class="topology">diagnose request
+  -> Operator API
+       -> status owner
+       -> metrics owner
+       -> config redaction owner
+       -> host process/socket adapter
+       -> journal tail adapter
+  -> redacted artifact</pre>
+      <table>
+        <tr><th>Bundle node</th><th>Owner</th><th>Allowed content</th><th>Forbidden content</th></tr>
+        <tr><td>Status</td><td>Runtime snapshot</td><td>version, node_id, config fingerprint, listener count, egress count, uptime.</td><td>raw config or secrets.</td></tr>
+        <tr><td>Metrics</td><td>Observer projection snapshot</td><td>dispatch/exit counters, datagram aggregate counters from owner snapshots, close reason counters, and MeshSec/native drop projections when their <code>obs.*</code> facts exist.</td><td>payload bytes, application records, private module maps, or raw log-derived counters.</td></tr>
+        <tr><td>Config</td><td>Runtime config owner</td><td>redacted effective config and schema version.</td><td>PSK, SOCKS5 password, bearer token, private key material.</td></tr>
+        <tr><td>Host</td><td>Deployment adapter</td><td>service active state, pid, fd count, RSS, listen sockets.</td><td>environment variables containing secrets.</td></tr>
+        <tr><td>Journal</td><td>Host log adapter</td><td>bounded recent lines after redaction, gate ids, close reasons.</td><td>raw packets, decrypted MeshEvent, credentials.</td></tr>
+      </table>
+      <p>The bundle is complete only when it can be attached to a bug report without leaking production secrets. Exportable diagnose YAML is stricter than an interactive effective-config view: secret values and secret field markers such as <code>static_key_hex</code> must both be absent.</p>
+    </section>
+
+    <section id="api-sketch">
+      <h2>API Sketch</h2>
+      <table>
+        <tr><th>Endpoint</th><th>Meaning</th><th>Phase</th></tr>
+        <tr><td><code>GET /status</code></td><td>Version, node id, config fingerprint, listener/egress count, service state.</td><td>M0</td></tr>
+        <tr><td><code>GET /config/effective</code></td><td>Redacted effective runtime config.</td><td>M0</td></tr>
+        <tr><td><code>POST /config/check</code></td><td>Schema and semantic validation for submitted config.</td><td>M0</td></tr>
+        <tr><td><code>GET /metrics/snapshot</code></td><td>Structured metrics snapshot, not raw Prometheus parsing in Web.</td><td>M0</td></tr>
+        <tr><td><code>POST /probe/socks5</code></td><td>Runs a SOCKS5 probe through the configured listener.</td><td>M1</td></tr>
+        <tr><td><code>POST /probe/http-connect</code></td><td>Runs an RFC 9110/9112 CONNECT probe through the configured listener.</td><td>M1</td></tr>
+        <tr><td><code>POST /probe/udp-dns</code></td><td>Runs an RFC 768 datagram probe without changing datagram semantics.</td><td>M1</td></tr>
+        <tr><td><code>POST /probe/mesh-peer</code></td><td>Runs a mesh-peer reachability probe through a configured public path, not a private crate shortcut.</td><td>M1</td></tr>
+        <tr><td><code>POST /diagnose/bundle</code></td><td>Returns a redacted support artifact composed from status, metrics, config, host state, and journal tail owners.</td><td>M2</td></tr>
+        <tr><td><code>POST /rules/reload</code></td><td>Reloads rule data after schema check and dry-run.</td><td>M2</td></tr>
+        <tr><td><code>POST /routes/{id}/disable</code></td><td>Locally disables a route or egress through the route owner.</td><td>M3</td></tr>
+        <tr><td><code>POST /service/restart</code></td><td>Delegates to the deployment adapter, not core.</td><td>M2+</td></tr>
+      </table>
+    </section>
+
+    <section id="safety">
+      <h2>Safety Rules</h2>
+      <table>
+        <tr><th>Rule</th><th>Contract</th></tr>
+        <tr><td>Schema first</td><td>Every request/response type belongs in an operator schema before code exists.</td></tr>
+        <tr><td>Read before write</td><td>M0/M1 must land before hot reload or remote mutation.</td></tr>
+        <tr><td>Dry-run before apply</td><td>Every write operation has a dry-run form and reports old/new fingerprints.</td></tr>
+        <tr><td>Audit every mutation</td><td>Write operations emit actor, target owner, old state, new state, gate id, and result.</td></tr>
+        <tr><td>No core shortcuts</td><td>Probe and admin actions use public owner APIs or configured ingress/egress paths.</td></tr>
+        <tr><td>Remote write is MeshSec-only</td><td>Remote admin cannot use debug-clear transport or unauthenticated HTTP.</td></tr>
+      </table>
+    </section>
+
+    <section id="testing-gates">
+      <h2>Testing Gates</h2>
+      <table>
+        <tr><th>Gate</th><th>Requirement</th></tr>
+        <tr id="GATE-OP-01"><td>GATE-OP-01</td><td><span class="ok">Proven:</span> <code>mesh-bus-operator-api</code> returns status/config-check/effective-config and metrics-snapshot from owner data; <code>mesh-bus admin</code> consumes the same response builders offline and the local live API. <code>operator_live</code> starts the real binary, queries live status, drives SOCKS5 traffic, and verifies dispatch plus exit counters through <code>GET /metrics/snapshot</code>.</td></tr>
+        <tr id="GATE-OP-02"><td>GATE-OP-02</td><td><span class="ok">Proven for current implemented probes:</span> SOCKS5 and mesh-peer probe endpoints drive public ingress/egress paths and metrics deltas prove no private crate shortcut. HTTP CONNECT and UDP DNS remain API-contract rows until their live probe runners are wired to configured listeners.</td></tr>
+        <tr id="GATE-OP-03"><td>GATE-OP-03</td><td>Local write operations validate schema, dry-run, apply atomically, and produce rollback data.</td></tr>
+        <tr id="GATE-OP-04"><td>GATE-OP-04</td><td>Hot runtime mutation targets only declared owners and emits audit events.</td></tr>
+        <tr id="GATE-OP-05"><td>GATE-OP-05</td><td>Web UI and CLI consume the same Operator API contract.</td></tr>
+        <tr id="GATE-OP-06"><td>GATE-OP-06</td><td>Remote admin write is MeshSec-protected, authorized, replay-safe, and fail-closed.</td></tr>
+        <tr id="GATE-OP-07"><td>GATE-OP-07</td><td><span class="ok">Proven:</span> diagnose bundle composes status, metrics, effective config, host process/socket state, and journal tail as a redacted support artifact; live runner on <code>198.51.100.36</code> rejects forbidden secret markers.</td></tr>
+      </table>
+    </section>
+
+    <section id="non-goals">
+      <h2>Non-Goals</h2>
+      <p>Do not make Operator API a new mesh protocol, core scheduler, policy language, or hidden dispatch surface. Do not let Web UI read config files, scrape raw logs as truth, mutate runtime maps, or bypass schema validation. Do not ship remote write before local read/probe/write gates are proven.</p>
+    </section>
+  </main>
+</body>
+</html>

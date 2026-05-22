@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bus-mesh/schema/action.schema.json",
+  "title": "Action",
+  "oneOf": [
+    { "type": "string", "enum": ["allow", "deny"] },
+    { "type": "object", "required": ["allow"],             "properties": { "allow":             { "type": "object", "maxProperties": 0 } }, "additionalProperties": false },
+    { "type": "object", "required": ["deny"],              "properties": { "deny":              { "type": "object", "maxProperties": 0 } }, "additionalProperties": false },
+    { "type": "object", "required": ["set_route_group"],    "properties": { "set_route_group":    { "type": "string", "minLength": 1 } }, "additionalProperties": false },
+    { "type": "object", "required": ["set_resolver_pool"], "properties": { "set_resolver_pool": { "type": "string", "minLength": 1 } }, "additionalProperties": false },
+    { "type": "object", "required": ["set_schedule_hint"], "properties": { "set_schedule_hint": { "$ref": "#/definitions/RuleScheduleHint" } }, "additionalProperties": false },
+    { "type": "object", "required": ["set_transform"],     "properties": { "set_transform":     { "$ref": "#/definitions/RuleTransformDescriptor" } }, "additionalProperties": false },
+    { "type": "object", "required": ["compose"],           "properties": { "compose":           { "type": "array", "minItems": 1, "items": { "$ref": "action.schema.json#" } } }, "additionalProperties": false },
+    {
+      "type": "object",
+      "required": ["set_cost_bias"],
+      "properties": {
+        "set_cost_bias": { "type": "integer", "minimum": -9000, "maximum": 9000 }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "definitions": {
+    "RuleTransformDescriptor": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind":   { "$ref": "#/definitions/RuleTransformKind" },
+        "params": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    "RuleScheduleHint": {
+      "oneOf": [
+        { "type": "string", "enum": ["auto"] },
+        { "type": "object", "required": ["fanout"], "properties": {
+            "fanout": { "type": "object", "required": ["k"], "properties": { "k": { "type": "integer", "minimum": 1 } }, "additionalProperties": false }
+          }, "additionalProperties": false }
+      ]
+    },
+    "RuleTransformKind": {
+      "type": "string",
+      "enum": ["fragment", "compress", "encrypt", "checksum", "parity"]
+    }
+  }
+}

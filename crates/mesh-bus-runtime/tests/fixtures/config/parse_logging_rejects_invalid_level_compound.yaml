@@ -1,0 +1,21 @@
+id: parse_logging_rejects_invalid_level_compound
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    logging:
+      level: "debug,mesh_bus=trace"
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "logging level must be one of trace, debug, info, warn, error"
+observations: []
+tags: []

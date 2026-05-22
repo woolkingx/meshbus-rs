@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production Readiness - mesh-bus Handbook</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --muted:#5f6b75; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --warn:#9a6700; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --muted:#9da7b1; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --warn:#d29922; } }
+    * { box-sizing:border-box; } body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:1120px; margin:0 auto; } header { padding:28px 24px 18px; } main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2,h3 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .topology { white-space:pre; padding:12px; border:1px solid var(--line); border-radius:8px; background:rgba(127,127,127,.10); overflow:auto; line-height:1.35; }
+    .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="index.html">Back to handbook index</a></p>
+    <h1>Production Readiness</h1>
+    <p>Production support is the layer that makes the already designed substrate deployable as a service: config hygiene, service supervision, security posture, observation, live acceptance, rollback, and operator workflow. It does not add new core semantics.</p>
+  </header>
+  <main>
+    <section id="scope">
+      <h2>Scope</h2>
+      <p>This chapter owns production accessories and release gates. Product meaning stays in <a href="product-roadmap.html">product roadmap</a>, OSI ownership stays in <a href="system-architecture.html">system architecture</a>, Mesh Protocol stays in <a href="mesh-protocol.html">mesh protocol</a>, the management surface stays in <a href="operator-plane.html">operator plane</a>, and proof rules stay in <a href="testing-gates.html">testing gates</a>.</p>
+      <pre class="topology">handbook spec
+  -> schema/config
+  -> module code
+  -> local functional gates
+  -> live two-node acceptance
+  -> service supervision
+  -> operator evidence
+  -> release claim</pre>
+      <pre class="topology">service substrate
+  systemd lifetime
+  + local Operator API
+  + journal/metrics evidence
+  + live acceptance runners
+  + fault/rollback gates
+  + throughput baseline</pre>
+      <p>The first production profile is the personal encrypted SOCKS5 mesh proxy: local SOCKS5 ingress, native MeshPeerUdp with MeshSec, remote mesh node, and remote TCP/UDP egress.</p>
+    </section>
+
+    <section id="current-status">
+      <h2>Current Status</h2>
+      <table>
+        <tr><th>Path</th><th>Status</th><th>Evidence owner</th></tr>
+        <tr><td>Local proxy to remote egress over MeshSec MeshPeerUdp</td><td><span class="ok">MVP usable</span>: SOCKS5 HTTPS, HTTP CONNECT HTTPS, and UDP DNS smoke passed against <code>198.51.100.36</code>. The local node used only one MeshSec <code>MeshPeerUdp</code> egress; stream probes produced local dispatch delta +2 and remote dispatch delta +2.</td><td><a href="direct-proxy.html#status">direct proxy gate evidence</a></td></tr>
+        <tr><td>Mesh protocol feature matrix</td><td><span class="ok">Local functional green</span>: direct TCP/UDP, SOCKS5 TCP/UDP, raw MeshPeerUdp, secure MeshPeerUdp, ordered family, repair, replicate, and stripe fixtures passed.</td><td><a href="testing-gates.html">testing gates</a></td></tr>
+        <tr><td>Local Operator API</td><td><span class="ok">M0 live local green</span>: loopback-only Operator API is config-gated; <code>mesh-bus admin --api</code> reads live daemon status, redacted effective config, and metrics snapshot while product traffic moves through the normal SOCKS5 path.</td><td><a href="operator-plane.html#GATE-OP-01">operator plane gate evidence</a></td></tr>
+        <tr><td>Production acceptance</td><td><span class="ok">MVP service substrate green</span>: one-command live acceptance, MeshSec packet capture/fail-closed proof, journal audit, operations fault gate, and before-optimization throughput matrix passed on the live <code>198.51.100.36</code> node. This is a personal-deployable service slice, not a full hostile-WAN production claim.</td><td>This chapter</td></tr>
+      </table>
+    </section>
+
+    <section id="service-substrate-view">
+      <h2>Service Substrate View</h2>
+      <p>The MVP is now a service substrate: the runtime is the packet/event engine, while systemd, Operator API, deploy tooling, live runners, logs, metrics, and config gates form the service shell around it. This shell is not optional polish; it is the production boundary that lets the substrate survive day-2 operation.</p>
+      <pre class="topology">mesh-bus service
+  data engine
+    -> ingress adapters
+    -> control hooks
+    -> L4/L5/L6 movement
+    -> egress adapters
+  service shell
+    -> install / rollback
+    -> config check / fingerprint
+    -> systemd lifetime
+    -> Operator API
+    -> probes / diagnose
+    -> metrics / journal
+    -> soak / fault gates</pre>
+      <table>
+        <tr><th>Microservice concern</th><th>mesh-bus owner</th><th>Current state</th><th>Next hardening</th></tr>
+        <tr><td>Lifecycle</td><td>systemd deployment adapter</td><td>Unit exists, live service gates pass, one-command deploy installs binary/config, backs up artifacts, restarts, verifies <code>198.51.100.36</code>, and a 1-hour service soak stayed active.</td><td>Multi-day soak and network churn.</td></tr>
+        <tr><td>Configuration</td><td><code>mesh-bus-runtime</code></td><td>YAML schema/preflight and redacted effective config exist.</td><td>Config diff/apply workflow and rule bundle fingerprint.</td></tr>
+        <tr><td>Secrets</td><td>MeshSec config owner</td><td>Live journal audit rejects obvious key/password leaks.</td><td>Keyring, key rollover, and broader redaction owner tests.</td></tr>
+        <tr><td>Management</td><td>Operator Plane</td><td>Local read-only status/config/metrics API exists; optional Bearer token file auth returns 401 for missing token, 403 for wrong token, and normal JSON for a valid token. Normal-path probes and redacted diagnose bundle gates are green.</td><td>Write/dry-run and remote admin.</td></tr>
+        <tr><td>Observation</td><td><a href="dataplane-observation.html#observation-topology">Observation graph</a>, observer crates, and Operator snapshot</td><td>Dispatch/exit counters, datagram aggregate counters, journal labels, and diagnose bundles are usable.</td><td>MeshSec/native drop projections require typed <code>obs.*</code> owner facts before export.</td></tr>
+        <tr><td>Reliability</td><td>Live test runners</td><td>Fault gates cover bad config, collision, restart, rollback, remote unavailable; soak gate covers dispatch/RSS/fd/systemd stability.</td><td>Network churn and multi-day soak.</td></tr>
+      </table>
+    </section>
+
+    <section id="service-operator-graph">
+      <h2>Service Operator Graph</h2>
+      <p>Production operation is a graph of owner data. The service shell may observe and coordinate these nodes, but each node keeps its own mutation authority.</p>
+      <pre class="topology">service graph
+  config owner
+    -> rendered runtime config
+    -> MeshSec keyring ids
+    -> route groups / peers / listeners
+  deploy owner
+    -> binary checksum
+    -> remote config checksum
+    -> backup artifact paths
+    -> systemd state
+  runtime owner
+    -> listener state
+    -> dispatch/exit counters
+    -> close reasons
+  probe owner
+    -> normal ingress path
+    -> metrics delta
+    -> close_reason proof
+  diagnose owner
+    -> redacted status + metrics + config + host + journal artifact</pre>
+      <table>
+        <tr><th>Question</th><th>Correct owner path</th><th>Invalid shortcut</th></tr>
+        <tr><td>Is the deployed binary the expected one?</td><td>Deploy adapter checksum + remote file checksum.</td><td>Trusting local build output after an SSH copy.</td></tr>
+        <tr><td>Is service config safe?</td><td>Runtime schema/preflight + redacted effective config.</td><td>Dumping raw YAML into logs or diagnose output.</td></tr>
+        <tr><td>Can users move traffic?</td><td>Operator probe through SOCKS5/HTTP/UDP ingress and metrics deltas.</td><td>Calling dispatch helpers directly.</td></tr>
+        <tr><td>Is MeshSec protecting the path?</td><td>Packet capture no-cleartext, fail-closed probes, MeshSec drop counters.</td><td>Assuming protection because config names a key.</td></tr>
+        <tr><td>Can an operator debug failure?</td><td>Diagnose bundle with redacted status, metrics, host, and journal facts.</td><td>Manual shell archaeology with unredacted copy/paste.</td></tr>
+      </table>
+    </section>
+
+    <section id="deployment-shape">
+      <h2>Deployment Shape</h2>
+      <pre class="topology">client
+  -> local node
+       ingress: SOCKS5 listen 127.0.0.1:port
+       egress: MeshPeerUdp peer = remote:mesh_port
+       transform: MeshSec
+  -> remote node
+       ingress: MeshPeerUdp listen 0.0.0.0:mesh_port
+       egress: TCP / UDP / SOCKS5 / service
+  -> upstream target</pre>
+      <table>
+        <tr><th>Component</th><th>Production requirement</th><th>Owner</th></tr>
+        <tr><td>Binary</td><td>Release build, version visible in logs, deployed atomically, old binary retained for rollback.</td><td><code>crates/mesh-bus-bin</code></td></tr>
+        <tr><td>Config</td><td>Schema-checked before restart; secrets masked in logs; peer ids and route groups explicit.</td><td><code>crates/mesh-bus-runtime/schema.json</code></td></tr>
+        <tr><td>Service</td><td>systemd or equivalent supervision with `ExecStartPre=mesh-bus check`, restart policy, log retention, and explicit shutdown timeout.</td><td>deployment package</td></tr>
+        <tr><td>Ports</td><td>Separate local SOCKS5, remote MeshPeerUdp, optional remote admin/metrics ports, and no accidental debug clear path on WAN.</td><td>operator config</td></tr>
+        <tr><td>Keys</td><td>MeshSec static key or future keyring kept outside public docs and never printed by Debug/log paths.</td><td>MeshSec config owner</td></tr>
+      </table>
+    </section>
+
+    <section id="filesystem-layout">
+      <h2>Filesystem Layout</h2>
+      <table>
+        <tr><th>Path</th><th>Owns</th><th>Rule</th></tr>
+        <tr><td><code>/opt/mesh-bus/bin/mesh-bus</code></td><td>Release binary</td><td>Installed atomically. Previous binary retained as rollback artifact with checksum.</td></tr>
+        <tr><td><code>/etc/mesh-bus/config.yaml</code></td><td>Runtime config</td><td>Schema-checked by `mesh-bus check` before service start. No inline comments containing secrets.</td></tr>
+        <tr><td><code>/etc/mesh-bus/keys/</code></td><td>MeshSec key material</td><td>Mode `0700` directory, `0600` files, owned by the service user or root. Public docs never include live keys.</td></tr>
+        <tr><td><code>/etc/mesh-bus/rules/</code></td><td>Policy/routing data</td><td>Versioned rule files loaded by config path. Rules are data, not code patches.</td></tr>
+        <tr><td><code>/var/log/mesh-bus/</code></td><td>Optional file logs</td><td>Only when journald is not enough. Rotation required; payload and secrets forbidden.</td></tr>
+        <tr><td><code>/var/lib/mesh-bus/</code></td><td>Runtime state cache</td><td>Only non-secret cache/checkpoint data. Rebuildable after deletion.</td></tr>
+      </table>
+    </section>
+
+    <section id="systemd">
+      <h2>systemd Contract</h2>
+      <p>The production service unit is an operator artifact. The binary must remain config-driven; systemd owns process lifetime, restart, resource guardrails, and preflight checks.</p>
+      <table>
+        <tr><th>Field</th><th>Contract</th><th>Gate</th></tr>
+        <tr><td><code>ExecStartPre</code></td><td>Runs `/opt/mesh-bus/bin/mesh-bus check --config /etc/mesh-bus/config.yaml` and blocks bad config before bind.</td><td><code>GATE-PRODOPS-01</code></td></tr>
+        <tr><td><code>ExecStart</code></td><td>Runs `/opt/mesh-bus/bin/mesh-bus run --config /etc/mesh-bus/config.yaml` only. No shell wrapper that hides exit status.</td><td><code>GATE-PRODOPS-02</code></td></tr>
+        <tr><td><code>Restart</code></td><td>`on-failure` with bounded `RestartSec`. Crash loops must be visible in journal.</td><td><code>GATE-PRODOPS-03</code></td></tr>
+        <tr><td><code>LimitNOFILE</code></td><td>Raised for socket-heavy deployments. Value recorded in the acceptance evidence.</td><td><code>GATE-PRODOPS-04</code></td></tr>
+        <tr><td><code>TimeoutStopSec</code></td><td>Matches runtime graceful shutdown timeout plus margin; stuck sessions must not block shutdown forever.</td><td><code>GATE-PRODOPS-05</code></td></tr>
+        <tr><td>Hardening</td><td>`NoNewPrivileges`, `PrivateTmp`, `ProtectSystem`, and restricted writable paths when packaging is ready.</td><td><code>GATE-PRODOPS-06</code></td></tr>
+      </table>
+    </section>
+
+    <section id="security-posture">
+      <h2>Security Posture</h2>
+      <table>
+        <tr><th>Rule</th><th>Production contract</th><th>Gate</th></tr>
+        <tr><td>Fail closed</td><td>A MeshPeerUdp WAN listener configured with MeshSec must reject clear, wrong-key, tampered, and replayed packets without creating higher-layer state.</td><td><code>GATE-PRODSEC-01</code></td></tr>
+        <tr><td>No cleartext wire identifiers</td><td>Captured WAN packets must not expose MeshFrame magic, payload, route_group, endpoint text, node id, or target host.</td><td><code>GATE-PRODSEC-02</code></td></tr>
+        <tr><td>Secret redaction</td><td>Runtime config Debug, validation error, logs, metrics, and panic paths must not print PSK or SOCKS5 passwords.</td><td><code>GATE-PRODSEC-03</code></td></tr>
+        <tr><td>Auth boundary</td><td>Only configured peers may produce accepted MeshEvents; optional debug-clear transport must stay local/test-only.</td><td><code>GATE-PRODSEC-04</code></td></tr>
+      </table>
+      <p>MeshSec is an L6 transform module. It protects event envelopes; it does not authorize route policy by itself. Route authorization remains rule/policy data.</p>
+    </section>
+
+    <section id="observability">
+      <h2>Observability</h2>
+      <p>Production operation needs evidence for decisions and failures without inspecting payload. Metrics and logs must name owner data, not leak upper-layer SDU.</p>
+      <table>
+        <tr><th>Signal</th><th>Required fields</th><th>Purpose</th></tr>
+        <tr><td>Session lifecycle</td><td>session_id, flow_id, source, sink, route_group, close_reason, duration.</td><td>Know which path failed and why.</td></tr>
+        <tr><td>Mesh peer link</td><td>peer_id, mouth_id, path_epoch, srtt, loss, replay_drop, auth_drop, queue_drop.</td><td>Prove link health and MeshSec behavior.</td></tr>
+        <tr><td>Scheduler</td><td>candidate count, selected sink, policy id, health class, path evidence version.</td><td>Explain route decisions.</td></tr>
+        <tr><td>Throughput</td><td>bytes/datagrams in/out, goodput, retransmit/repair counts, per-exit saturation.</td><td>Separate path limits from event/core overhead.</td></tr>
+        <tr><td>Config</td><td>config fingerprint, schema version, enabled feature set, peer count.</td><td>Make runtime state auditable after deploy.</td></tr>
+      </table>
+      <p>Operator probes and diagnose bundles consume these signals as structured data. They must not scrape raw Prometheus text or journal text as their first source when a typed owner API exists. MeshSec/native drop evidence follows the <a href="dataplane-observation.html#drop-observation-contract">observation drop contract</a>: owner fact first, projection second.</p>
+    </section>
+
+    <section id="day2-playbook">
+      <h2>Day-2 Playbook</h2>
+      <table>
+        <tr><th>Situation</th><th>First command family</th><th>Evidence to capture</th><th>Escalate when</th></tr>
+        <tr><td>Deploy or upgrade</td><td><code>deploy/service/deploy.mjs</code></td><td>binary/config checksums, backup paths, service active state.</td><td>preflight fails, checksum mismatch, restart fails.</td></tr>
+        <tr><td>User path fails</td><td><code>mesh-bus admin probe ...</code></td><td>route_group, close_reason, dispatch delta, failure delta.</td><td>probe bypasses expected route or failure counter rises.</td></tr>
+        <tr><td>Suspected key mismatch</td><td>MeshSec fail-closed probe plus metrics snapshot.</td><td>auth_drop/replay_drop counters and no accepted session creation.</td><td>clear/wrong-key traffic creates data-plane state.</td></tr>
+        <tr><td>Service instability</td><td><code>tests/live-service-soak.mjs</code></td><td>RSS delta, fd delta, dispatch_success_delta, service active state.</td><td>RSS grows beyond gate, fd count drifts, service restarts unexpectedly.</td></tr>
+        <tr><td>Support handoff</td><td><code>mesh-bus admin diagnose bundle</code></td><td>redacted artifact path and config fingerprint.</td><td>bundle contains secrets or lacks enough owner evidence.</td></tr>
+      </table>
+    </section>
+
+    <section id="logging">
+      <h2>Log Contract</h2>
+      <p>Logs are operator evidence. They must explain owner state and close reasons without becoming a payload capture system.</p>
+      <table>
+        <tr><th>Level</th><th>Allowed content</th><th>Forbidden content</th></tr>
+        <tr><td>error</td><td>Startup failure, config validation failure, bind/connect failure, unrecoverable service failure.</td><td>PSK, password, payload bytes, full HTTP/DNS content.</td></tr>
+        <tr><td>warn</td><td>Auth drop, replay drop, clear packet drop on MeshSec port, route miss, resource pressure, peer unhealthy.</td><td>Secrets, decrypted MeshEvent body, application payload.</td></tr>
+        <tr><td>info</td><td>Version, config fingerprint, listener addresses, enabled features, peer ids, route groups, service start/stop.</td><td>Raw config dump, key material, credentials.</td></tr>
+        <tr><td>debug</td><td>Local-only diagnostics behind explicit config or environment gate.</td><td>WAN packet plaintext, unredacted config, long payload snippets.</td></tr>
+      </table>
+      <p>Required labels: `node_id`, `source_id`, `sink_id`, `peer_id`, `route_group`, `session_id`, `flow_id`, `close_reason`, and `gate_id` when a log line proves an acceptance gate. Log redaction is a P0 production feature, not polish.</p>
+    </section>
+
+    <section id="network-rules">
+      <h2>Network and Firewall Rules</h2>
+      <table>
+        <tr><th>Port class</th><th>Bind rule</th><th>Firewall rule</th></tr>
+        <tr><td>Local SOCKS5</td><td>Default bind `127.0.0.1`. Public bind requires explicit config and auth decision.</td><td>Not exposed to WAN by default.</td></tr>
+        <tr><td>MeshPeerUdp WAN</td><td>Bind configured UDP port, MeshSec required for WAN profile.</td><td>Allow only expected peer sources when possible; otherwise rely on MeshSec fail-closed and rate limits.</td></tr>
+        <tr><td>Metrics/admin</td><td>Local-only by default. Remote exposure requires separate auth and firewall rule.</td><td>Never share the MeshPeerUdp data port.</td></tr>
+        <tr><td>Debug clear transport</td><td>Loopback or test fixture only.</td><td>Blocked on WAN hosts.</td></tr>
+      </table>
+    </section>
+
+    <section id="policy-rules">
+      <h2>Policy and Rule Files</h2>
+      <p>Production routing rules are data. They should be checked, fingerprinted, and logged as policy identity, not embedded as code branches.</p>
+      <table>
+        <tr><th>Data</th><th>Owner</th><th>Production rule</th></tr>
+        <tr><td>route groups</td><td>Runtime config</td><td>Every ingress and egress names its allowed groups. Missing group means deny or explicit default, never accidental all-access.</td></tr>
+        <tr><td>policy rules</td><td><code>/etc/mesh-bus/rules/</code></td><td>Loaded from schema-valid files with fingerprint in startup logs.</td></tr>
+        <tr><td>peer capabilities</td><td>Mesh peer observation/control</td><td>Soft evidence with epoch and TTL. It never creates permanent config truth.</td></tr>
+        <tr><td>deny rules</td><td>Policy layer</td><td>Deny beats route selection. Close reason must report policy reject without leaking payload.</td></tr>
+      </table>
+    </section>
+
+    <section id="operator-workflow">
+      <h2>Operator Workflow</h2>
+      <ol>
+        <li>Build release binary and record checksum.</li>
+        <li>Generate or load MeshSec key material from protected operator storage.</li>
+        <li>Render local and remote YAML from schema-valid templates.</li>
+        <li>Install or update rule files and record their fingerprint.</li>
+        <li>Run `mesh-bus check --config <file>` locally and on the remote host.</li>
+        <li>Install binary and config with previous files retained as rollback artifacts.</li>
+        <li>Restart through service manager and confirm `active` state.</li>
+        <li>Run secure two-node SOCKS5 UDP and CONNECT smoke.</li>
+        <li>Capture WAN packets and run no-cleartext plus fail-closed probes.</li>
+        <li>Inspect journal logs for startup fingerprint, listener set, peer set, route groups, and absence of secrets.</li>
+        <li>Run selected release throughput matrix only after correctness gates pass.</li>
+      </ol>
+    </section>
+
+    <section id="hardening-phases">
+      <h2>Hardening Phases</h2>
+      <table>
+        <tr><th>Phase</th><th>Purpose</th><th>Gate</th><th>Claim unlocked</th></tr>
+        <tr><td>H1 Deploy</td><td><span class="ok">Green</span>: install binary/config, backup old artifacts, restart, and verify service state through one command on <code>198.51.100.36</code>.</td><td><code>GATE-SVC-DEPLOY-01</code></td><td>Repeatable self-host deployment.</td></tr>
+        <tr><td>H2 Soak</td><td><span class="ok">Green</span>: 1-hour live SOCKS5-over-MeshSec soak on <code>198.51.100.36</code> produced dispatch success delta <code>184</code>, failure delta <code>0</code>, RSS delta <code>1392 KiB</code>, fd delta <code>-2</code>, and active service state.</td><td><code>GATE-SVC-SOAK-01</code></td><td>Personal long-running service confidence.</td></tr>
+        <tr><td>H3 Keyring</td><td><span class="ok">Green</span>: active/accept MeshSec keys, legacy static key compatibility, accept-old/send-new behavior, and wrong-key fail-closed are covered by runtime and topology fixtures.</td><td><code>GATE-SVC-KEY-01</code></td><td>Operational key rotation readiness.</td></tr>
+        <tr><td>H4 Operator auth</td><td><span class="ok">Green</span>: protect local Operator API with optional Bearer token file; missing token is 401, wrong token is 403, valid token reaches existing responses.</td><td><code>GATE-SVC-AUTH-01</code></td><td>Safe local management surface.</td></tr>
+        <tr><td>H5 Probe and diagnose</td><td><span class="ok">Green</span>: SOCKS5 and mesh-peer probes use public normal paths and prove dispatch/exit deltas; diagnose bundle collects status, metrics, redacted config, host state, sockets, and journal tail without forbidden secret markers.</td><td><code>GATE-SVC-PROBE-01</code>, <code>GATE-SVC-DIAG-01</code></td><td>Operational debugging without shell archaeology.</td></tr>
+        <tr><td>H6 Service metrics</td><td><span class="ok">Partial green</span>: Operator snapshot exports datagram send/failure totals from <code>BusSnapshot/ExitSnapshot</code>. MeshSec auth/replay/drop families remain blocked until the mesh-peer owner publishes typed <code>obs.*</code> facts and observers project them; no fake Prometheus families are allowed.</td><td><code>GATE-SVC-METRICS-01</code></td><td>Observable packet-service behavior.</td></tr>
+      </table>
+      <p>Hardening phases must preserve the OSI/data-owner boundary. A service feature may install, observe, probe, or configure the substrate; it must not parse L7 payload in core or become an alternate route engine.</p>
+    </section>
+
+    <section id="service-substrate-evidence">
+      <h2>Service Substrate Evidence</h2>
+      <table>
+        <tr><th>Evidence</th><th>Artifact or command</th><th>Result</th></tr>
+        <tr><td>Remote deployment</td><td><code>deploy/service/deploy.mjs</code> against <code>root@198.51.100.36</code></td><td>Remote binary checksum <code>6ad643b433359c07efecb80801b186ade79485933ab14fc1ebaa70a92f07c0bb</code>; config fingerprint <code>c2db3f2bbed91d2c3848c5a542d5bedcc4a93ab1e881df97e91e6ec8761ef402</code> preserved; backup <code>/opt/mesh-bus/bin/.backup/mesh-bus.20260521T141058Z</code>.</td></tr>
+        <tr><td>One-hour soak</td><td><code>MESH_BUS_ARTIFACT_DIR/soak-*.json</code></td><td><code>status=ok</code>, dispatch success +184, dispatch failure +0, RSS +1392 KiB, fd -2, service active.</td></tr>
+        <tr><td>Diagnose bundle</td><td><code>MESH_BUS_ARTIFACT_DIR/diagnose-*.json</code></td><td><code>kind=operator.diagnose_bundle</code>; remote systemd active; sockets include <code>19000</code>, <code>19080</code>, <code>9091</code>, <code>1081</code>; forbidden secret markers absent.</td></tr>
+        <tr><td>Metrics owner boundary</td><td>Operator snapshot</td><td>Datagram aggregate counters are exported from owner snapshots. MeshSec/native drop metrics are exported only after owner facts publish through the ObservationBus and projection observers derive counters.</td></tr>
+      </table>
+    </section>
+
+    <section id="release-gates">
+      <h2>Release Gates</h2>
+      <table>
+        <tr><th>Gate</th><th>Required evidence</th><th>Claim unlocked</th></tr>
+        <tr><td><code>GATE-PRODLOCAL-01</code></td><td>`cargo fmt --all --check`, targeted owner tests, product topology fixture runner, and `git diff --check`.</td><td>Local functional ready.</td></tr>
+        <tr><td><code>GATE-PRODLIVE-01</code></td><td><span class="ok">Passed for MVP slice.</span> <code>tests/live-mvp-production-acceptance.mjs</code> proved real systemd active state, Operator status/metrics, SOCKS5 HTTPS <code>200</code>, dispatch success delta, zero failure delta, and service-active-after-test on <code>198.51.100.36</code>. HTTP CONNECT and UDP DNS external clients remain optional probes and were reported as skipped when env was absent.</td><td>Personal encrypted SOCKS5 mesh usable.</td></tr>
+        <tr><td><code>GATE-PRODLIVE-02</code></td><td><span class="ok">Passed for MVP slice.</span> Live packet capture on UDP port <code>19000</code> found no forbidden cleartext markers; clear UDP fail-closed did not create higher-layer state; owner codec/product gates cover tamper and replay rejection.</td><td>MeshSec active on the deployed path.</td></tr>
+        <tr><td><code>GATE-PRODPERF-01</code></td><td><span class="ok">Baseline recorded.</span> <code>tests/live-throughput-matrix.mjs</code> writes the path named by <code>MESH_BUS_THROUGHPUT_OUTPUT</code>; the baseline includes local and remote kernel versions, matching binary checksum, SOCKS5/Operator latency rows, representative MeshSec topology row, and UDP transport matrix rows.</td><td>Performance baseline and next optimization owner.</td></tr>
+        <tr><td><code>GATE-PRODOPS-01</code></td><td><span class="ok">Passed for MVP slice.</span> <code>tests/live-production-faults.mjs</code> proved bad config rejection, port-collision fail-fast, service restart, rollback artifact presence, and remote-unavailable behavior without killing the active service.</td><td>Operational readiness statement.</td></tr>
+        <tr><td><code>GATE-PRODOPS-02..06</code></td><td>systemd unit preflight, exec shape, restart behavior, file descriptor limit, shutdown timeout, and hardening evidence.</td><td>Service supervision statement.</td></tr>
+        <tr><td><code>GATE-PRODLOG-01</code></td><td><span class="ok">Passed for MVP slice.</span> The live runner audits startup journal from service activation plus recent traffic lines. Required labels appeared and <code>static_key_hex</code>, <code>MESH_BUS_MESHSEC_KEY_HEX</code>, and <code>password=</code> did not appear.</td><td>Operator log safety statement.</td></tr>
+        <tr><td><code>GATE-PRODRULE-01</code></td><td>Rule files are schema-valid, fingerprinted at startup, and route/deny decisions are observable by id.</td><td>Policy data readiness statement.</td></tr>
+      </table>
+      <p>A production claim must name which gates passed. A missing live or performance gate must be reported as deferred, not hidden inside "tests pass".</p>
+    </section>
+
+    <section id="backlog">
+      <h2>Production Backlog</h2>
+      <table>
+        <tr><th>Priority</th><th>Item</th><th>Why</th></tr>
+        <tr><td>P0</td><td>Multi-day soak and restart survival under network churn.</td><td>The 1-hour service soak is green; wider production confidence needs hours/days plus WAN churn.</td></tr>
+        <tr><td>P0</td><td>Complete service hardening profile.</td><td>systemd active/restart/rollback gates passed; remaining hardening includes final writable path policy, resource limits, and shutdown-drain evidence.</td></tr>
+        <tr><td>P1</td><td>Secret redaction owner tests across all config/debug surfaces.</td><td>Live journal audit passed for this deployment; broader type-formatting and panic-path coverage still belongs in owner tests.</td></tr>
+        <tr><td>P1</td><td>Rule file schema and fingerprinted loading workflow.</td><td>Routing policy must stay data-driven and auditable.</td></tr>
+        <tr><td>P1</td><td>Health and metrics export for MeshSec/auth/replay drops.</td><td>Operators need to distinguish attack, key mismatch, loss, and route failure; the next step is adding typed <code>obs.meshsec.drop</code>/<code>obs.native.drop</code> owner facts, not scraping logs or inventing aggregate families.</td></tr>
+        <tr><td>P1</td><td>HTTP CONNECT and UDP DNS live client env coverage.</td><td>The live runner supports these probes, but the current acceptance run reported them as optional skips.</td></tr>
+        <tr><td>P1</td><td>L4 UDP packet loop optimization.</td><td>The before-optimization matrix selected this owner from measured batch/GSO/plain UDP deltas.</td></tr>
+        <tr><td>P2</td><td>Test runtime rewrite completion.</td><td>Product runners are now real-service based, but Rust test LOC remains too high and the rewrite plan stays active.</td></tr>
+        <tr><td>P2</td><td>Key rotation/keyring profile.</td><td>Static PSK is acceptable for personal MVP but not enough for wider operations.</td></tr>
+      </table>
+    </section>
+
+    <section id="non-goals">
+      <h2>Non-Goals</h2>
+      <p>This chapter does not define new protocols, add L7 parsers, replace Mesh Protocol semantics, or make a production security claim from loopback tests. It only defines the accessories and gates required to operate the existing substrate honestly.</p>
+    </section>
+  </main>
+</body>
+</html>

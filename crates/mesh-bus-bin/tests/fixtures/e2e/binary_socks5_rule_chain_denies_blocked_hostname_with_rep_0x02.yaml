@@ -1,0 +1,29 @@
+id: binary_socks5_rule_chain_denies_blocked_hostname_with_rep_0x02
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  rule_chain_yaml: |
+    default: allow
+    rules:
+      - hostname: blocked.example.com
+        action: deny
+  probe:
+    kind: socks5_deny_then_allow
+    blocked_host: blocked.example.com
+    blocked_port: 443
+    allow_payload: "rule-allow-path"
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+        rule_chain_path: "{{RULE_CHAIN}}"
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+observations: []
+tags: []

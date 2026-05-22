@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-health/schema.json",
+  "title": "mb-health",
+  "description": "Shared health-window and exit-health policy logic.",
+  "x-schema-version": "draft-07",
+  "type": "object",
+  "properties": {
+    "health_policy": {
+      "$ref": "../../schemas/health-policy.schema.json"
+    }
+  }
+}

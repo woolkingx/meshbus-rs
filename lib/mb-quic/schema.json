@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-quic/schema.json",
+  "title": "mb-quic",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Sans-I/O QUIC protocol-library contract. This schema documents owned data shapes for tests and handbook topology; it is not operator runtime config.",
+  "properties": {
+    "owner": {
+      "const": "mb-quic",
+      "description": "Protocol library owner."
+    },
+    "owned_data": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "quic_packet",
+          "quic_frame",
+          "connection_id",
+          "packet_number",
+          "stream_id",
+          "stream_offset",
+          "transport_parameters",
+          "ack_range",
+          "loss_recovery",
+          "packet_keys"
+        ]
+      },
+      "description": "Data this library may own and mutate."
+    },
+    "forbidden_ownership": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "mesh_session_truth",
+          "mesh_route_truth",
+          "mesh_reliability_truth",
+          "udp_socket",
+          "runtime_peer_topology"
+        ]
+      },
+      "description": "Data this library must not own."
+    }
+  }
+}

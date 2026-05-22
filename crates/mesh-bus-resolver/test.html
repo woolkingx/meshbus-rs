@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mesh-bus-resolver - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:900px; margin:0 auto; }
+    header { padding:28px 24px 18px; }
+    main { padding:0 24px 48px; }
+    section { margin:0 0 18px; border:1px solid var(--line); border-radius:8px; padding:18px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; line-height:1.2; }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+    code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mesh-bus-resolver - Owner Proof Contract</h1>
+    <p>Classification: <strong>resolver client/cache owner</strong>. This crate owns outbound DNS resolution and cache behavior, with no listener/ingress surface.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>crates/mesh-bus-resolver</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema/resolver.schema.json">schema/resolver.schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/types.rs">src/types.rs</a>, <a href="src/data_handle.rs">src/data_handle.rs</a>, <a href="src/cache.rs">src/cache.rs</a>, <a href="src/m1.rs">src/m1.rs</a>, <a href="src/m2.rs">src/m2.rs</a>, <a href="src/m3.rs">src/m3.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mesh-bus-resolver</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Data</th><th>Contract</th></tr>
+        <tr><td><code>ResolverHandle</code></td><td>Async resolution entry point exposed to adapters.</td></tr>
+        <tr><td><code>ResolverBuilder</code></td><td>Builder contract for pools, defaults, cache, and rule-chain injection.</td></tr>
+        <tr><td><code>DnsCache</code></td><td>Positive/negative/ reverse cache with TTL and stale eligibility.</td></tr>
+        <tr><td><code>ResolveRequest</code>/<code>ResolveAnswer</code>/<code>ResolveError</code></td><td>Public DNS resolution types and diagnostics.</td></tr>
+      </table>
+      <p>Resolver does DNS client behavior only; no UDP/TCP listener services or pipeline ingress.</p>
+    </section>
+
+    <section id="schema-source">
+      <h2>Schema / Fixture Source</h2>
+      <p><a href="schema/resolver.schema.json">schema/resolver.schema.json</a> defines resolver surface and public type shape.</p>
+      <ul>
+        <li><code>tests/types_basic.rs</code> and <code>tests/handle_surface.rs</code></li>
+        <li><code>tests/policy.rs</code> and <code>tests/signals.rs</code></li>
+        <li><code>tests/{cache_*,cache_reverse,cache_wired,m1_tunneled,m2_mesh_direct,m3_system,rule_chain,special_use}.rs</code></li>
+        <li><code>tests/application_boundary.rs</code> to enforce forbidden source tokens.</li>
+      </ul>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mesh-bus-resolver</code></td><td>All owner proofs.</td></tr>
+        <tr><td><code>cargo test -p mesh-bus-resolver -- m3_resolves_localhost_via_special_use_before_libc</code></td><td>Special-use and mode-routing proof.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>Mode behavior</td><td>M1, M2, M3 resolve paths are selectable and mapped through configured pools.</td></tr>
+        <tr><td>Cache correctness</td><td>Positive/negative/stale cache semantics obey TTL and stale-window rules.</td></tr>
+        <tr><td>Special-use routing</td><td>localhost/invalid/reverse RFC behavior overrides mode selection correctly.</td></tr>
+        <tr><td>Policy projection</td><td>Rule decisions project pool/route_group/schedule_hint without panics.</td></tr>
+        <tr><td>Boundary enforcement</td><td>Resolver source stays client-only and contains no ingress/listener/public kernel internals.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td>mesh-bus-pipeline-hooks</td><td>Consumes resolver through <code>ResolverHandle</code> and policy projection.</td></tr>
+        <tr><td>mesh-bus-runtime</td><td>Injects resolver via pipeline builder defaults.</td></tr>
+        <tr><td>Ingress adapters</td><td>May call resolver handle but do not define cache/pool mode behavior.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Pipeline composition tests project resolver capabilities into route selection and policy outcomes.</li>
+        <li>Binary/runtime tests rely on resolver behavior when pipeline rule actions require DNS policy projection.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>DNS listener/socket-server tests in this crate</td><td>Ingress/egress ownership would be mixed.</td></tr>
+        <tr><td>Kernel core data-plane internals</td><td>Those tokens are forbidden by boundary design.</td></tr>
+        <tr><td>Scheduler/dispatch tests</td><td>Resolved DNS and cache are not routing policy owners.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

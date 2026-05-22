@@ -1,0 +1,21 @@
+id: binary_socks5_connect_smoke_relays_real_tcp_payload
+owner: mesh-bus-bin.e2e
+kind: service-composition
+case: e2e.roundtrip
+schema_ref: schemas/test-runtime.schema.json
+input:
+  probe:
+    kind: socks5_tcp
+    payload: "binary-smoke"
+  yaml: |
+    ingresses:
+      - kind: Socks5
+        listen: "{{TCP_LISTEN}}"
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+observations: []
+tags: []

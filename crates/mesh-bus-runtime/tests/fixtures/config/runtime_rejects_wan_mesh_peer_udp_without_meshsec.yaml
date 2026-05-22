@@ -1,0 +1,21 @@
+id: runtime_rejects_wan_mesh_peer_udp_without_meshsec
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    node:
+      id: node-b
+    ingresses:
+      - kind: MeshPeerUdp
+        listen: 0.0.0.0:29000
+    egresses:
+      - kind: Udp
+        id: udp
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "MeshPeerUdp ingress 0.0.0.0:29000 requires MeshSec"
+observations: []
+tags: []

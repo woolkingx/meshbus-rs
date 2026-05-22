@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mb-reorder - Owner Proof Contract</title>
+  <style>
+    :root { color-scheme: light dark; --fg:#182026; --bg:#f7f8fa; --panel:#fff; --line:#d8dee4; --accent:#1f6feb; --ok:#1a7f37; --bad:#cf222e; }
+    @media (prefers-color-scheme: dark) { :root { --fg:#e6edf3; --bg:#0d1117; --panel:#161b22; --line:#30363d; --accent:#58a6ff; --ok:#3fb950; --bad:#ff7b72; } }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:var(--fg); background:var(--bg); }
+    header, main { max-width:980px; margin:0 auto; }
+    header { padding:24px; }
+    main { padding:0 24px 40px; }
+    section { margin:0 0 16px; border:1px solid var(--line); border-radius:8px; padding:16px; background:var(--panel); }
+    h1,h2 { margin:0 0 10px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; }
+    th { background:rgba(127,127,127,.10); }
+    p { margin:8px 0; }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>mb-reorder - Owner Proof Contract</h1>
+    <p>Classification: <strong>lib/infra</strong>. Ordered reconstruction and family-order repair metadata for sequenced packages.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Module</td><td><code>lib/mb-reorder</code></td></tr>
+        <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Code</td><td><a href="src/lib.rs">src/lib.rs</a></td></tr>
+        <tr><td>Tests</td><td><a href="tests/buffer.rs">tests/buffer.rs</a>, <a href="tests/family_state.rs">tests/family_state.rs</a></td></tr>
+        <tr><td>Runner</td><td><code>cargo test -p mb-reorder</code></td></tr>
+      </table>
+    </section>
+
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <table>
+        <tr><th>Type</th><th>Contract</th></tr>
+        <tr><td><code>ReorderBuffer</code></td><td>Sequence map with frontier <code>next</code> and in-order drainage.</td></tr>
+        <tr><td><code>FamilyReorderState</code></td><td>Per-family frontier, gap bitmap and repair deadline metadata.</td></tr>
+        <tr><td><code>FamilyPushOutcome</code></td><td><code>Deliver</code>/<code>Gap</code>/<code>Buffered</code>/<code>Duplicate</code>/<code>WindowOverflow</code>.</td></tr>
+      </table>
+    </section>
+
+    <section id="schema-fixture">
+      <h2>Schema / Fixture Source</h2>
+      <table>
+        <tr><th>Source</th><th>Proof</th></tr>
+        <tr><td><a href="schema.json">schema.json</a></td><td>Contract anchor for reorder module.</td></tr>
+        <tr><td><a href="tests/buffer.rs">tests/buffer.rs</a></td><td>Single-buffer frontier and duplicate behavior.</td></tr>
+        <tr><td><a href="tests/family_state.rs">tests/family_state.rs</a></td><td>Gap tracking, cascade delivery, overflow close semantics.</td></tr>
+      </table>
+    </section>
+
+    <section id="runner">
+      <h2>Runner</h2>
+      <table>
+        <tr><th>Command</th><th>Scope</th></tr>
+        <tr><td><code>cargo test -p mb-reorder</code></td><td>All owner proofs.</td></tr>
+        <tr><td><code>cargo test -p mb-reorder -- in_order_delivery_advances_frontier_each_package</code></td><td>In-order frontier advance proof.</td></tr>
+        <tr><td><code>cargo test -p mb-reorder -- bounded_window_overflow_closes_family_protocol_error</code></td><td>Window-overflow closure proof.</td></tr>
+      </table>
+    </section>
+
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <table>
+        <tr><th>Proof</th><th>Required assertion</th></tr>
+        <tr><td>In-order drain</td><td><code>ReorderBuffer</code> only emits from <code>next_expected</code>.</td></tr>
+        <tr><td>Out-of-order buffering</td><td>Gapped payloads are buffered and cascaded once frontier is filled.</td></tr>
+        <tr><td>Duplicate policy</td><td>Earlier/duplicated sequence numbers return <code>Duplicate</code>.</td></tr>
+        <tr><td>Gap reporting</td><td><code>AckNack</code> snapshots emit contiguous missing ranges for unreceived sequence intervals.</td></tr>
+        <tr><td>Window overflow</td><td>Out-of-window sequence values move family to terminal protocol-error state.</td></tr>
+      </table>
+    </section>
+
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <table>
+        <tr><th>Consumer</th><th>Boundary</th></tr>
+        <tr><td><code>mesh-bus-ingress-mesh-peer-udp</code></td><td>Maps <code>FamilyPushOutcome</code> into feedback/control path.</td></tr>
+        <tr><td><code>mesh-bus-runtime</code> and policy modules</td><td>Consume repair metadata; do not own reorder/window policy.</td></tr>
+      </table>
+    </section>
+
+    <section id="e2e-projections">
+      <h2>E2E Projections</h2>
+      <ul>
+        <li>Family sequence recovery in mesh UDP path must keep packet-order emissions contiguous via this frontier state.</li>
+        <li>Downstream retry logic should consume <code>AckNack</code> gaps from this module, not recompute them.</li>
+      </ul>
+    </section>
+
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <table>
+        <tr><th>Forbidden</th><th>Reason</th></tr>
+        <tr><td>Transport socket/state assertions</td><td>Reorder owns ordering only.</td></tr>
+        <tr><td>Scheduler/policy correctness</td><td>Not part of reorder ownership.</td></tr>
+        <tr><td>Micro-benchmarks as pass/fail</td><td>No benchmark gating in this crate.</td></tr>
+      </table>
+    </section>
+  </main>
+</body>
+</html>

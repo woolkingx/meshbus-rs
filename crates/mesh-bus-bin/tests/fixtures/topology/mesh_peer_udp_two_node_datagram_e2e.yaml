@@ -1,0 +1,55 @@
+id: mesh_peer_udp_two_node_datagram_e2e
+owner: mesh-bus-bin.product-topology
+kind: service-composition
+case: e2e.product_topology
+schema_ref: schemas/test-runtime.schema.json
+input:
+  resources:
+    - name: NODE_A_UDP
+      kind: udp_addr
+    - name: NODE_B_MESH
+      kind: udp_addr
+    - name: UDP_ECHO
+      kind: udp_echo
+  nodes:
+    - name: node-b
+      start_after_ms: 150
+      config_yaml: |
+        node:
+          id: node-b
+        ingresses:
+          - kind: MeshPeerUdp
+            listen: "{{NODE_B_MESH}}"
+        egresses:
+          - kind: Udp
+            id: node-b-udp
+            timeout_ms: 1000
+    - name: node-a
+      start_after_ms: 150
+      config_yaml: |
+        node:
+          id: node-a
+        peers:
+          - id: parent-b
+            node_id: node-b
+            route_groups: [remote-udp]
+        ingresses:
+          - kind: Udp
+            listen: "{{NODE_A_UDP}}"
+            target: "{{UDP_ECHO}}"
+        egresses:
+          - kind: MeshPeerUdp
+            id: peer-b-udp
+            peer_id: parent-b
+            peer: "{{NODE_B_MESH}}"
+            timeout_ms: 1000
+            groups: [remote-udp]
+  probe:
+    kind: udp_roundtrip
+    target: "{{NODE_A_UDP}}"
+    payload: "mesh-udp"
+    timeout_ms: 1000
+expect:
+  echo_payload: "mesh-udp"
+observations: []
+tags: []

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus-core.transform.schema.json",
+  "title": "MeshBusCoreTransformDomain",
+  "description": "Local mirror of /schemas/transform.schema.json, /schemas/fragment.schema.json, /schemas/reassembly.schema.json. Bus core never executes the transform; it only validates metadata.",
+  "type": "object",
+  "definitions": {
+    "TransformKind": {
+      "enum": ["None", "Fragment", "Compress", "Encrypt", "Checksum", "Parity"]
+    },
+    "TransformDescriptor": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "$ref": "#/definitions/TransformKind" },
+        "policy_ref": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "FragmentMetadata": {
+      "type": "object",
+      "required": ["group_id", "fragment_id", "seq", "total", "offset", "checksum"],
+      "properties": {
+        "group_id": { "type": "string", "minLength": 1 },
+        "fragment_id": { "type": "string", "minLength": 1 },
+        "seq": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 1 },
+        "offset": { "type": "integer", "minimum": 0 },
+        "deadline_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "checksum": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "ReassemblyMode": {
+      "enum": ["None", "Dedup", "Reorder", "Reassemble"]
+    },
+    "ReassemblyPolicy": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "$ref": "#/definitions/ReassemblyMode" },
+        "policy_ref": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}
