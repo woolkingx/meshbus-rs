@@ -28,7 +28,7 @@
     },
     "remote_bin": {
       "type": "string",
-      "description": "Installed binary path on the remote host.",
+      "description": "Installed binary path on the remote host. Must match the target systemd service ExecStart binary.",
       "default": "/opt/mesh-bus/bin/mesh-bus",
       "minLength": 1
     },

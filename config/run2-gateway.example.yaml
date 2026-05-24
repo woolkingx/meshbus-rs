@@ -1,0 +1,94 @@
+# Run2 gateway example.
+# Replace documentation addresses, node ids, and MeshSec keys before deployment.
+node:
+  id: gateway-01
+
+health:
+  failure_threshold: 2
+  recovery_window_ms: 60000
+  probe_after_ms: 1000
+
+metrics:
+  kind: PrometheusHttp
+  listen: 127.0.0.1:9092
+
+operator:
+  kind: LocalHttp
+  listen: 127.0.0.1:19081
+
+logging:
+  level: info
+  format: compact
+
+scheduler:
+  kind: LoadBalance
+  mode: sticky-sessions
+  sticky_ttl_secs: 600
+
+peers:
+  - id: pool-20
+    node_id: pool-20
+    route_groups: [default]
+    meshsec:
+      profile: MeshSec-0RTT-PSK-XChaCha
+      static_key_hex: 0000000000000000000000000000000000000000000000000000000000000020
+  - id: pool-21
+    node_id: pool-21
+    route_groups: [default]
+    meshsec:
+      profile: MeshSec-0RTT-PSK-XChaCha
+      static_key_hex: 0000000000000000000000000000000000000000000000000000000000000021
+  - id: pool-22
+    node_id: pool-22
+    route_groups: [default]
+    meshsec:
+      profile: MeshSec-0RTT-PSK-XChaCha
+      static_key_hex: 0000000000000000000000000000000000000000000000000000000000000022
+  - id: pool-23
+    node_id: pool-23
+    route_groups: [default]
+    meshsec:
+      profile: MeshSec-0RTT-PSK-XChaCha
+      static_key_hex: 0000000000000000000000000000000000000000000000000000000000000023
+  - id: pool-24
+    node_id: pool-24
+    route_groups: [default]
+    meshsec:
+      profile: MeshSec-0RTT-PSK-XChaCha
+      static_key_hex: 0000000000000000000000000000000000000000000000000000000000000024
+
+ingresses:
+  - kind: Socks5
+    listen: 0.0.0.0:2080
+
+egresses:
+  - kind: MeshPeerUdp
+    id: mesh20
+    peer_id: pool-20
+    peer: 192.0.2.20:2080
+    groups: [default]
+    timeout_ms: 3000
+  - kind: MeshPeerUdp
+    id: mesh21
+    peer_id: pool-21
+    peer: 192.0.2.21:2080
+    groups: [default]
+    timeout_ms: 3000
+  - kind: MeshPeerUdp
+    id: mesh22
+    peer_id: pool-22
+    peer: 192.0.2.22:2080
+    groups: [default]
+    timeout_ms: 3000
+  - kind: MeshPeerUdp
+    id: mesh23
+    peer_id: pool-23
+    peer: 192.0.2.23:2080
+    groups: [default]
+    timeout_ms: 3000
+  - kind: MeshPeerUdp
+    id: mesh24
+    peer_id: pool-24
+    peer: 192.0.2.24:2080
+    groups: [default]
+    timeout_ms: 3000

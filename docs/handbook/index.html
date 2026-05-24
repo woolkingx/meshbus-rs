@@ -166,6 +166,13 @@ Rule: downstream chapters link to owner chapters; they do not redefine owner ter
       <section id="product-skeleton">
         <h2>Product Skeleton</h2>
         <p>MeshBus-rs is the Rust implementation of MeshBus: an OSI-aware transport substrate for programmable direct proxy and mesh transport systems. It is not defined by SOCKS5, HTTP CONNECT, VMess, XRAY, QUIC, or any other edge protocol.</p>
+        <table>
+          <tr><th>Layer</th><th>Role</th></tr>
+          <tr><td>SOCKS5 / HTTP CONNECT / future XRAY / VMess</td><td>Edge adapters.</td></tr>
+          <tr><td>Forward proxy / reverse proxy / load balancing / upstream pool</td><td>Product deployment shapes.</td></tr>
+          <tr><td>MeshBus runtime</td><td>L4/L5 session, scheduling, movement, and observation substrate.</td></tr>
+          <tr><td>Mesh Protocol</td><td>Native event/package language that makes the mesh possible.</td></tr>
+        </table>
         <div class="flow">source intent -> metadata enrichment -> rule/policy -> scheduler -> exit | service | upstream peer</div>
         <p>Direct forward and direct reverse paths are the foundation. MVP product lanes are L4 reverse TCP/UDP, SOCKS5 forward, and HTTP CONNECT forward. Compatibility protocols are reach; Mesh Protocol, Secure UDP, optional QUIC reference binding, multi-hop, striping, and reorder are amplifiers over that base.</p>
         <p>Canonical chapter: <a href="product-roadmap.html">product roadmap</a>.</p>

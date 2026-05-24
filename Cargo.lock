@@ -803,6 +803,7 @@ dependencies = [
  "mb-endpoint",
  "mb-proto-mesh",
  "mesh-bus-core",
+ "rand",
  "tokio",
 ]
 

@@ -327,6 +327,7 @@ fn datagram_send(session_id: &str, target: &Endpoint, body: &'static [u8]) -> Ve
 fn stream_open(session_id: &str, target: &Endpoint) -> Vec<u8> {
     encode_frame(&MeshFrame::StreamOpen(StreamOpen {
         session_id: session_id.into(),
+        open_token: 1,
         target: target.clone(),
         route_group: None,
         flow_semantics: FlowSemanticsWire::ByteStream,

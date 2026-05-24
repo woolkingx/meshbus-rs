@@ -1,0 +1,46 @@
+# Run2 pool-node example.
+# This node accepts encrypted MeshPeerUdp on 2080/udp and can also expose
+# SOCKS5 on 2080/tcp for direct client entry.
+node:
+  id: pool-20
+
+health:
+  failure_threshold: 2
+  recovery_window_ms: 60000
+  probe_after_ms: 1000
+
+metrics:
+  kind: PrometheusHttp
+  listen: 127.0.0.1:9091
+
+operator:
+  kind: LocalHttp
+  listen: 127.0.0.1:19080
+
+logging:
+  level: info
+  format: compact
+
+peers:
+  - id: gateway-01
+    node_id: gateway-01
+    route_groups: [default]
+    meshsec:
+      profile: MeshSec-0RTT-PSK-XChaCha
+      static_key_hex: 0000000000000000000000000000000000000000000000000000000000000020
+
+ingresses:
+  - kind: MeshPeerUdp
+    listen: 0.0.0.0:2080
+  - kind: Socks5
+    listen: 0.0.0.0:2080
+
+egresses:
+  - kind: Tcp
+    id: direct-tcp
+    groups: [default]
+    timeout_ms: 3000
+  - kind: Udp
+    id: direct-udp
+    groups: [default]
+    timeout_ms: 3000

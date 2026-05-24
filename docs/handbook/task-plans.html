@@ -87,6 +87,13 @@ tests/live gates = completion evidence</div>
           <td>Gate passed: README, dual license files, SECURITY, CONTRIBUTING, issue templates, and PR template all point back to handbook/schema/test owner rules.</td>
         </tr>
         <tr>
+          <td>5.3</td>
+          <td><code>2026-05-24 Run2 production hardening</code></td>
+          <td><a href="production-readiness.html">production readiness</a>, <a href="operator-plane.html">operator plane</a>, <a href="testing-gates.html">testing gates</a></td>
+          <td><span class="warn">Active.</span> The next production slice turns the private five-node pool into a repeatable gate: gateway shape readback, SOCKS5 probes, per-exit metric deltas, MeshSec/native drop deltas, sanitized Run2 samples, and optional explicit failover mutation.</td>
+          <td>Gate before NVIDIA Air: <code>tests/live-run2-pool-validation.mjs</code> passes in read-only mode; optional failover mode proves failed-peer avoidance and service recovery; sanitized configs pass <code>mesh-bus check</code>.</td>
+        </tr>
+        <tr>
           <td>6</td>
           <td>test runtime rewrite</td>
           <td><a href="testing-gates.html">testing gates</a>, <a href="testing-index.html">testing index</a></td>

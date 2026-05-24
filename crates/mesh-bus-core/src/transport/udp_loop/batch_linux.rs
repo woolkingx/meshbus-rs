@@ -139,7 +139,12 @@ pub(super) fn sendmsg_gso(fd: RawFd, batch: &[OutboundDatagram]) -> io::Result<O
     hdr.msg_iov = &mut iovec as *mut libc::iovec;
     hdr.msg_iovlen = 1;
     hdr.msg_control = control.as_mut_ptr() as *mut libc::c_void;
-    hdr.msg_controllen = control.len();
+    hdr.msg_controllen = control.len().try_into().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "UDP GSO control buffer length does not fit msghdr",
+        )
+    })?;
 
     unsafe {
         let cmsg = libc::CMSG_FIRSTHDR(&hdr);
@@ -148,7 +153,14 @@ pub(super) fn sendmsg_gso(fd: RawFd, batch: &[OutboundDatagram]) -> io::Result<O
         }
         (*cmsg).cmsg_level = libc::SOL_UDP;
         (*cmsg).cmsg_type = libc::UDP_SEGMENT;
-        (*cmsg).cmsg_len = libc::CMSG_LEN(mem::size_of::<u16>() as libc::c_uint) as usize;
+        (*cmsg).cmsg_len = libc::CMSG_LEN(mem::size_of::<u16>() as libc::c_uint)
+            .try_into()
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "UDP GSO cmsg length does not fit cmsghdr",
+                )
+            })?;
         std::ptr::write_unaligned(libc::CMSG_DATA(cmsg) as *mut u16, plan.segment_size);
         hdr.msg_controllen = (*cmsg).cmsg_len;
     }

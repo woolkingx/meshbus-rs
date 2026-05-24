@@ -14,6 +14,7 @@ const moduleRoots = [
   "schemas",
   "deploy/systemd",
   "deploy/service",
+  "deploy/run2-lab",
   "tests",
 ].filter((rel) => existsSync(path.join(repoRoot, rel)));
 
@@ -56,6 +57,9 @@ function requiredSurfaces(rel) {
   }
   if (rel === "deploy/service") {
     return { claude: true, schema: true, test: true, code: true, kind: "deployment action owner" };
+  }
+  if (rel === "deploy/run2-lab") {
+    return { claude: true, schema: true, test: true, code: true, kind: "deployment composition owner" };
   }
   return { claude: true, schema: true, test: true, code: true, kind: "module owner" };
 }

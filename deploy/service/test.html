@@ -30,7 +30,7 @@
     </section>
     <section id="owned-data">
       <h2>Owned Data</h2>
-      <p>Owned data is the deployment action: SSH target, local artifact paths, remote install paths, backup paths, service name, action mode, and resulting service state.</p>
+      <p>Owned data is the deployment action: SSH target, local artifact paths, remote install paths, backup paths, service name, service <code>ExecStart</code> binary path, action mode, and resulting service state.</p>
     </section>
     <section id="runner">
       <h2>Fixtures / Runner</h2>
@@ -41,11 +41,12 @@
         <tr><td>Live deploy</td><td><code>node deploy/service/deploy.mjs --remote-ssh root@198.51.100.36 ...</code></td></tr>
         <tr><td>Binary-only deploy</td><td><code>node deploy/service/deploy.mjs --preserve-remote-config --remote-ssh root@198.51.100.36 ...</code></td></tr>
         <tr><td>Live rollback</td><td><code>node deploy/service/deploy.mjs --rollback --remote-ssh root@198.51.100.36 ...</code></td></tr>
+        <tr><td>Run2 lab composition</td><td><code>node deploy/run2-lab/deploy.mjs --dry-run --subnet 192.0.2 --gateway-suffix 36 --pool-suffixes 20-24</code></td></tr>
       </table>
     </section>
     <section id="owner-proofs">
       <h2>Owner Proofs</h2>
-      <p>The runner must hash local inputs, backup existing remote artifacts, install via temporary paths, run remote config preflight, restart the service, verify <code>systemctl is-active</code>, and emit JSON evidence. Binary release may preserve remote config when config is remote-owned service data.</p>
+      <p>The runner must hash local inputs, prove <code>remote_bin</code> matches the unit's <code>ExecStart</code> binary, backup existing remote artifacts, install via temporary paths, run remote config preflight, restart the service, verify <code>systemctl is-active</code>, and emit JSON evidence. Binary release may preserve remote config when config is remote-owned service data.</p>
     </section>
     <section id="integration-boundaries">
       <h2>Integration Boundaries</h2>

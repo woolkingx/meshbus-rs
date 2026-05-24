@@ -674,6 +674,7 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                 continue;
                             }
                             let session_id = open.session_id.clone();
+                            let open_token = open.open_token;
                             match open_peer_stream_session(
                                 &port,
                                 packet_loop.clone(),
@@ -684,6 +685,17 @@ impl IngressPlugin for MeshPeerUdpIngress {
                             .await
                             {
                                 Ok(session) => {
+                                    let accepted = MeshFrame::StreamOpenAccepted {
+                                        session_id: session_id.clone(),
+                                        open_token,
+                                    };
+                                    let _ = send_mesh_frame(
+                                        &packet_loop,
+                                        peer,
+                                        reply_seal.as_ref(),
+                                        &accepted,
+                                    )
+                                    .await;
                                     if stream_sessions.len() >= max_peer_sessions {
                                         if let Some(evict) = stream_sessions.keys().next().cloned()
                                         {
@@ -715,6 +727,7 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                 Err(reason) => {
                                     let reject = MeshFrame::StreamOpenReject {
                                         session_id,
+                                        open_token,
                                         reason: reject_reason(&reason),
                                         close_reason: close_reason_wire(&reason),
                                     };
@@ -744,6 +757,7 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                 pending_stream_data.entry(key).or_default().push(payload);
                             }
                         }
+                        MeshFrame::StreamOpenAccepted { .. } => {}
                         MeshFrame::StreamShutdownWrite { session_id } => {
                             let key = (peer, session_id);
                             if let Some(session) = stream_sessions.get(&key) {

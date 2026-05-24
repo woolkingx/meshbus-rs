@@ -53,6 +53,7 @@
         <tr><td>Mesh protocol feature matrix</td><td><span class="ok">Local functional green</span>: direct TCP/UDP, SOCKS5 TCP/UDP, raw MeshPeerUdp, secure MeshPeerUdp, ordered family, repair, replicate, and stripe fixtures passed.</td><td><a href="testing-gates.html">testing gates</a></td></tr>
         <tr><td>Local Operator API</td><td><span class="ok">M0 live local green</span>: loopback-only Operator API is config-gated; <code>mesh-bus admin --api</code> reads live daemon status, redacted effective config, and metrics snapshot while product traffic moves through the normal SOCKS5 path.</td><td><a href="operator-plane.html#GATE-OP-01">operator plane gate evidence</a></td></tr>
         <tr><td>Production acceptance</td><td><span class="ok">MVP service substrate green</span>: one-command live acceptance, MeshSec packet capture/fail-closed proof, journal audit, operations fault gate, and before-optimization throughput matrix passed on the live <code>198.51.100.36</code> node. This is a personal-deployable service slice, not a full hostile-WAN production claim.</td><td>This chapter</td></tr>
+        <tr><td>Run 2 multi-exit pool</td><td><span class="ok">Private-lab live green for movement and distribution</span>: one gateway selected across five MeshSec upstream pool nodes, direct pool-node SOCKS5 entry worked, selected-peer counters were balanced in validation mode, and gateway dispatch failures stayed at zero. Failed-peer avoidance and soak remain before a broader production claim.</td><td><a href="product-roadmap.html#run-2-multi-exit-fabric">Run 2 roadmap</a></td></tr>
       </table>
     </section>
 
@@ -128,12 +129,30 @@
        ingress: MeshPeerUdp listen 0.0.0.0:mesh_port
        egress: TCP / UDP / SOCKS5 / service
   -> upstream target</pre>
+      <pre class="topology">Run 2 pool profile:
+client
+  -> gateway node
+       ingress: SOCKS5
+       egress: MeshPeerUdp exit-a / exit-b / exit-c
+       scheduler: session-sticky selection from route_group
+  -> upstream pool node
+       ingress: MeshPeerUdp + MeshSec on 2080/udp
+       optional client ingress: SOCKS5 on 2080/tcp
+       egress: TCP / UDP / SOCKS5 / service
+  -> server
+
+optional direct entry:
+client
+  -> any pool node SOCKS5 ingress
+  -> local egress or another MeshPeerUdp peer
+  -> server</pre>
       <table>
         <tr><th>Component</th><th>Production requirement</th><th>Owner</th></tr>
         <tr><td>Binary</td><td>Release build, version visible in logs, deployed atomically, old binary retained for rollback.</td><td><code>crates/mesh-bus-bin</code></td></tr>
         <tr><td>Config</td><td>Schema-checked before restart; secrets masked in logs; peer ids and route groups explicit.</td><td><code>crates/mesh-bus-runtime/schema.json</code></td></tr>
         <tr><td>Service</td><td>systemd or equivalent supervision with `ExecStartPre=mesh-bus check`, restart policy, log retention, and explicit shutdown timeout.</td><td>deployment package</td></tr>
         <tr><td>Ports</td><td>Separate local SOCKS5, remote MeshPeerUdp, optional remote admin/metrics ports, and no accidental debug clear path on WAN.</td><td>operator config</td></tr>
+        <tr><td>Run 2 default port</td><td><code>2080/udp</code> for MeshPeerUdp + MeshSec and <code>2080/tcp</code> for optional direct SOCKS5 on pool nodes. Use the same number only as a deployment convention; do not treat it as one protocol channel.</td><td>operator config</td></tr>
         <tr><td>Keys</td><td>MeshSec static key or future keyring kept outside public docs and never printed by Debug/log paths.</td><td>MeshSec config owner</td></tr>
       </table>
     </section>
@@ -195,7 +214,7 @@
       <h2>Day-2 Playbook</h2>
       <table>
         <tr><th>Situation</th><th>First command family</th><th>Evidence to capture</th><th>Escalate when</th></tr>
-        <tr><td>Deploy or upgrade</td><td><code>deploy/service/deploy.mjs</code></td><td>binary/config checksums, backup paths, service active state.</td><td>preflight fails, checksum mismatch, restart fails.</td></tr>
+        <tr><td>Deploy or upgrade</td><td><code>deploy/service/deploy.mjs</code> for one host; <code>deploy/run2-lab/deploy.mjs</code> for the Run2 gateway + pool lab.</td><td>binary/config checksums, backup paths, service active state, pool-first/gateway-last order, and optional Run2 validation evidence.</td><td>preflight fails, checksum mismatch, restart fails, validation fails.</td></tr>
         <tr><td>User path fails</td><td><code>mesh-bus admin probe ...</code></td><td>route_group, close_reason, dispatch delta, failure delta.</td><td>probe bypasses expected route or failure counter rises.</td></tr>
         <tr><td>Suspected key mismatch</td><td>MeshSec fail-closed probe plus metrics snapshot.</td><td>auth_drop/replay_drop counters and no accepted session creation.</td><td>clear/wrong-key traffic creates data-plane state.</td></tr>
         <tr><td>Service instability</td><td><code>tests/live-service-soak.mjs</code></td><td>RSS delta, fd delta, dispatch_success_delta, service active state.</td><td>RSS grows beyond gate, fd count drifts, service restarts unexpectedly.</td></tr>
@@ -266,6 +285,8 @@
         <tr><td>H4 Operator auth</td><td><span class="ok">Green</span>: protect local Operator API with optional Bearer token file; missing token is 401, wrong token is 403, valid token reaches existing responses.</td><td><code>GATE-SVC-AUTH-01</code></td><td>Safe local management surface.</td></tr>
         <tr><td>H5 Probe and diagnose</td><td><span class="ok">Green</span>: SOCKS5 and mesh-peer probes use public normal paths and prove dispatch/exit deltas; diagnose bundle collects status, metrics, redacted config, host state, sockets, and journal tail without forbidden secret markers.</td><td><code>GATE-SVC-PROBE-01</code>, <code>GATE-SVC-DIAG-01</code></td><td>Operational debugging without shell archaeology.</td></tr>
         <tr><td>H6 Service metrics</td><td><span class="ok">Partial green</span>: Operator snapshot exports datagram send/failure totals from <code>BusSnapshot/ExitSnapshot</code>. MeshSec auth/replay/drop families remain blocked until the mesh-peer owner publishes typed <code>obs.*</code> facts and observers project them; no fake Prometheus families are allowed.</td><td><code>GATE-SVC-METRICS-01</code></td><td>Observable packet-service behavior.</td></tr>
+        <tr><td>H7 Run 2 pool</td><td><span class="ok">Partial green</span>: gateway-to-upstream-pool, direct pool-node client entry, per-peer selected-exit evidence, and zero gateway dispatch failure were proven in a five-node private-lab pool. Failed-peer avoidance and soak remain.</td><td><code>GATE-RUN2-POOL-01</code></td><td>Modern Squid-like mesh proxy fabric statement.</td></tr>
+        <tr><td>H8 External lab validation</td><td><span class="warn">Planned</span>: NVIDIA Air or an equivalent network digital-twin lab may validate topology scale, churn, loss, jitter, MTU, automation, and observability. It is not the sole throughput truth because virtual NIC, host kernel, and virtual switching can dominate raw speed numbers.</td><td><code>GATE-AIR-TOPO-01</code></td><td>Scalable topology validation statement.</td></tr>
       </table>
       <p>Hardening phases must preserve the OSI/data-owner boundary. A service feature may install, observe, probe, or configure the substrate; it must not parse L7 payload in core or become an alternate route engine.</p>
     </section>
@@ -293,6 +314,9 @@
         <tr><td><code>GATE-PRODOPS-02..06</code></td><td>systemd unit preflight, exec shape, restart behavior, file descriptor limit, shutdown timeout, and hardening evidence.</td><td>Service supervision statement.</td></tr>
         <tr><td><code>GATE-PRODLOG-01</code></td><td><span class="ok">Passed for MVP slice.</span> The live runner audits startup journal from service activation plus recent traffic lines. Required labels appeared and <code>static_key_hex</code>, <code>MESH_BUS_MESHSEC_KEY_HEX</code>, and <code>password=</code> did not appear.</td><td>Operator log safety statement.</td></tr>
         <tr><td><code>GATE-PRODRULE-01</code></td><td>Rule files are schema-valid, fingerprinted at startup, and route/deny decisions are observable by id.</td><td>Policy data readiness statement.</td></tr>
+        <tr><td><code>GATE-RUN2-POOL-01</code></td><td><span class="ok">Partial green.</span> Run one gateway with at least two MeshSec MeshPeerUdp upstream exits; prove SOCKS5 HTTPS through each selected peer, direct SOCKS5 entry on one pool node, failed peer avoidance for new sessions, and metrics/log evidence for selected_sink, peer_id, route_group, close_reason, and dispatch failure delta. The private-lab five-node run proves distribution and movement; failed-peer avoidance remains open.</td><td>Multi-entry, multi-exit mesh proxy fabric statement.</td></tr>
+        <tr><td><code>GATE-RUN2-POOL-02</code></td><td>Run <code>tests/live-run2-pool-validation.mjs</code> against a gateway with multiple MeshSec MeshPeerUdp pool exits. The read-only gate must prove active service, SOCKS5 probe success, at least one pool exit send delta, zero dispatch failure delta, zero MeshSec/native drop delta in a quiet window, and a JSON artifact. Optional failover mode must be explicitly enabled and must restart the stopped pool service. Binary refresh for the lab should use <code>deploy/run2-lab/deploy.mjs</code> so pool nodes update before the gateway and remote configs are preserved.</td><td>Repeatable Run2 production pool validation.</td></tr>
+        <tr><td><code>GATE-AIR-TOPO-01</code></td><td>Run the same sanitized Run2 profiles and live runner family inside NVIDIA Air or another controlled network lab. The report must separate topology/failure correctness from raw throughput claims.</td><td>External lab topology confidence.</td></tr>
       </table>
       <p>A production claim must name which gates passed. A missing live or performance gate must be reported as deferred, not hidden inside "tests pass".</p>
     </section>

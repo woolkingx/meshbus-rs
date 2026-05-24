@@ -35,6 +35,7 @@ try {
 async function deploy(args) {
   assertLocalFile(args.localBin, "local binary");
   if (!args.preserveRemoteConfig) assertLocalFile(args.localConfig, "local config");
+  const serviceExecPath = await requireServiceExecPath(args);
 
   const timestamp = timestampId();
   const binHash = sha256File(args.localBin);
@@ -79,6 +80,7 @@ async function deploy(args) {
     action: "deploy",
     remote_ssh: args.remoteSsh,
     remote_bin: args.remoteBin,
+    service_exec_path: serviceExecPath,
     remote_config: args.remoteConfig,
     service: args.service,
     service_active: serviceState === "active",
@@ -94,6 +96,7 @@ async function deploy(args) {
 }
 
 async function rollback(args) {
+  const serviceExecPath = await requireServiceExecPath(args);
   const remoteBinDir = posixDir(args.remoteBin);
   const remoteConfigDir = posixDir(args.remoteConfig);
   const binBackup = args.rollbackBin || (await latestRemoteBackup(args, `${remoteBinDir}/.backup/${path.posix.basename(args.remoteBin)}.*`));
@@ -120,6 +123,7 @@ async function rollback(args) {
     action: "rollback",
     remote_ssh: args.remoteSsh,
     remote_bin: args.remoteBin,
+    service_exec_path: serviceExecPath,
     remote_config: args.remoteConfig,
     service: args.service,
     service_active: serviceState === "active",
@@ -129,6 +133,20 @@ async function rollback(args) {
     restored_bin_backup: binBackup,
     restored_config_backup: configBackup,
   };
+}
+
+async function requireServiceExecPath(args) {
+  const script = `set -e; systemctl show ${q(args.service)} -p ExecStart --value | sed -n 's/.*path=\\([^ ;]*\\).*/\\1/p' | head -1`;
+  const serviceExecPath = (await ssh(args, script)).trim();
+  if (!serviceExecPath) {
+    throw new Error(`cannot read ExecStart path for ${args.service}`);
+  }
+  if (serviceExecPath !== args.remoteBin) {
+    throw new Error(
+      `remote_bin does not match ${args.service} ExecStart: remote_bin=${args.remoteBin} exec=${serviceExecPath}`,
+    );
+  }
+  return serviceExecPath;
 }
 
 async function latestRemoteBackup(args, pattern) {

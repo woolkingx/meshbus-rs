@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>deploy/run2-lab - Owner Proof Contract</title>
+  <style>
+    body { margin:0; font:16px/1.5 system-ui,sans-serif; color:#182026; background:#f7f8fa; }
+    header, main { max-width:980px; margin:0 auto; padding:20px 24px; }
+    section { margin:0 0 18px; border:1px solid #d8dee4; border-radius:8px; padding:18px; background:#fff; }
+    h1,h2 { margin:0 0 10px; } code { background:#eef1f4; padding:1px 4px; border-radius:4px; }
+    table { width:100%; border-collapse:collapse; } th,td { border:1px solid #d8dee4; padding:8px; text-align:left; vertical-align:top; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><a href="../../docs/handbook/testing-index.html">Back to testing index</a></p>
+    <h1>deploy/run2-lab - Owner Proof Contract</h1>
+    <p>Classification: <strong>deployment composition owner</strong>. This directory owns the Run2 lab upgrade order and evidence aggregation over real deployment boundaries.</p>
+  </header>
+  <main>
+    <section id="identity">
+      <h2>Identity</h2>
+      <table>
+        <tr><th>Surface</th><th>Path</th></tr>
+        <tr><td>Guide</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
+        <tr><td>Runner</td><td><a href="deploy.mjs">deploy.mjs</a></td></tr>
+      </table>
+    </section>
+    <section id="owned-data">
+      <h2>Owned Data</h2>
+      <p>Owned data is the deployment composition action: gateway SSH target, pool SSH targets, role-specific binary paths, remote config paths, service names, deploy subset, validation options, and JSON evidence from each composed owner.</p>
+    </section>
+    <section id="runner">
+      <h2>Fixtures / Runner</h2>
+      <table>
+        <tr><th>Proof</th><th>Command</th></tr>
+        <tr><td>Syntax</td><td><code>node --check deploy/run2-lab/deploy.mjs</code></td></tr>
+        <tr><td>CLI contract</td><td><code>node deploy/run2-lab/deploy.mjs --help</code></td></tr>
+        <tr><td>Plan resolve</td><td><code>node deploy/run2-lab/deploy.mjs --dry-run --subnet 192.0.2 --gateway-suffix 36 --pool-suffixes 20-24</code></td></tr>
+        <tr><td>Role binary paths</td><td><code>node deploy/run2-lab/deploy.mjs --dry-run --subnet 192.0.2 --gateway-suffix 36 --pool-suffixes 20-24 | grep -E 'mesh-bus-run2|mesh-bus'</code></td></tr>
+        <tr><td>Live deploy</td><td><code>node deploy/run2-lab/deploy.mjs --gateway-ssh root@host-a --pool-ssh root@host-b,root@host-c --allow-background-traffic</code></td></tr>
+      </table>
+    </section>
+    <section id="owner-proofs">
+      <h2>Owner Proofs</h2>
+      <p>The runner must build or reuse the release binary, prefer a glibc-independent musl target for the lab, deploy pool nodes before the gateway, install each role to the binary path its systemd unit actually executes, preserve remote configs, aggregate per-host deploy/service JSON, and optionally run <code>tests/live-run2-pool-validation.mjs</code>.</p>
+    </section>
+    <section id="integration-boundaries">
+      <h2>Integration Boundaries</h2>
+      <p>Single-host deployment remains owned by <code>deploy/service</code>. Runtime YAML remains owned by config/runtime. Product traffic proof remains owned by <code>tests/live-run2-pool-validation.mjs</code>.</p>
+    </section>
+    <section id="forbidden-tests">
+      <h2>Forbidden Tests</h2>
+      <p>This wrapper must not rewrite route policy, generate MeshSec keys, mutate peer topology, or infer product correctness from systemd active state alone.</p>
+    </section>
+  </main>
+</body>
+</html>

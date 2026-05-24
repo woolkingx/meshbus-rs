@@ -208,6 +208,7 @@ async fn stream_open_rejects_when_local_open_fails() {
     let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
     let open = encode_frame(&MeshFrame::StreamOpen(StreamOpen {
         session_id: "remote-s-1".into(),
+        open_token: 11,
         target: endpoint("example.com", 443),
         route_group: None,
         flow_semantics: FlowSemanticsWire::ByteStream,
@@ -225,6 +226,7 @@ async fn stream_open_rejects_when_local_open_fails() {
         rejected,
         MeshFrame::StreamOpenReject {
             session_id: "remote-s-1".into(),
+            open_token: 11,
             reason: StreamOpenRejectReason::NoUsableExit,
             close_reason: CloseReasonWire::NoUsableExit,
         }
@@ -257,6 +259,7 @@ async fn run_stream_reentry_gate() {
     let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
     let open = encode_frame(&MeshFrame::StreamOpen(StreamOpen {
         session_id: "remote-s-1".into(),
+        open_token: 22,
         target: endpoint("127.0.0.1", echo_port),
         route_group: None,
         flow_semantics: FlowSemanticsWire::ByteStream,
@@ -279,6 +282,13 @@ async fn run_stream_reentry_gate() {
         .await
         .expect("send stream data");
 
+    assert_eq!(
+        recv_mesh_frame(&peer).await,
+        MeshFrame::StreamOpenAccepted {
+            session_id: "remote-s-1".into(),
+            open_token: 22,
+        }
+    );
     assert_eq!(
         recv_mesh_frame(&peer).await,
         MeshFrame::StreamData {

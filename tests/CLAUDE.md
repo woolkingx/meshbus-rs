@@ -106,6 +106,8 @@ tests phases:
      Purpose: prove the deployed service can sustain repeated real SOCKS5 HTTPS probes while dispatch_success increases, dispatch_failure stays flat, RSS/fd counts stay bounded, and systemd remains active.
      Diagnose bundle gate: `MESH_BUS_REMOTE_SSH=root@198.51.100.36 MESH_BUS_REMOTE_OPERATOR=http://127.0.0.1:19080 node tests/live-diagnose-bundle.mjs`.
      Purpose: prove the deployed Operator diagnose path returns redacted status, metrics, effective config, systemd, process, socket, and journal evidence.
+     Run2 pool gate: `MESH_BUS_RUN2_GATEWAY_SSH=root@192.0.2.36 MESH_BUS_RUN2_GATEWAY_SOCKS5=192.0.2.36:2080 MESH_BUS_RUN2_GATEWAY_OPERATOR=http://127.0.0.1:19081 node tests/live-run2-pool-validation.mjs`.
+     Purpose: prove a gateway with multiple MeshSec MeshPeerUdp upstream exits is active, accepts SOCKS5 traffic, increments at least one pool exit, keeps dispatch failures and MeshSec/native drops flat in a quiet window, and emits a JSON report with per-exit deltas. Optional service-mutation failover requires `MESH_BUS_RUN2_ALLOW_SERVICE_MUTATION=1` plus `MESH_BUS_RUN2_FAILOVER_PEER_SSH` and `MESH_BUS_RUN2_FAILOVER_EXIT`.
      Purpose: prove traffic reaches the real remote MeshPeerUdp service and real upstream targets, with SOCKS5 CONNECT, SOCKS5 UDP DNS, encrypted wire capture, and clear-packet fail-closed evidence.
 
 tests completion rules:

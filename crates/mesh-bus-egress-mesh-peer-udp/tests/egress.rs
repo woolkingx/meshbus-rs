@@ -8,7 +8,7 @@ use mb_proto_mesh::{
 };
 use mesh_bus_core::{
     BusSessionInfo, BusSessionRequest, DatagramEgress, DisconnectReason, ExitId, ScheduleMode,
-    SendError, StreamEgress,
+    SendError, StreamEgress, StreamSession,
 };
 use mesh_bus_egress_mesh_peer_udp::MeshPeerUdpEgress;
 use std::net::SocketAddr;
@@ -25,6 +25,31 @@ async fn recv_mesh_frame(sock: &UdpSocket) -> (MeshFrame, SocketAddr) {
     let (n, peer) = sock.recv_from(&mut buf).await.expect("recv mesh frame");
     let frame = decode_frame(&mut BytesMut::from(&buf[..n])).expect("decode mesh frame");
     (frame, peer)
+}
+
+async fn connect_with_accept(
+    mut session: Box<dyn StreamSession>,
+    peer: &UdpSocket,
+) -> (Box<dyn StreamSession>, SocketAddr, MeshFrame) {
+    let connect = tokio::spawn(async move {
+        session.connect().await.expect("connect mesh peer stream");
+        session
+    });
+    let (frame, client) = recv_mesh_frame(peer).await;
+    let open_token = match &frame {
+        MeshFrame::StreamOpen(open) => open.open_token,
+        other => panic!("expected stream open, got {other:?}"),
+    };
+    let accepted = encode_frame(&MeshFrame::StreamOpenAccepted {
+        session_id: "test-session".into(),
+        open_token,
+    })
+    .expect("encode stream open accepted");
+    peer.send_to(&accepted, client)
+        .await
+        .expect("send stream open accepted");
+    let session = connect.await.expect("connect task");
+    (session, client, frame)
 }
 
 #[test]
@@ -70,20 +95,23 @@ async fn stream_open_emits_mesh_stream_open() {
     .with_native_event_mode(NativeEventMode::MeshFrame);
     let target = endpoint("example.com", 443);
     let request = BusSessionRequest::stream(target.clone()).with_route_group("mesh-upstream");
-    let mut session = egress
+    let session = egress
         .open_stream(
             &request,
             BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
         )
         .await
         .expect("open mesh peer stream");
-    session.connect().await.expect("connect mesh peer stream");
-
-    let (frame, _) = recv_mesh_frame(&peer).await;
+    let (_session, _client, frame) = connect_with_accept(session, &peer).await;
+    let open_token = match &frame {
+        MeshFrame::StreamOpen(open) => open.open_token,
+        other => panic!("expected stream open, got {other:?}"),
+    };
     assert_eq!(
         frame,
         MeshFrame::StreamOpen(StreamOpen {
             session_id: "test-session".into(),
+            open_token,
             target,
             route_group: Some("mesh-upstream".into()),
             flow_semantics: FlowSemanticsWire::ByteStream,
@@ -92,6 +120,79 @@ async fn stream_open_emits_mesh_stream_open() {
             path_trace: Vec::new(),
         })
     );
+}
+
+#[tokio::test]
+async fn stream_connect_requires_open_ack() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(50),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame);
+    let request = BusSessionRequest::stream(endpoint("example.com", 443));
+    let mut session = egress
+        .open_stream(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer stream");
+
+    let result = session.connect().await;
+    assert!(
+        matches!(result, Err(DisconnectReason::TimedOut)),
+        "stream connect must fail when peer never acknowledges StreamOpen: {result:?}"
+    );
+
+    let (frame, _) = recv_mesh_frame(&peer).await;
+    assert!(matches!(frame, MeshFrame::StreamOpen(_)));
+}
+
+#[tokio::test]
+async fn stream_connect_ignores_stale_open_ack_token() {
+    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
+    let peer_addr = peer.local_addr().expect("peer addr");
+
+    let egress = MeshPeerUdpEgress::new(
+        ExitId("peer-udp".into()),
+        peer_addr,
+        Duration::from_millis(50),
+    )
+    .with_native_event_mode(NativeEventMode::MeshFrame);
+    let request = BusSessionRequest::stream(endpoint("example.com", 443));
+    let mut session = egress
+        .open_stream(
+            &request,
+            BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
+        )
+        .await
+        .expect("open mesh peer stream");
+
+    let connect = tokio::spawn(async move {
+        let result = session.connect().await;
+        assert!(
+            matches!(result, Err(DisconnectReason::TimedOut)),
+            "stale token must not acknowledge a new StreamOpen: {result:?}"
+        );
+    });
+    let (frame, client) = recv_mesh_frame(&peer).await;
+    let open_token = match frame {
+        MeshFrame::StreamOpen(open) => open.open_token,
+        other => panic!("expected stream open, got {other:?}"),
+    };
+    let stale = encode_frame(&MeshFrame::StreamOpenAccepted {
+        session_id: "test-session".into(),
+        open_token: open_token.saturating_add(1),
+    })
+    .expect("encode stale stream open accepted");
+    peer.send_to(&stale, client)
+        .await
+        .expect("send stale stream open accepted");
+    connect.await.expect("connect task");
 }
 
 #[tokio::test]
@@ -107,15 +208,14 @@ async fn stream_send_emits_ordered_stream_data() {
     .with_native_event_mode(NativeEventMode::MeshFrame);
     let target = endpoint("example.com", 443);
     let request = BusSessionRequest::stream(target);
-    let mut session = egress
+    let session = egress
         .open_stream(
             &request,
             BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
         )
         .await
         .expect("open mesh peer stream");
-    session.connect().await.expect("connect mesh peer stream");
-    let _ = recv_mesh_frame(&peer).await;
+    let (session, _client, _open) = connect_with_accept(session, &peer).await;
 
     let (mut send, _recv) = session.split();
     send.send(Bytes::from_static(b"stream-sdu"))
@@ -146,15 +246,14 @@ async fn stream_recv_preserves_same_drain_multiple_data_frames() {
     .with_native_event_mode(NativeEventMode::MeshFrame);
     let target = endpoint("example.com", 443);
     let request = BusSessionRequest::stream(target);
-    let mut session = egress
+    let session = egress
         .open_stream(
             &request,
             BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
         )
         .await
         .expect("open mesh peer stream");
-    session.connect().await.expect("connect mesh peer stream");
-    let (_, client) = recv_mesh_frame(&peer).await;
+    let (session, client, _open) = connect_with_accept(session, &peer).await;
 
     let (_send, mut recv) = session.split();
     for (seq, payload) in [(1, b"tls-server-hello".as_slice()), (2, b"tls-cert-chain")] {
@@ -195,15 +294,14 @@ async fn stream_close_removes_session_state() {
     .with_native_event_mode(NativeEventMode::MeshFrame);
     let target = endpoint("example.com", 443);
     let request = BusSessionRequest::stream(target);
-    let mut session = egress
+    let session = egress
         .open_stream(
             &request,
             BusSessionInfo::empty_for_test(ScheduleMode::Ordered),
         )
         .await
         .expect("open mesh peer stream");
-    session.connect().await.expect("connect mesh peer stream");
-    let _ = recv_mesh_frame(&peer).await;
+    let (session, _client, _open) = connect_with_accept(session, &peer).await;
 
     let (mut send, _recv) = session.split();
     send.abort(DisconnectReason::ConnectionReset).await;

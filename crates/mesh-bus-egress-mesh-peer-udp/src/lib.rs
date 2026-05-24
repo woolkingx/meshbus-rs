@@ -25,6 +25,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::watch;
 
 const MAX_MESH_DATAGRAM_PAYLOAD_BYTES: usize = 65_000;
+static STREAM_OPEN_TOKEN: AtomicU64 = AtomicU64::new(1);
 
 /// Upper bound on bincode MeshFrame::DatagramSend framing minus the payload
 /// (enum tag + session_id string + Endpoint + seq). Conservative; sealed clear
@@ -478,6 +479,7 @@ impl StreamSession for MeshPeerUdpStreamSession {
         if self.connected {
             return Ok(&self.info);
         }
+        let open_token = next_stream_open_token();
         send_mesh_frame(
             &self.packet_loop,
             &self.coord,
@@ -487,6 +489,7 @@ impl StreamSession for MeshPeerUdpStreamSession {
             self.seal.as_ref(),
             &MeshFrame::StreamOpen(StreamOpen {
                 session_id: self.session_id.clone(),
+                open_token,
                 target: self.request.target.clone(),
                 route_group: self.request.route_group.clone(),
                 flow_semantics: flow_semantics_wire(&self.request),
@@ -497,6 +500,16 @@ impl StreamSession for MeshPeerUdpStreamSession {
         )
         .await
         .map_err(send_error_to_disconnect)?;
+        wait_stream_open_ack(
+            &self.packet_loop,
+            &self.coord,
+            &self.policy,
+            self.timeout,
+            &self.session_id,
+            open_token,
+            self.meshsec_recv.as_mut(),
+        )
+        .await?;
 
         let local = endpoint_from_socket_addr(
             self.packet_loop
@@ -1072,6 +1085,7 @@ async fn mesh_recv_stream(
                             "stream open rejected: {close_reason:?}"
                         )));
                     }
+                    Ok(MeshFrame::StreamOpenAccepted { .. }) => continue,
                     Ok(MeshFrame::PortOpen(mouth)) => {
                         coord.apply_port_open(&mouth);
                         continue;
@@ -1140,6 +1154,85 @@ async fn send_stream_close(
     .await
 }
 
+async fn wait_stream_open_ack(
+    packet_loop: &UdpPacketLoop,
+    coord: &DeliveryCoord,
+    policy: &EgressPolicy,
+    timeout: Duration,
+    session_id: &str,
+    open_token: u64,
+    mut meshsec: Option<&mut MeshSecRecv>,
+) -> Result<(), DisconnectReason> {
+    let recv = async {
+        loop {
+            for inbound in packet_loop.drain_inbound() {
+                let decoded = match meshsec.as_deref_mut() {
+                    Some(mc) => {
+                        let epoch = meshsec_epoch_number(now_unix_secs());
+                        match open_mesh_frame(
+                            &inbound.payload,
+                            &mc.keys,
+                            &mc.local_node_id,
+                            epoch.saturating_sub(MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS)
+                                ..=epoch + MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS,
+                            &mut mc.replay,
+                        ) {
+                            Ok((_, frame)) => Ok(frame),
+                            Err(_) => continue,
+                        }
+                    }
+                    None => decode_frame(&mut BytesMut::from(&inbound.payload[..])),
+                };
+                match decoded {
+                    Ok(MeshFrame::StreamOpenAccepted {
+                        session_id: frame_session_id,
+                        open_token: frame_open_token,
+                    }) if frame_session_id == session_id && frame_open_token == open_token => {
+                        return Ok(());
+                    }
+                    Ok(MeshFrame::StreamOpenReject {
+                        session_id: frame_session_id,
+                        open_token: frame_open_token,
+                        close_reason,
+                        ..
+                    }) if frame_session_id == session_id && frame_open_token == open_token => {
+                        return Err(wire_close_to_disconnect(close_reason));
+                    }
+                    Ok(MeshFrame::PortOpen(mouth)) => {
+                        coord.apply_port_open(&mouth);
+                        continue;
+                    }
+                    Ok(MeshFrame::PortClose { .. }) => continue,
+                    Ok(MeshFrame::AckNack(ack)) => {
+                        let resend = policy.to_retransmit(&ack);
+                        if !resend.is_empty() {
+                            let dst = coord.addr();
+                            for bytes in resend {
+                                let _ = packet_loop.try_enqueue(OutboundDatagram {
+                                    destination: dst,
+                                    payload: Bytes::from(bytes),
+                                });
+                            }
+                            let _ = packet_loop.flush().await;
+                        }
+                        continue;
+                    }
+                    Ok(_) => continue,
+                    Err(_) => continue,
+                }
+            }
+            packet_loop
+                .poll_recv()
+                .await
+                .map_err(|_| DisconnectReason::ConnectionReset)?;
+        }
+    };
+
+    tokio::time::timeout(timeout, recv)
+        .await
+        .map_err(|_| DisconnectReason::TimedOut)?
+}
+
 async fn send_close(
     packet_loop: &UdpPacketLoop,
     coord: &DeliveryCoord,
@@ -1196,6 +1289,26 @@ fn close_reason_wire(reason: &DisconnectReason) -> CloseReasonWire {
         }
         _ => CloseReasonWire::Normal,
     }
+}
+
+fn wire_close_to_disconnect(reason: CloseReasonWire) -> DisconnectReason {
+    match reason {
+        CloseReasonWire::Normal => DisconnectReason::SessionClosed,
+        CloseReasonWire::Unsupported | CloseReasonWire::ProtocolError => {
+            DisconnectReason::Other(format!("{reason:?}"))
+        }
+        CloseReasonWire::NoUsableExit => DisconnectReason::NoUsableExit,
+    }
+}
+
+fn next_stream_open_token() -> u64 {
+    let counter = STREAM_OPEN_TOKEN.fetch_add(1, Ordering::Relaxed);
+    let time_mix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| (d.as_secs() << 32) ^ u64::from(d.subsec_nanos()))
+        .unwrap_or(counter.rotate_left(17));
+    let token = rand::random::<u64>() ^ time_mix.rotate_left(23) ^ counter.rotate_left(41);
+    if token == 0 { counter | 1 } else { token }
 }
 
 async fn send_mesh_frame(

@@ -45,6 +45,26 @@
       <p>The product should feel like a modern mesh proxy fabric with Squid-like parent-peer composition, but without becoming HTTP-cache centered, proxy-protocol centered, or a tunnel wrapper.</p>
     </section>
 
+    <section id="run-2-multi-exit-fabric">
+      <h2>Run 2: Multi-Exit Fabric</h2>
+      <p>Run 2 turns the proven single remote exit path into a modern Squid-like mesh proxy fabric: one or more client-facing SOCKS5 gateways select from an upstream mesh-bus pool, and every pool node may also accept local clients directly.</p>
+      <p><span class="ok">Architecture v4:</span> the mature product shape is gateway plus upstream mesh-bus pool. Compatibility protocols remain ingress/egress adapters; the product core is encrypted L4/L5 session fabric with operator-visible path evidence.</p>
+      <pre class="topology">client(SOCKS5)
+  -> mesh-bus gateway node
+       owns: local access, rule, route_group, scheduler, health decision
+  -> upstream mesh-bus pool
+       owns: MeshPeerUdp ingress, MeshSec open, local TCP/UDP/SOCKS5/service egress
+  -> server</pre>
+      <p><strong>Default Run 2 port profile:</strong> use port number <code>2080</code> for pool nodes: <code>2080/udp</code> is MeshPeerUdp with MeshSec, and <code>2080/tcp</code> is the optional direct SOCKS5 client entry. The shared number is an operator convention; TCP and UDP remain separate L4 owners and separate listeners.</p>
+      <table>
+        <tr><th>Role</th><th>Owner data</th><th>Run 2 rule</th></tr>
+        <tr><td>Main/gateway node</td><td>SOCKS5 listener, local auth/firewall, rule bundle, route_group, scheduler, selected peer sink.</td><td>Client entrypoint and path decision. It does not parse application payload after the adapter projects target intent.</td></tr>
+        <tr><td>Upstream pool node</td><td>MeshPeerUdp ingress, MeshSec peer key, local egress capabilities, node-local policy, operator status.</td><td>Remote exit and optional direct client gateway. It is not a passive upstream socket; it is the same mesh-bus runtime with different enabled roles.</td></tr>
+        <tr><td>Pool relation</td><td>peer_id, wan_id, groups, priority, health evidence, path labels.</td><td>Session-level selection first. Per-packet striping/reorder remains a later Mesh Protocol optimization.</td></tr>
+      </table>
+      <p>The first Run 2 claim is <strong>multi-entry, multi-exit session fabric</strong>, not full automatic cluster routing. Private-lab proof has exercised one gateway across a five-node MeshSec pool with even round-robin distribution and zero gateway dispatch failures; daily-use mode returns to session-sticky selection to keep web sites on a stable exit. Dynamic discovery, cluster-wide topology control, remote mutation, and true multipath striping remain future work.</p>
+    </section>
+
     <section id="market-position">
       <h2>Market Position</h2>
       <p>The first product wedge is a programmable L4/L5 substrate for teams building direct proxy, private mesh transport, edge gateways, and auditable traffic-control systems. The user buys control over session intent, policy, scheduling, observation, and transport evidence without having to make a compatibility protocol the product core.</p>
@@ -157,6 +177,25 @@
       </table>
     </section>
 
+    <section id="post-mvp-backlog">
+      <h2>Post-MVP Product Backlog</h2>
+      <table>
+        <tr><th>Capability</th><th>User value</th><th>Owner boundary</th><th>Acceptance</th></tr>
+        <tr>
+          <td>Web admin/dashboard</td>
+          <td>Inspect node health, routes, peers, probes, rule decisions, MeshSec drops, throughput samples, and service state without reading logs or editing YAML by hand.</td>
+          <td><a href="operator-plane.html">Operator API</a> remains the owner. Web is a client over the same schema-backed API as CLI; it does not read config files, parse Prometheus directly, or mutate core dispatch.</td>
+          <td>Read-only dashboard first; later local writes and remote admin only after schema-checked diff, dry-run, audit event, rollback, and auth gates exist.</td>
+        </tr>
+        <tr>
+          <td>GeoIP / GeoSite data packs</td>
+          <td>Route and audit traffic by country, ASN, domain tag, private network class, and operator-maintained policy lists.</td>
+          <td><code>mb-geoip</code>, <code>mb-geosite</code>, rule data, and pipeline hooks own this data. Core receives only metadata projections such as <code>geo_country</code>, <code>asn</code>, and <code>geosite_tags</code>; payload and L7 protocol syntax stay opaque.</td>
+          <td>Versioned import/update command, schema validation, fingerprinted startup log, rule dry-run, hot reload path, and product e2e proving route selection by geo/tag metadata.</td>
+        </tr>
+      </table>
+    </section>
+
     <section id="fast-movement">
       <h2>Fast Movement Contract</h2>
       <table>
@@ -180,8 +219,11 @@
         <tr><td>5 Compatibility completeness</td><td>Trust protocol plugins as edges.</td><td>SOCKS5 and HTTP CONNECT common deployment paths complete; future protocols remain adapter/plugin lines; compatibility compared against native direct baseline.</td><td>SOCKS5 and HTTP CONNECT functional MeshSec paths are green; two-node live smoke against <code>198.51.100.36</code> passed.</td></tr>
         <tr><td>6 Mesh peer performance</td><td>Optimize native encrypted event transport.</td><td>Secure UDP event envelopes, port-pool delivery, packet-loop matrix, path stats feeding scheduler evidence, WAN smoke with real remote exits/services.</td><td>MeshSec MeshPeerUdp is the MVP production substrate. Live 10.36 acceptance passed packet capture, fail-closed, operations fault, and before-optimization throughput gates. First optimization owner is L4 UDP packet loop; own QUIC remains protocol-library/reference evidence, not mesh peer completion.</td></tr>
         <tr><td>7 Operator plane</td><td>Make nodes inspectable, testable, configurable, and eventually remotely manageable.</td><td>API-first management surface; CLI/Web are clients; probes use normal data paths; writes are schema-checked and audited.</td><td>M0 local read-only Operator API is implemented and deployed on the live 10.36 node. Production acceptance now uses it for status and metrics evidence; probes, local writes, Web, remote admin, and cluster control remain future phases.</td></tr>
-        <tr><td>8 Advanced mesh semantics</td><td>Add mesh-level event distribution after direct paths are measurable.</td><td>Multi-hop RouteAdvertise hardening, replicate, striping, SequenceReorder, migration, projection exchange, admin intent plane.</td><td>Projection exchange specified as read-only v1; striping, migration, and mutating AdminIntent remain future work.</td></tr>
-        <tr><td>9 L7 HTTPX and gateway modes</td><td>Add semantic HTTP routing or transparent capture only after MVP proxy lanes are stable.</td><td>HTTPX owns HTTP/TLS semantics at the edge; TPROXY/TUN owns capture PCI; neither leaks protocol parsing into core.</td><td>Deferred product line.</td></tr>
+        <tr><td>8 Run 2 multi-exit fabric</td><td>Replace a single upstream proxy chain with a mesh-bus gateway plus upstream exit pool.</td><td>One gateway can select among at least two MeshSec upstream exits; at least one upstream node can also serve as a direct SOCKS5 client entry; new sessions avoid a failed pool node; metrics show selected sink, peer id, route_group, and failure delta.</td><td><span class="ok">Private-lab pool proven for selection and movement.</span> Five MeshSec upstream exits accepted SOCKS5 traffic through the gateway with balanced selected-exit counters and zero gateway dispatch failures. Failover and long-run soak remain the next hardening gates.</td></tr>
+        <tr><td>9 Advanced mesh semantics</td><td>Add mesh-level event distribution after Run 2 pool behavior is measurable.</td><td>Multi-hop RouteAdvertise hardening, replicate, striping, SequenceReorder, migration, projection exchange, admin intent plane.</td><td>Projection exchange specified as read-only v1; striping, migration, and mutating AdminIntent remain future work.</td></tr>
+        <tr><td>10 L7 HTTPX and gateway modes</td><td>Add semantic HTTP routing or transparent capture only after MVP proxy lanes are stable.</td><td>HTTPX owns HTTP/TLS semantics at the edge; TPROXY/TUN owns capture PCI; neither leaks protocol parsing into core.</td><td>Deferred product line.</td></tr>
+        <tr><td>11 Web admin/dashboard</td><td>Turn the local Operator API into a human operations surface.</td><td>Dashboard uses Operator API resources for status, config explanation, probes, rules, metrics, peers, services, and audit trail. UI owns presentation only.</td><td>Read-only local dashboard first; write actions require local-write gates from <a href="operator-plane.html">operator plane</a>.</td></tr>
+        <tr><td>12 GeoIP / GeoSite operations</td><td>Make policy datasets manageable and observable as product data.</td><td>GeoIP/GeoSite import, validation, fingerprinting, and reload belong to rule data owners and pipeline hooks, not core routing.</td><td>Dataset update workflow, rule dry-run, metadata enrichment metrics, and e2e route proof by country/ASN/tag.</td></tr>
       </table>
     </section>
 
@@ -195,6 +237,7 @@
         <li>Record throughput, close reason, timing, and metrics label differences.</li>
       </ol>
       <p><span class="ok">Functional status:</span> the direct stream source, direct datagram source, stream/datagram service sinks, route_group selection, SOCKS5 forward, HTTP CONNECT forward, and secure two-node product fixtures are proven by binary e2e. The live <code>198.51.100.36</code> service slice now has repeatable SOCKS5 HTTPS acceptance, Operator metrics delta, MeshSec packet capture/fail-closed proof, journal audit, operations fault probes, and a release throughput baseline. Fine-grained bus-internal timing, long-run soak, and optional HTTP CONNECT/UDP DNS live client probes remain measurement work.</p>
+      <p><span class="ok">Run 2 status:</span> private-lab live proof now covers gateway selection across five MeshPeerUdp exits, direct pool-node SOCKS5 entry, encrypted MeshSec movement, per-peer operator counters, and zero gateway dispatch failure during the observed run. The remaining gates are failed-peer avoidance for new sessions, health-aware sticky reselection, and long-run soak.</p>
     </section>
 
     <section id="non-goals">

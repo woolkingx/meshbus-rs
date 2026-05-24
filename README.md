@@ -1,38 +1,100 @@
 # MeshBus-rs
 
-MeshBus-rs is an OSI-aware Rust event/data mesh runtime for programmable direct proxy and protocol-over-mesh transport.
+MeshBus-rs is a Rust encrypted mesh proxy runtime for forward proxy, reverse proxy, upstream proxy pools, load balancing, and protocol plugins.
 
-It is not a SOCKS5 clone, HTTP proxy, VPN product, QUIC wrapper, or Kubernetes service mesh. Those are edge adapters or deployment shapes. The core product is a rule-driven L4/L5/L6 substrate:
+The first working use case is replacing fragile proxy chains such as:
 
 ```text
-source intent
-  -> metadata enrichment
-  -> rule / policy
-  -> scheduler
-  -> exit | service | upstream peer
-  -> opaque stream/datagram movement
+client -> danted / mihomo -> upstream SOCKS proxies
 ```
 
-## Current Shape
+with a cleaner mesh shape:
 
-MeshBus-rs currently focuses on a personal-deployable MVP:
+```text
+client SOCKS5
+  -> MeshBus gateway
+  -> MeshSec encrypted MeshPeerUdp
+  -> upstream MeshBus pool
+  -> direct TCP/UDP egress
+  -> server
+```
+
+The practical first use case is simple: run one gateway, run several upstream pool nodes, point your client at the gateway, and let MeshBus keep related sessions sticky while still giving you a visible, encrypted, multi-exit fabric.
+
+Protocol support is adapter-shaped: SOCKS5 and HTTP CONNECT are the first compatibility adapters; XRAY, VMess, and custom app protocols are future plugin lanes if needed, not core rewrites.
+
+## Product Layers
+
+| Layer | Role |
+|---|---|
+| SOCKS5 / HTTP CONNECT / future XRAY / VMess | Edge adapters |
+| Forward proxy / reverse proxy / load balancing / upstream pool | Product deployment shapes |
+| MeshBus runtime | L4/L5 session, scheduling, movement, and observation substrate |
+| Mesh Protocol | Native event/package language that makes the mesh possible |
+
+## Why It Exists
+
+Most proxy stacks grow around protocols: SOCKS, HTTP, DNS, QUIC, rules, outbounds, sniffing, fallback, and chains. That works, but the control path and data path tend to fight each other.
+
+MeshBus-rs treats SOCKS5 and HTTP CONNECT as edge adapters. The core is lower-level:
+
+```text
+source intent -> rule/policy -> scheduler -> selected peer/exit -> opaque byte/datagram movement
+```
+
+That means the hot path does not parse application payloads. It moves already-decided streams and datagrams through explicit owners: L4 routing, L5 session, L6 MeshSec transform, and operator-visible evidence.
+
+## Current Status
 
 | Lane | Status |
 |---|---|
-| SOCKS5 forward over MeshSec MeshPeerUdp | Functional and live two-node smoke proven |
-| HTTP CONNECT forward over MeshSec MeshPeerUdp | Functional gate proven |
-| L4 reverse TCP / UDP service sink | Functional gate proven |
-| Operator local API and CLI reads | Functional MVP |
+| SOCKS5 gateway -> encrypted MeshBus upstream pool | Private-lab live green across five pool nodes |
+| Forward proxy / upstream pool / load balancing | Functional through SOCKS5 + MeshPeerUdp pool |
+| Reverse proxy / service sink | Functional for L4 TCP/UDP service paths |
+| Session-sticky daily mode | Enabled for browser/site stability |
+| Round-robin validation mode | Used to prove every pool peer carries traffic |
+| Direct pool-node SOCKS5 entry | Functional |
 | MeshSec encrypted event envelope | Functional MVP |
-| Advanced multi-hop, striping, migration, remote admin writes | Roadmap |
+| Operator local API and metrics | Functional MVP |
+| HTTP CONNECT over MeshSec | Functional gate proven |
+| XRAY / VMess / custom protocol plugins | Future adapters if needed |
+| Health-aware sticky failover, dashboard, geo/rules, long soak | Roadmap |
 
-The architecture source of truth is the handbook, not this README:
+The handbook is the architecture source of truth. This README is only the public landing page:
 
 - [Handbook index](docs/handbook/index.html)
 - [Product roadmap](docs/handbook/product-roadmap.html)
+- [Direct proxy](docs/handbook/direct-proxy.html)
 - [System architecture](docs/handbook/system-architecture.html)
 - [Mesh Protocol](docs/handbook/mesh-protocol.html)
 - [Production readiness](docs/handbook/production-readiness.html)
+
+## Topology
+
+Gateway node:
+
+```text
+SOCKS5 client entry
+  -> scheduler
+  -> MeshPeerUdp egress: mesh20 | mesh21 | mesh22 | ...
+```
+
+Pool node:
+
+```text
+MeshPeerUdp + MeshSec ingress
+  -> local bus re-entry
+  -> direct TCP/UDP egress
+```
+
+Default Run 2 convention:
+
+| Port | Owner |
+|---|---|
+| `2080/tcp` | Optional direct SOCKS5 entry on pool nodes |
+| `2080/udp` | MeshPeerUdp + MeshSec peer traffic |
+
+The shared number is only an operator convention. TCP and UDP are separate L4 listeners.
 
 ## Build
 
@@ -43,7 +105,7 @@ cargo build --release -p mesh-bus-bin
 
 The CLI binary is currently named `mesh-bus`.
 
-## Quick Run
+## Quick Start
 
 Validate a config:
 
@@ -72,6 +134,26 @@ mesh-bus admin metrics-snapshot --api http://127.0.0.1:19080
 mesh-bus admin diagnose --api http://127.0.0.1:19080
 ```
 
+## Operating Modes
+
+Use `sticky-sessions` for daily browser/proxy use:
+
+```yaml
+scheduler:
+  kind: LoadBalance
+  mode: sticky-sessions
+```
+
+Use `round-robin` only when validating that every pool node can carry traffic:
+
+```yaml
+scheduler:
+  kind: LoadBalance
+  mode: round-robin
+```
+
+Sticky mode keeps related source/target sessions on a stable exit, which avoids breaking sites that dislike exit changes during login, CDN fetches, or risk checks.
+
 ## Test
 
 Fast correctness gates:
@@ -97,6 +179,14 @@ Live deployment gates require an installed remote node and explicit environment 
 - Core must not parse SOCKS5, HTTP, DNS, TLS, VMess, XRAY, or application payloads.
 - New application protocols enter as edge adapters or plugin pairs.
 - Tests follow `data -> schema -> owner module test -> integration -> product e2e`.
+
+Short version:
+
+```text
+protocols are adapters
+MeshBus is the encrypted session fabric
+operator evidence is part of the product
+```
 
 ## Repository Map
 

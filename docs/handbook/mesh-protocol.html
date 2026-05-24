@@ -138,7 +138,7 @@ client / app protocol
         <tr><td>Session id / flow id</td><td>L5/L4 correlation data. They bind event reconstruction and scheduling evidence, not a transport channel.</td></tr>
         <tr><td>Event payload</td><td>Opaque SDU to every lower owner. Lower layers may size, encrypt, fragment, forward, deduplicate, or reorder it only through declared PCI.</td></tr>
       </table>
-      <p>The current QUIC reference path opens a QUIC bidirectional stream and writes MeshFrame::StreamOpen / StreamData / StreamClose inside it. That is a compatibility path and regression baseline, not the target ontology. Native mesh work keeps reliability, order, dedup, repair, striping, and reassembly in event-family PCI owned by L5/L6 over Secure UDP/MeshSec. QUIC may supply proven data-shape references such as packet number, ack range, stream offset, flow-control window, and path validation sample, but not its channel ownership model.</p>
+      <p>The current production path carries MeshFrame / MeshEvent data over Secure UDP and uses Mesh Protocol control frames for stream lifecycle. QUIC is a reference data-shape and comparison line only, not the owner of stream open, reliability, ordering, or session truth. Native mesh work keeps reliability, order, dedup, repair, striping, and reassembly in event-family PCI owned by L5/L6 over Secure UDP/MeshSec. QUIC may supply proven data-shape references such as packet number, ack range, stream offset, flow-control window, and path validation sample, but not its channel ownership model.</p>
     </section>
 
     <section id="invariants">
@@ -203,7 +203,7 @@ client / app protocol
       <h2>Event Families</h2>
       <table>
         <tr><th>Family</th><th>Events</th><th>Owner</th></tr>
-        <tr><td>Stream</td><td>StreamOpen, StreamData, StreamShutdownWrite, StreamClose, StreamAck where required.</td><td>L5 FamilyState owns ordered-within-family delivery, retransmit policy, reassembly, and close. QUIC streams do not own these semantics.</td></tr>
+        <tr><td>Stream</td><td>StreamOpen, StreamOpenAccepted, StreamOpenReject, StreamData, StreamShutdownWrite, StreamClose, StreamAck where required.</td><td>L5 FamilyState owns open acceptance, ordered-within-family delivery, retransmit policy, reassembly, and close. QUIC streams do not own these semantics.</td></tr>
         <tr><td>Datagram</td><td>DatagramSend, DatagramReturn, DatagramClose.</td><td>L5 FamilyState preserves one logical datagram and source endpoint semantics.</td></tr>
         <tr><td>Control</td><td>CapabilityAdvertise, RouteAdvertise, DeliveryPolicy, PortOpen, PortClose, PeerDrain, PeerDown.</td><td>L4/L5 policy cache treats them as evidence with epoch and expiry.</td></tr>
         <tr><td>Observation</td><td>PathSample, FlowSummary, HealthSnapshot.</td><td>Schedulers and observers consume evidence; registry truth remains local config.</td></tr>
@@ -257,8 +257,9 @@ client / app protocol
       <h2>Data Plane Messages</h2>
       <table>
         <tr><th>Message</th><th>Required fields</th><th>Semantics</th></tr>
-        <tr><td>StreamOpen</td><td>session_id, target, route_group, flow_semantics, return_semantics, source_node_id, path_trace</td><td>Asks the receiving mesh-peer ingress to create a local BusSessionRequest and re-enter its own pipeline.</td></tr>
-        <tr><td>StreamOpenReject</td><td>session_id, reason</td><td>Rejects a stream open without silent close.</td></tr>
+        <tr><td>StreamOpen</td><td>session_id, open_token, target, route_group, flow_semantics, return_semantics, source_node_id, path_trace</td><td>Asks the receiving mesh-peer ingress to create a local BusSessionRequest and re-enter its own pipeline. Sender must not count the path successful until it receives accepted with the matching open_token.</td></tr>
+        <tr><td>StreamOpenAccepted</td><td>session_id, open_token</td><td>Confirms the remote peer opened its local bus stream for this specific open attempt. This is L5 control truth, not local UDP send success. Stale ACKs with a different token are ignored.</td></tr>
+        <tr><td>StreamOpenReject</td><td>session_id, open_token, reason</td><td>Rejects this specific stream open without silent close.</td></tr>
         <tr><td>StreamData</td><td>session_id, seq, payload</td><td>Carries opaque stream bytes as an event. A substrate may deliver it, but reliability truth, ordering, and reconstruction remain L5-owned.</td></tr>
         <tr><td>StreamShutdownWrite</td><td>session_id</td><td>Propagates half-close.</td></tr>
         <tr><td>StreamClose</td><td>session_id, close_reason</td><td>Closes the stream session and releases path state.</td></tr>
@@ -368,6 +369,7 @@ client / app protocol
       <h2>Acceptance Gates</h2>
       <p><span class="ok">Local green:</span> two-node raw UDP debug-clear datagram forwarding, two-node Secure UDP MeshSec datagram forwarding with packet-capture no-cleartext and tamper/replay fail-closed proof, route_group peer selection, tamper/replay fail-closed behavior, and metrics labels with node/peer/path/hop/wan evidence.</p>
       <p><span class="ok">Product gate passed:</span> L7 stream over MeshPeer is locally and remotely proven for SOCKS5 CONNECT / direct TCP style stream SDUs. The accepted path uses MeshPeerUdp as upstream egress and remote bus re-entry; it does not reintroduce MeshPeerQuic or assign stream ownership to QUIC.</p>
+      <p><span class="ok">Run2 hardening gate:</span> stream open success is remote-confirmed by <code>StreamOpenAccepted</code> with a matching <code>open_token</code>. A stopped peer times out or rejects during open, increments failure evidence, and the gateway must select another pool exit within the configured failover budget.</p>
       <p><span class="warn">Spec direction:</span> future Mesh Protocol work must preserve encrypted event fabric semantics. Channel-style transport state, QUIC-stream-owned reliability, fixed handshake identity, or port-bound session truth is a design regression.</p>
       <p><span class="ok">Native Secure UDP reliability (2026-05-18, functional-verification level):</span> implemented and proven by local two-node e2e — ordered-within-family delivery without QUIC streams (<code>mesh_peer_secure_udp_ordered_family_e2e</code>), receiver-mouth rotation (M5), LinkEvidence projection + lock-free per-neighbor snapshot (M6), and DeliveryPolicy steer/replicate/stripe/repair/probe (<code>mesh_peer_secure_udp_{replicate_dedup,stripe_reorder,repair_gap}</code>, M7). Policy changes delivery coordinates only; family identity and ordering stay L5-owned in <code>FamilyReorderState</code>.</p>
       <p><span class="warn">Remaining gaps:</span> Secure UDP MeshSec live WAN traffic is unverified (only local two-node proofs have run; live WAN + repeatable release throughput matrix stay directive-deferred — env-gated rows exist and skip clean). A wire-integrated proactive RepairFec FEC packet, multi-mouth Stripe/Steer-hysteresis wiring (one rotating coord today), an automatic Probe sender loop, local multi-hop hardening, reconnect/recovery hardening, migration, and mutating AdminIntent remain open follow-ups.</p>

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mesh-bus.deploy.run2-lab.schema.json",
+  "title": "mesh-bus Run2 lab deployment wrapper",
+  "description": "Machine contract for deploying one gateway plus a pool of mesh-bus nodes and optionally running the Run2 live validation gate.",
+  "type": "object",
+  "required": [
+    "gateway_ssh",
+    "pool_ssh",
+    "local_bin",
+    "gateway_remote_bin",
+    "pool_remote_bin",
+    "gateway_config",
+    "pool_config",
+    "gateway_service",
+    "pool_service",
+    "target_triple"
+  ],
+  "properties": {
+    "gateway_ssh": {
+      "type": "string",
+      "description": "Gateway SSH target.",
+      "minLength": 1
+    },
+    "pool_ssh": {
+      "type": "array",
+      "description": "Pool node SSH targets.",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "local_bin": {
+      "type": "string",
+      "description": "Local release binary path.",
+      "default": "target/x86_64-unknown-linux-musl/release/mesh-bus",
+      "minLength": 1
+    },
+    "target_triple": {
+      "type": "string",
+      "description": "Cargo target triple for the build step.",
+      "default": "x86_64-unknown-linux-musl",
+      "minLength": 1
+    },
+    "gateway_remote_bin": {
+      "type": "string",
+      "description": "Installed gateway remote binary path. This must match the gateway service ExecStart binary.",
+      "default": "/opt/mesh-bus/bin/mesh-bus-run2",
+      "minLength": 1
+    },
+    "pool_remote_bin": {
+      "type": "string",
+      "description": "Installed pool-node remote binary path. This must match the pool service ExecStart binary.",
+      "default": "/opt/mesh-bus/bin/mesh-bus",
+      "minLength": 1
+    },
+    "gateway_config": {
+      "type": "string",
+      "description": "Gateway remote config path.",
+      "default": "/etc/mesh-bus/run2.yaml",
+      "minLength": 1
+    },
+    "pool_config": {
+      "type": "string",
+      "description": "Pool-node remote config path.",
+      "default": "/etc/mesh-bus/config.yaml",
+      "minLength": 1
+    },
+    "gateway_service": {
+      "type": "string",
+      "description": "Gateway systemd unit name.",
+      "default": "mesh-bus-run2.service",
+      "pattern": "^[A-Za-z0-9_.@-]+\\.service$"
+    },
+    "pool_service": {
+      "type": "string",
+      "description": "Pool node systemd unit name.",
+      "default": "mesh-bus.service",
+      "pattern": "^[A-Za-z0-9_.@-]+\\.service$"
+    },
+    "validate": {
+      "type": "boolean",
+      "description": "Run the Run2 live validation gate after deploy.",
+      "default": true
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "Print the resolved deployment plan without SSH mutation.",
+      "default": false
+    }
+  },
+  "additionalProperties": false
+}

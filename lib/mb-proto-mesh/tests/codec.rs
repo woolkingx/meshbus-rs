@@ -58,6 +58,7 @@ fn decode_rejects_bad_magic_and_unsupported_version() {
 fn stream_open_round_trips_reentry_fields() {
     let frame = MeshFrame::StreamOpen(StreamOpen {
         session_id: "s-99".into(),
+        open_token: 99,
         target: endpoint("example.com", 443),
         route_group: Some("wan-us".into()),
         flow_semantics: FlowSemanticsWire::ByteStream,
@@ -156,8 +157,17 @@ fn datagram_open_and_close_roundtrip_fixed_target_contract() {
 
 #[test]
 fn stream_open_reject_roundtrip_names_reliable_stream_unsupported() {
+    let accepted = MeshFrame::StreamOpenAccepted {
+        session_id: "s-55".into(),
+        open_token: 55,
+    };
+    let encoded = encode_frame(&accepted).unwrap();
+    let decoded = decode_frame(&mut BytesMut::from(&encoded[..])).unwrap();
+    assert_eq!(decoded, accepted);
+
     let frame = MeshFrame::StreamOpenReject {
         session_id: "s-55".into(),
+        open_token: 55,
         reason: StreamOpenRejectReason::ReliableStreamUnsupported,
         close_reason: CloseReasonWire::Unsupported,
     };

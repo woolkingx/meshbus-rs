@@ -102,7 +102,29 @@
         <tr><td>Forward datagram</td><td>DirectSource builds datagram metadata, pipeline runs, scheduler selects datagram egress or peer, data plane preserves datagram/source endpoint semantics.</td></tr>
         <tr><td>Reverse stream</td><td>DirectServiceCapability exposes service_id/route_group/capability/health labels. Source selects service through normal scheduler and opens local connector.</td></tr>
         <tr><td>Chain</td><td>Node A chooses node B as a MeshPeer upstream egress after local policy. Node B receives opaque Mesh Protocol stream/datagram events, re-enters its own bus, applies node-B local policy, and selects its own local TCP/UDP/SOCKS5/Service/MeshPeer egress.</td></tr>
+        <tr><td>Pool</td><td>A gateway node chooses one upstream mesh-bus peer from a configured pool for a logical session. Pool nodes may also accept client traffic directly because every node is the same role-composable runtime.</td></tr>
       </table>
+    </section>
+
+    <section id="run-2-pool-semantics">
+      <h2>Run 2 Pool Semantics</h2>
+      <pre class="topology">client(SOCKS5)
+  -> gateway node
+       SOCKS5 adapter projects target intent
+       rule/policy sets route_group
+       scheduler selects one MeshPeerUdp egress
+  -> upstream pool node
+       MeshSec opens event envelope
+       Mesh Protocol re-enters local bus
+       local egress reaches server</pre>
+      <table>
+        <tr><th>Concern</th><th>Run 2 contract</th><th>Deferred</th></tr>
+        <tr><td>Selection unit</td><td>Session-sticky stream selection and association-sticky datagram selection. A logical flow stays on the selected peer unless a new session is opened.</td><td>Per-packet striping, segment reorder, and live migration of an existing stream.</td></tr>
+        <tr><td>Scheduler mode</td><td><code>sticky-sessions</code> is the daily-use mode because many web sites, login systems, and CDN risk paths assume a stable client exit for related connections. <code>round-robin</code> is a validation mode used to prove every pool peer can carry traffic.</td><td>Health-aware sticky reselection and weighted path scoring.</td></tr>
+        <tr><td>Pool node role</td><td>An upstream node can be both a remote exit for another gateway and a direct SOCKS5/HTTP CONNECT gateway for local clients.</td><td>Automatic global cluster role assignment.</td></tr>
+        <tr><td>Observation</td><td>Metrics and logs must expose selected sink, peer_id, route_group, close reason, bytes/datagrams, and failure delta without inspecting payload.</td><td>Payload-derived route evidence.</td></tr>
+      </table>
+      <p>This is the modern Squid-like cluster shape, but lower-layer and protocol-neutral: parent/sibling composition without HTTP cache ownership, and MeshSec encrypted events instead of proxy-specific upstream sockets.</p>
     </section>
 
     <section id="compatibility-mapping">
@@ -141,6 +163,7 @@
         <tr><td>HTTP CONNECT</td><td>HTTP CONNECT ingress accepts an authority target, runs the same rule/policy/scheduler path as SOCKS5 CONNECT, returns HTTP 200 only after stream open, and then relays opaque bytes.</td></tr>
         <tr><td>Baseline</td><td>Direct stream and datagram are measured against SOCKS5 paths, with timing segmented by rule/scheduler/open/movement.</td></tr>
         <tr><td>Chain</td><td>SOCKS5 UDP and SOCKS5 CONNECT can use MeshPeer as an upstream egress. The remote peer re-enters its bus and exits through its configured local UDP/TCP egress without Mesh Protocol parsing L7 payload.</td></tr>
+        <tr><td>Run 2 pool</td><td>A gateway can select among multiple MeshPeer upstream exits, at least one pool node can also accept direct client traffic, daily mode can pin related sessions by source/target, validation mode can prove all exits, and failed pool nodes stop receiving new sessions.</td></tr>
         <tr><td>Mesh deferral</td><td>Multi-hop, striping, reorder optimization, GSO/GRO performance claims, and WAN claims do not block direct foundation.</td></tr>
       </table>
     </section>

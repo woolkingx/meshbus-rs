@@ -63,6 +63,7 @@ pub struct Hello {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StreamOpen {
     pub session_id: String,
+    pub open_token: u64,
     #[serde(with = "endpoint_serde")]
     pub target: Endpoint,
     pub route_group: Option<String>,
@@ -118,6 +119,7 @@ pub enum MeshFrame {
     StreamOpen(StreamOpen),
     StreamOpenReject {
         session_id: String,
+        open_token: u64,
         reason: StreamOpenRejectReason,
         close_reason: CloseReasonWire,
     },
@@ -162,6 +164,13 @@ pub enum MeshFrame {
     },
     LinkSample(LinkSample),
     AckNack(AckNack),
+    /// Positive L5 control acknowledgement for `StreamOpen`. This variant is
+    /// intentionally appended to preserve existing bincode discriminants for
+    /// all previously-defined mesh frames.
+    StreamOpenAccepted {
+        session_id: String,
+        open_token: u64,
+    },
 }
 
 impl MeshFrame {
@@ -181,6 +190,7 @@ impl MeshFrame {
             MeshFrame::PortClose { .. } => 49,
             MeshFrame::LinkSample(_) => 50,
             MeshFrame::AckNack(_) => 51,
+            MeshFrame::StreamOpenAccepted { .. } => 52,
         }
     }
 }
@@ -528,7 +538,8 @@ pub fn frame_event_meta(frame: &MeshFrame) -> (&str, u64, EventSemantic) {
         MeshFrame::StreamData {
             session_id, seq, ..
         } => (session_id, *seq, EventSemantic::Stream),
-        MeshFrame::StreamOpenReject { session_id, .. }
+        MeshFrame::StreamOpenAccepted { session_id, .. }
+        | MeshFrame::StreamOpenReject { session_id, .. }
         | MeshFrame::StreamShutdownWrite { session_id }
         | MeshFrame::StreamClose { session_id, .. } => (session_id, 0, EventSemantic::Control),
         MeshFrame::Hello(_) => ("", 0, EventSemantic::Control),

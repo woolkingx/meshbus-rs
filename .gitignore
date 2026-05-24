@@ -1,4 +1,8 @@
 /target
+
+# Local trash / short-term backup areas. These are operator-managed and must
+# not become source, release, or sync truth.
 .cleanup/
 .backup/
+
 artifacts/

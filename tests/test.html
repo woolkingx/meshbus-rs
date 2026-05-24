@@ -65,6 +65,7 @@
         <tr><td><code>tests/live-mihomo-replacement-smoke.mjs</code></td><td>Product live acceptance runner for local SOCKS5 -> MeshSec MeshPeerUdp -> remote node -> upstream.</td></tr>
         <tr><td><code>tests/live-service-soak.mjs</code></td><td>Deployed service soak runner for repeated SOCKS5 HTTPS probes, Operator metrics snapshots, RSS/fd stability, and systemd state.</td></tr>
         <tr><td><code>tests/live-diagnose-bundle.mjs</code></td><td>Deployed service diagnose runner for redacted Operator status, metrics, config, systemd, process, socket, and journal evidence.</td></tr>
+        <tr><td><code>tests/live-run2-pool-validation.mjs</code></td><td>Run2 gateway-to-pool live validation runner for SOCKS5 probes, per-exit deltas, MeshSec/native drop deltas, and optional explicit service-mutation failover.</td></tr>
       </table>
     </section>
 
@@ -80,6 +81,7 @@
         <tr><td><code>node tests/live-mihomo-replacement-smoke.mjs</code></td><td>Live mihomo-replacement gate; requires <code>MESH_BUS_MESHSEC_KEY_HEX</code>.</td></tr>
         <tr><td><code>node tests/live-service-soak.mjs</code></td><td>Live service soak gate; requires remote SSH, SOCKS5, and Operator API env.</td></tr>
         <tr><td><code>node tests/live-diagnose-bundle.mjs</code></td><td>Live diagnose gate; requires remote SSH and Operator API env.</td></tr>
+        <tr><td><code>node tests/live-run2-pool-validation.mjs</code></td><td>Live Run2 pool gate; requires gateway SSH, gateway SOCKS5, and gateway Operator API env.</td></tr>
       </table>
     </section>
 
