@@ -13,14 +13,14 @@
 
 use crate::{
     BusBuilder, Capabilities, EgressPlugin, ExitId, ExitResult, Frame, Measurement, RankContext,
-    ReturnEvent, ReturnSemantics, ScheduleDecision, SchedulerPlugin, SessionId,
+    ReturnEvent, ScheduleDecision, SchedulerPlugin, SessionId,
 };
 use async_trait::async_trait;
 use bytes::Bytes;
 use mb_endpoint::Endpoint;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::Mutex;
 
 struct FirstExitScheduler;
 impl SchedulerPlugin for FirstExitScheduler {

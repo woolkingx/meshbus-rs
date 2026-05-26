@@ -5,11 +5,13 @@ const env = process.env;
 const remoteSsh = required("MESH_BUS_REMOTE_SSH");
 const remoteConfig = env.MESH_BUS_REMOTE_CONFIG || "/etc/mesh-bus/config.yaml";
 const remoteBin = env.MESH_BUS_REMOTE_BIN || "/opt/mesh-bus/bin/mesh-bus";
+const remoteService = env.MESH_BUS_REMOTE_SERVICE || "mesh-bus.service";
 
 const result = {
   kind: "mesh_bus.live_production_faults",
   remote_config: remoteConfig,
   remote_bin: remoteBin,
+  remote_service: remoteService,
   probes: [],
 };
 
@@ -35,8 +37,8 @@ function required(name) {
 }
 
 async function assertActive(label) {
-  const active = (await ssh("systemctl is-active mesh-bus.service")).trim();
-  if (active !== "active") die(`mesh-bus.service not active ${label}: ${active}`);
+  const active = (await ssh(`systemctl is-active ${shellQuote(remoteService)}`)).trim();
+  if (active !== "active") die(`${remoteService} not active ${label}: ${active}`);
 }
 
 async function badConfigProbe() {
@@ -67,9 +69,9 @@ async function portCollisionProbe() {
 }
 
 async function restartRollbackProbe() {
-  await ssh("systemctl restart mesh-bus.service && systemctl is-active mesh-bus.service");
-  const binBackup = (await ssh("ls -1 /opt/mesh-bus/bin/.backup/mesh-bus.* | tail -1")).trim();
-  const configBackup = (await ssh("ls -1 /etc/mesh-bus/.backup/config.yaml.* | tail -1")).trim();
+  await ssh(`systemctl restart ${shellQuote(remoteService)} && systemctl is-active ${shellQuote(remoteService)}`);
+  const binBackup = (await ssh(`ls -1 ${backupGlob(remoteBin)} 2>/dev/null | tail -1 || true`)).trim();
+  const configBackup = (await ssh(`ls -1 ${backupGlob(remoteConfig)} 2>/dev/null | tail -1 || true`)).trim();
   if (!binBackup) die("missing binary backup");
   if (!configBackup) die("missing config backup");
   result.probes.push({ name: "restart_rollback", status: "ok", bin_backup: binBackup, config_backup: configBackup });
@@ -181,6 +183,23 @@ function run(command, args) {
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function posixDir(file) {
+  const idx = file.lastIndexOf("/");
+  return idx > 0 ? file.slice(0, idx) : ".";
+}
+
+function posixBase(file) {
+  const idx = file.lastIndexOf("/");
+  return idx >= 0 ? file.slice(idx + 1) : file;
+}
+
+function backupGlob(file) {
+  const dir = `${posixDir(file)}/.backup`;
+  const base = posixBase(file);
+  if (!/^[A-Za-z0-9_.-]+$/.test(base)) die(`unsafe backup basename: ${base}`);
+  return `${shellQuote(dir)}/${base}.*`;
 }
 
 function die(message) {

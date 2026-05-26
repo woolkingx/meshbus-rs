@@ -48,6 +48,7 @@
         <tr><td><code>KernelRegistry</code>/<code>SourceSpec</code>/<code>SinkSpec</code>/<code>Pipeline</code></td><td>Control-plane graph and verification gates.</td></tr>
         <tr><td><code>BusSessionRequest</code>/<code>SessionId</code>/<code>FlowId</code>/<code>PacketId</code></td><td>Session/session-flow identity and request contract.</td></tr>
         <tr><td><code>BusStreamSession</code>/<code>BusDatagramSession</code>/<code>BusHandle</code></td><td>Session lifecycle and shutdown contract owned by core runtime.</td></tr>
+        <tr><td><code>SourceActivity</code></td><td>Core-owned per-source lifecycle projection: absence means no lifecycle evidence; presence is either active flow count or active_flows=0 plus idle-since timestamp for true-idle scheduler ranking context.</td></tr>
         <tr><td><code>UdpPacketLoop</code></td><td>L4 UDP transport substrate with opaque payload handling.</td></tr>
       </table>
       <p>Core owns dispatch and transport-substrate invariants; does not own protocol parser/proxy logic.</p>
@@ -78,6 +79,7 @@
         <tr><td>Kernel verification gate</td><td>Malformed ids, unknown hooks/sinks, pipeline jumps, and invalid wiring fail at verify time.</td></tr>
         <tr><td>Kernel opacity</td><td>Protocol identifiers and L7 concepts are not leaked into kernel ownership.</td></tr>
         <tr><td>Session dispatch safety</td><td>Frame metadata-only dispatch cannot parse protocol payloads and stays inside typed metadata/contracts.</td></tr>
+        <tr><td>Source activity projection</td><td>Scheduler <code>RankContext</code> receives active flow count for the source key before each new Open decision.</td></tr>
         <tr><td>UDP substrate</td><td>Packet timestamps, queue behavior, GSO/sendmmsg fallback, and path stats are updated through <code>UdpPacketLoop</code> while payload bytes stay opaque.</td></tr>
         <tr><td>Boundary guards</td><td><code>kernel_invariant.rs</code> and <code>boundary_guard.rs</code> fail on cross-owner drift.</td></tr>
       </table>

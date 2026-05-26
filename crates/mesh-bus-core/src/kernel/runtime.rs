@@ -4,6 +4,7 @@ use super::observation_wiring::{
 };
 use super::port::BusPort;
 use super::registry::Registry;
+use super::source_activity::SourceActivityState;
 use super::types::BusError;
 use crate::kernel::forwarder::{
     DatagramForwarderProbeOutcome, FlowCounters, ForwarderDatagramState, ForwarderStreamState,
@@ -53,6 +54,7 @@ pub struct Bus {
     observation_bus: Arc<ObservationBus>,
     flow_counters: Arc<dashmap::DashMap<FlowId, Arc<FlowCounters>>>,
     flow_states: Arc<dashmap::DashMap<FlowId, FlowState>>,
+    source_activity: Arc<dashmap::DashMap<String, SourceActivityState>>,
     clock: Arc<dyn Fn() -> u64 + Send + Sync>,
     shutdown: Arc<AtomicBool>,
     in_flight: Arc<AtomicU64>,
@@ -244,6 +246,7 @@ impl Bus {
                                 observation_bus: self.observation_bus.clone(),
                                 flow_counters: self.flow_counters.clone(),
                                 flow_states: self.flow_states.clone(),
+                                source_activity: self.source_activity.clone(),
                                 flow_pins: self.flow_pins.clone(),
                                 packet_returns: self.packet_returns.clone(),
                                 active_stream_polls: self.active_stream_polls.clone(),
@@ -352,6 +355,7 @@ pub(crate) fn build(reg: Registry) -> Result<Bus, BusError> {
         observation_bus,
         flow_counters: Arc::new(dashmap::DashMap::new()),
         flow_states: Arc::new(dashmap::DashMap::new()),
+        source_activity: Arc::new(dashmap::DashMap::new()),
         clock: Arc::new(monotonic_ms),
         shutdown: Arc::new(AtomicBool::new(false)),
         in_flight: Arc::new(AtomicU64::new(0)),

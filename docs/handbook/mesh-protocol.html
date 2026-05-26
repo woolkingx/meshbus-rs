@@ -13,6 +13,7 @@
     h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
     code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
     table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
     .topology { overflow:auto; border:1px solid var(--line); border-radius:6px; padding:12px; background:rgba(127,127,127,.08); line-height:1.35; }
     .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
   </style>
@@ -26,6 +27,7 @@
   <main>
     <section id="scope">
       <h2>Scope</h2>
+      <div class="flow">scope -> mesh event/control -> protocol owner -> reconstruction gate</div>
       <p>Mesh Protocol is not QUIC, not TCP, not UDP, not SOCKS5, not HTTP, not WireGuard, not a full-mesh routing protocol, not a channel protocol, and not a new application protocol. Its target is a native event fabric that moves opaque data packages across a mesh while preserving OSI owner boundaries.</p>
       <p>TCP, UDP, QUIC, SOCKS5, HTTP CONNECT, DNS, and custom apps are client/server edge adapters. They project their own syntax into stream/datagram/application intent at the edge, and the remote edge projects mesh events back into the chosen egress protocol. Mesh Protocol never parses or owns their payload or protocol syntax.</p>
       <p>The protocol is OSI-style event fabric, not TCP/IP-style tunnel. UDP ports, sockets, QUIC connections, and peer links are delivery coordinates only. Session identity, ordering, reliability, deduplication, reassembly, crypto envelope, path evidence, and delivery policy belong to the mesh/session owners, not to any adapter channel.</p>
@@ -143,6 +145,7 @@ client / app protocol
 
     <section id="invariants">
       <h2>Event Fabric Invariants</h2>
+      <div class="flow">invariants -> mesh event/control -> protocol owner -> reconstruction gate</div>
       <ul>
         <li>A node stores local exits, configured parent peers, optional child peers, and aggregated capability views from adjacent peers.</li>
         <li>A node does not require full topology, full peer list, global shortest-path routing, or route flooding.</li>
@@ -225,6 +228,7 @@ client / app protocol
         <tr><td>PeerDown</td><td>either</td><td>Declares a link unusable and removes advertised paths from candidate lists.</td></tr>
       </table>
       <p>Control and observation messages carry epoch, seq, observed_at_ms, and source_node_id. Receivers treat them as scheduling evidence, not registry truth.</p>
+      <p>Machine contract: <a href="../../lib/mb-mesh-control/schema.json">mb-mesh-control/schema.json</a> owns the pure Mesh Protocol path-controller state shape. It borrows QUIC-style control primitives without owning QUIC connection, stream, UDP socket, route truth, session truth, or L7 payload.</p>
     </section>
 
     <section id="native-data-shapes">
@@ -243,6 +247,7 @@ client / app protocol
 
     <section id="route-aggregation">
       <h2>Route Advertise Aggregation</h2>
+      <div class="flow">route-aggregation -> mesh event/control -> protocol owner -> reconstruction gate</div>
       <ul>
         <li>A parent aggregates local exits plus capabilities received from adjacent peers.</li>
         <li>Aggregation is sent only to adjacent peers; it is not flooded across the full topology.</li>
@@ -272,6 +277,7 @@ client / app protocol
 
     <section id="projection">
       <h2>Projection Exchange</h2>
+      <div class="flow">projection -> mesh event/control -> protocol owner -> reconstruction gate</div>
       <p>Nodes exchange schema projections, never Rust internal types: NodeStatus, CapabilitySnapshot, HealthSnapshot, PathStats, and FlowSummary.</p>
       <p>V1 projection exchange is read-only. Mutating remote management belongs to a future AdminIntent plane with authz, epoch checks, dry-run, audit log, and explicit allowlists.</p>
     </section>
@@ -306,6 +312,7 @@ client / app protocol
 
     <section id="reentry">
       <h2>Event Re-Entry</h2>
+      <div class="flow">reentry -> mesh event/control -> protocol owner -> reconstruction gate</div>
       <ol>
         <li>Receive an envelope on any allowed port or binding.</li>
         <li>Use receiver_hint/key_id/epoch_hint to select the peer key and derive the event key.</li>
@@ -367,6 +374,7 @@ client / app protocol
 
     <section id="gates">
       <h2>Acceptance Gates</h2>
+      <div class="flow">gates -> mesh event/control -> protocol owner -> reconstruction gate</div>
       <p><span class="ok">Local green:</span> two-node raw UDP debug-clear datagram forwarding, two-node Secure UDP MeshSec datagram forwarding with packet-capture no-cleartext and tamper/replay fail-closed proof, route_group peer selection, tamper/replay fail-closed behavior, and metrics labels with node/peer/path/hop/wan evidence.</p>
       <p><span class="ok">Product gate passed:</span> L7 stream over MeshPeer is locally and remotely proven for SOCKS5 CONNECT / direct TCP style stream SDUs. The accepted path uses MeshPeerUdp as upstream egress and remote bus re-entry; it does not reintroduce MeshPeerQuic or assign stream ownership to QUIC.</p>
       <p><span class="ok">Run2 hardening gate:</span> stream open success is remote-confirmed by <code>StreamOpenAccepted</code> with a matching <code>open_token</code>. A stopped peer times out or rejects during open, increments failure evidence, and the gateway must select another pool exit within the configured failover budget.</p>

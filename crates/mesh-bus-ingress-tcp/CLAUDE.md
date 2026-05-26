@@ -8,20 +8,20 @@ design-rule:
 mesh-bus-ingress-tcp implements:
   IngressPlugin — plain TCP source adapter
 
-mesh-bus-ingress-tcp governs:
+owned files:
   src/lib.rs — TcpIngress; fixed-target StreamSession fast path, plus optional PipelineRuntime decision before port.open_stream
   src/event_build.rs — direct-stream target projection into Event TypedMap (ext.operation=direct_stream_open, generic L4 metadata only)
   src/verdict_apply.rs — Verdict + post-run Event projection into BusSessionRequest (Accept→target_sink, Reject/Continue/Jump→deny, Drop→silent close)
   tests/listen.rs — end-to-end: ingress + bus + egress-tcp echo roundtrip
   tests/pipeline.rs — consumed PipelineRuntime path: deny closes client, route_group pins dispatch
 
-mesh-bus-ingress-tcp depends_on:
+local dependencies:
   mesh-bus-core — IngressPlugin, BusPort, BusSessionRequest, StreamSession split halves
   mesh-bus-pipeline-hooks — optional PipelineRuntime decision path consumed by the direct source adapter
   mb-endpoint — Endpoint (fixed target per listener)
   tokio — async TCP accept loop, split read/write
 
-mesh-bus-ingress-tcp invariants:
+boundary rules:
   - direct source adapter: this crate is an L7-free native source; it builds protocol-neutral Event metadata and consumes the Bus L5 session surface only, never Frame/FrameKind/EgressPlugin
   - event projection fills ext.operation=direct_stream_open, net.protocol=tcp, net.dst_host or ext.dst_ip_primary, net.dst_port, net.src_ip, trace.flow_id=<peer>-><host>:<port>; no adapter protocol labels enter kernel metadata
   - PipelineRuntime, when attached via with_pipeline, is the decision source of truth: run_pipeline_event runs before port.open_stream; typed runtime errors fail closed to closing the client with no session

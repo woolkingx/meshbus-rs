@@ -5,7 +5,7 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-kernel governs:
+owned files:
   schema.json — data contract for Bus/BusHandle/BusPort/BusBuilder/Registry/BusEvent/BusError/SessionHandle/RuntimeSnapshot
   types.rs — BusEvent, BusError
   data_handle.rs — umbrella re-exports for Bus, BusHandle, BusBuilder, BusPort, Registry, and kernel pipeline primitives
@@ -57,9 +57,11 @@ kernel dataplane_contract:
   - scheduler feedback is plugin-owned: SchedulerPlugin::on_observation receives core envelopes, and CAKE owns its CakeFeedbackObserver compatibility adapter
   - HealthSnapshot is an ArcSwap publication: dispatch hot path takes `health_snapshot.load()` (lockless Arc clone); the ExitHealthTable lives inside ExitHealthObserver's drainer task
   - flow_pins is the sole affinity store: Mutex<HashMap<FlowId, usize>> populated on successful dispatch, drained on Close/Cancel
+  - source_activity is the core-owned source lifecycle projection: successful Open increments source_key active_flows; flow close decrements it and records idle_since_ms when the count reaches zero; schedulers may read this projection through RankContext but must not infer active flow state themselves
   - exit_stats and flow counters are sharded DashMap/AtomicU64 surfaces; collect_snapshot is sync and pulls flow byte counters without event replay
 
 kernel decisions:
+  - 0.4.11 (2026-05-26): RankContext now carries core-owned SourceActivity for true source idle. Source-lease schedulers must treat idle as active_flows==0 plus idle_since_ms expiry, not as time since the last scheduling call.
   - 0.4.10 (2026-05-15): close_reason_is_success() corrected in dispatch_observation.rs and forwarder.rs. UpstreamEof (server FIN) and ReaderClosed (stream channel exhausted) removed from failure list; both are graceful TCP terminations. Fixes 50% false dispatch_failure rate in Prometheus where every successful HTTP session generated one FlowOpened(success=true) + one FlowClosed(UpstreamEof→success=false). dispatch_success_rate now reads 1.000 under normal operation.
   - 0.4.9 (2026-05-15): DatagramForwarder probe correctness fixes. Fallback now signals probe_channels oneshot (not ReturnEvent::Idle); Failed branch signals probe_channels when all ordered candidates fail so probe_rx never deadlocks. Direct datagram close uses forwarder.take() to prevent double-close; ForwarderClose::close_once() awaits on_close cleanup so direct paths remove flow_pins, flow_states, and flow_counters together. ForwarderClose::new() accepts async ForwarderCloseCleanup; datagram uses cleanup closure, stream uses no-op.
   - 0.4.2 (2026-05-14): DatagramForwarder direct path landed. dispatch_forwarder.rs gains DatagramForwarderProbeOutcome and try_open_forwarder_datagram; dispatch_ordered branches on DatagramForwarder Open frames, stores ForwarderDatagramState, and signals probe_channels on Fallback. session/datagram_halves.rs probes on first eligible send via oneshot and routes subsequent sends through forwarder_datagrams or FrameRouter.

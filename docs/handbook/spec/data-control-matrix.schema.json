@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mesh-bus.local/handbook/spec/data-control-matrix.schema.json",
+  "title": "MeshBus data/control matrix",
+  "description": "Machine contract for reviewing mesh-bus by two axes: layer/family ownership and data/control/evidence flow. A cell names owned PCI, carried SDU, legal crossings, schema owner, code owner, and proof gate.",
+  "type": "object",
+  "required": ["kind", "families", "layers", "flows", "cells"],
+  "properties": {
+    "kind": { "const": "mesh_bus.data_control_matrix" },
+    "families": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Family" },
+      "minItems": 1
+    },
+    "layers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/LayerView" },
+      "minItems": 1
+    },
+    "flows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FlowView" },
+      "minItems": 1
+    },
+    "cells": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/MatrixCell" },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
+    "FamilyKind": {
+      "type": "string",
+      "enum": [
+        "tcp-family",
+        "udp-family",
+        "mesh-protocol-family",
+        "socks5-family",
+        "http-connect-family",
+        "scheduler-family",
+        "live-evidence-family"
+      ]
+    },
+    "LayerKind": {
+      "type": "string",
+      "enum": ["L7", "L6", "L5", "L4", "substrate", "carrier", "verify"]
+    },
+    "FlowKind": {
+      "type": "string",
+      "enum": ["data", "control", "evidence", "lifecycle", "backpressure"]
+    },
+    "Family": {
+      "type": "object",
+      "required": ["id", "kind", "owner", "schema_ref"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "kind": { "$ref": "#/$defs/FamilyKind" },
+        "owner": { "type": "string", "minLength": 1 },
+        "schema_ref": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "LayerView": {
+      "type": "object",
+      "required": ["id", "layer", "owner", "pdu", "pci", "sdu_boundary"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "layer": { "$ref": "#/$defs/LayerKind" },
+        "owner": { "type": "string", "minLength": 1 },
+        "pdu": { "type": "string", "minLength": 1 },
+        "pci": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "sdu_boundary": { "type": "string", "minLength": 1 },
+        "forbidden_reads": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] }
+      },
+      "additionalProperties": false
+    },
+    "FlowView": {
+      "type": "object",
+      "required": ["id", "kind", "from_owner", "to_owner", "input_shape", "output_shape"],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "kind": { "$ref": "#/$defs/FlowKind" },
+        "from_owner": { "type": "string", "minLength": 1 },
+        "to_owner": { "type": "string", "minLength": 1 },
+        "input_shape": { "type": "string", "minLength": 1 },
+        "output_shape": { "type": "string", "minLength": 1 },
+        "legal_crossing": { "type": "string", "minLength": 1 },
+        "failure_shape": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "MatrixCell": {
+      "type": "object",
+      "required": [
+        "family_id",
+        "layer_id",
+        "flow_id",
+        "owned_pci",
+        "carried_sdu",
+        "schema_ref",
+        "code_owner",
+        "proof_gate"
+      ],
+      "properties": {
+        "family_id": { "$ref": "#/$defs/Id" },
+        "layer_id": { "$ref": "#/$defs/Id" },
+        "flow_id": { "$ref": "#/$defs/Id" },
+        "owned_pci": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "carried_sdu": { "type": "string", "minLength": 1 },
+        "schema_ref": { "type": "string", "minLength": 1 },
+        "code_owner": { "type": "string", "minLength": 1 },
+        "proof_gate": { "type": "string", "minLength": 1 },
+        "invalid_state": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

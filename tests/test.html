@@ -35,6 +35,7 @@
         <tr><th>Field</th><th>Value</th></tr>
         <tr><td>Directory</td><td><code>tests</code></td></tr>
         <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
         <tr><td>Handbook index</td><td><a href="../docs/handbook/testing-index.html">testing-index.html</a></td></tr>
         <tr><td>Runner</td><td><code>live-mihomo-replacement-smoke.mjs</code> for product live proof; otherwise invokes owner-module and product e2e runners.</td></tr>
       </table>
@@ -46,13 +47,14 @@
         <tr><th>Data</th><th>Contract</th></tr>
         <tr><td>Testing policy</td><td>Global sequence: data -> schema -> module owner test -> integration -> product e2e -> live/perf.</td></tr>
         <tr><td>Proof topology</td><td>Which layer owns each claim and which runner proves composition.</td></tr>
+        <tr><td>Live evidence artifact</td><td>Run2 pool, Run2 stream, and observe/hooks profile JSON artifacts produced by deployed systemd validation runners.</td></tr>
       </table>
       <p>Root <code>tests/</code> owns no module schema, codec edge case, crypto vector, runtime state, or protocol parser rule.</p>
     </section>
 
     <section id="schema-source">
       <h2>Schema Source</h2>
-      <p>Schema sources remain with module owners and handbook spec contracts. This directory consumes those contracts and defines composition policy only.</p>
+      <p><a href="schema.json">schema.json</a> defines root-owned live evidence artifact shape only. Module data stays with module owners and cross-layer matrix contracts stay in handbook specs.</p>
     </section>
 
     <section id="fixtures">
@@ -65,7 +67,10 @@
         <tr><td><code>tests/live-mihomo-replacement-smoke.mjs</code></td><td>Product live acceptance runner for local SOCKS5 -> MeshSec MeshPeerUdp -> remote node -> upstream.</td></tr>
         <tr><td><code>tests/live-service-soak.mjs</code></td><td>Deployed service soak runner for repeated SOCKS5 HTTPS probes, Operator metrics snapshots, RSS/fd stability, and systemd state.</td></tr>
         <tr><td><code>tests/live-diagnose-bundle.mjs</code></td><td>Deployed service diagnose runner for redacted Operator status, metrics, config, systemd, process, socket, and journal evidence.</td></tr>
+        <tr><td><code>tests/live-observe-hooks-profile.mjs</code></td><td>Deployed observe/hooks profiler that drives Operator probes through the normal ingress, hook, scheduler, and egress path, then explains movement from observer projection deltas.</td></tr>
+        <tr><td><code>tests/live-observe-syscall-profile.mjs</code></td><td>Deployed phase profiler that keeps Operator/observer deltas as primary evidence while adding idle and active <code>strace -c</code> syscall rates to catch CPU churn such as mmap/munmap storms.</td></tr>
         <tr><td><code>tests/live-run2-pool-validation.mjs</code></td><td>Run2 gateway-to-pool live validation runner for SOCKS5 probes, per-exit deltas, MeshSec/native drop deltas, and optional explicit service-mutation failover.</td></tr>
+        <tr><td><code>tests/live-run2-stream-validation.mjs</code></td><td>Run2 long-stream validation runner for temporary systemd-owned video-like origin streams or external progressive video URLs through the gateway SOCKS5 path.</td></tr>
       </table>
     </section>
 
@@ -78,10 +83,14 @@
         <tr><td><code>cargo test -p mesh-bus-runtime</code></td><td>Config and runtime assembly.</td></tr>
         <tr><td><code>cargo test -p mesh-bus-bin --test e2e</code></td><td>Local product composition.</td></tr>
         <tr><td><code>cargo test --workspace</code></td><td>Workspace regression gate after focused proofs pass.</td></tr>
+        <tr><td><code>python3 tools/validate-schema-instances.py</code></td><td>Schema instance gate for legal and illegal owner data shapes, live evidence artifacts, and data/control matrix fixtures.</td></tr>
         <tr><td><code>node tests/live-mihomo-replacement-smoke.mjs</code></td><td>Live mihomo-replacement gate; requires <code>MESH_BUS_MESHSEC_KEY_HEX</code>.</td></tr>
         <tr><td><code>node tests/live-service-soak.mjs</code></td><td>Live service soak gate; requires remote SSH, SOCKS5, and Operator API env.</td></tr>
         <tr><td><code>node tests/live-diagnose-bundle.mjs</code></td><td>Live diagnose gate; requires remote SSH and Operator API env.</td></tr>
+        <tr><td><code>node tests/live-observe-hooks-profile.mjs</code></td><td>Live observe/hooks profile gate; requires remote SSH and Operator API env.</td></tr>
+        <tr><td><code>node tests/live-observe-syscall-profile.mjs</code></td><td>Live observe/syscall profile gate; requires remote SSH, Operator API env, and <code>strace</code> on the target.</td></tr>
         <tr><td><code>node tests/live-run2-pool-validation.mjs</code></td><td>Live Run2 pool gate; requires gateway SSH, gateway SOCKS5, and gateway Operator API env.</td></tr>
+        <tr><td><code>node tests/live-run2-stream-validation.mjs</code></td><td>Live Run2 stream gate; requires gateway SSH, gateway SOCKS5, gateway Operator API env, and Python 3 on the gateway for the default temporary origin.</td></tr>
       </table>
     </section>
 
@@ -104,7 +113,9 @@
       <h2>E2E Projections</h2>
       <ul>
         <li>SOCKS5, raw UDP, mesh-peer, resolver, scheduler, observer, runtime, and binary routes compose from module proofs.</li>
-        <li>Live WAN and throughput tests are evidence gates, not substitutes for owner correctness.</li>
+        <li>Observe/hooks profile evidence composes Operator API probes, pipeline hooks, scheduler selection, observer metrics projections, and host process snapshots without becoming a second runtime or a private dispatch path.</li>
+        <li>Run2 stream projection composes already-proven SOCKS5, scheduler, MeshPeerUdp, remote stream, metrics, and systemd owners to prove active-flow behavior under a long-lived video-like transfer.</li>
+        <li>Live WAN, external video URLs, and throughput tests are evidence gates, not substitutes for owner correctness.</li>
       </ul>
     </section>
 

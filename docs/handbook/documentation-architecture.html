@@ -55,6 +55,7 @@
 
     <section id="authoring-rules">
       <h2>Authoring Rules</h2>
+      <div class="flow">authoring-rules -> artifact role -> owning layer -> documentation gate</div>
       <ul>
         <li>Topology, ownership, transition, invariant, or acceptance-gate changes start in the HTML handbook.</li>
         <li>Data shape, field, enum, constant, sample, or machine-validation changes start in <code>schema.json</code>.</li>
@@ -72,6 +73,7 @@
 
     <section id="claudemd-role">
       <h2>CLAUDE.md Role</h2>
+      <div class="flow">claudemd-role -> artifact role -> owning layer -> documentation gate</div>
       <p><span class="ok">Keep:</span> scope, keypoints, local invariants, local commands, current canonical links, short decision summary.</p>
       <p>Every module or guide <code>CLAUDE.md</code> carries one local <code>design-rule:</code> block. That block is the boot-card guard that says handbook owns topology/logic, schema owns data shape, and the directory may mutate only its owned PCI/data while carried SDU remains opaque.</p>
       <p><span class="bad">Remove over time:</span> full architecture, duplicated spec, long plan tasks, schema prose duplication, stale decision history.</p>
@@ -81,6 +83,7 @@
 
     <section id="integration-sequence">
       <h2>Integration Sequence</h2>
+      <div class="flow">integration-sequence -> artifact role -> owning layer -> documentation gate</div>
       <ol>
         <li>Handbook spine exists: index plus this documentation architecture chapter.</li>
         <li>Product roadmap, direct proxy foundation, system architecture, Mesh Protocol, dataplane observation, transport, compatibility, and testing gates exist as handbook chapters.</li>

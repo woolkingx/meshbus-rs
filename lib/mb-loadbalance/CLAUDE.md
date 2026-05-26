@@ -5,13 +5,13 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-mb-loadbalance governs:
+owned files:
   src/lib.rs — Candidate, Wrr (weighted round-robin), Swrr (smooth WRR), ConsistentHash, StickyTable
 
-mb-loadbalance depends_on:
+local dependencies:
   fxhash — stable hashing across runs and Rust versions
 
-mb-loadbalance extends:
+handbook links:
   ../../docs/handbook/dataplane-observation.html
 
 mb-loadbalance decisions:

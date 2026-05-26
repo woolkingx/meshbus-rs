@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tests/schema.json",
+  "title": "mesh-bus live evidence artifacts",
+  "description": "Root tests own composition evidence artifact shape only. Module-owned data remains in module-local schema.json files.",
+  "oneOf": [
+    { "$ref": "#/$defs/Run2PoolValidation" },
+    { "$ref": "#/$defs/Run2StreamValidation" },
+    { "$ref": "#/$defs/ObserveHooksProfile" },
+    { "$ref": "#/$defs/ObserveSyscallProfile" }
+  ],
+  "$defs": {
+    "Status": {
+      "type": "string",
+      "enum": ["ok", "failed"]
+    },
+    "RuntimeDropDelta": {
+      "type": "object",
+      "required": ["dispatch_success", "dispatch_failure", "meshsec_drop_total", "native_drop_total", "exits"],
+      "properties": {
+        "dispatch_success": { "type": "integer", "minimum": 0 },
+        "dispatch_failure": { "type": "integer", "minimum": 0 },
+        "meshsec_drop_total": { "type": "integer", "minimum": 0 },
+        "meshsec_replay_drop_total": { "type": "integer", "minimum": 0 },
+        "native_drop_total": { "type": "integer", "minimum": 0 },
+        "native_queue_overflow_drop_total": { "type": "integer", "minimum": 0 },
+        "exits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "send_count": { "type": "integer", "minimum": 0 },
+              "success_count": { "type": "integer", "minimum": 0 },
+              "failure_count": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "MovedExit": {
+      "type": "object",
+      "required": ["exit_id"],
+      "properties": {
+        "exit_id": { "type": "string", "minLength": 1 },
+        "send_count": { "type": "integer", "minimum": 0 },
+        "success_count": { "type": "integer", "minimum": 0 },
+        "failure_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "OperatorMetricsSnapshot": {
+      "type": "object",
+      "required": [
+        "kind",
+        "dispatch_success",
+        "dispatch_failure",
+        "meshsec_drop_total",
+        "native_drop_total",
+        "exits"
+      ],
+      "properties": {
+        "kind": { "const": "operator.metrics_snapshot" },
+        "dispatch_success": { "type": "integer", "minimum": 0 },
+        "dispatch_failure": { "type": "integer", "minimum": 0 },
+        "meshsec_drop_total": { "type": "integer", "minimum": 0 },
+        "meshsec_replay_drop_total": { "type": "integer", "minimum": 0 },
+        "native_drop_total": { "type": "integer", "minimum": 0 },
+        "native_queue_overflow_drop_total": { "type": "integer", "minimum": 0 },
+        "datagram_send_total": { "type": "integer", "minimum": 0 },
+        "datagram_failure_total": { "type": "integer", "minimum": 0 },
+        "exits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MovedExit" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "OperatorProbeResult": {
+      "type": "object",
+      "required": [
+        "kind",
+        "probe",
+        "ok",
+        "dispatch_success_before",
+        "dispatch_success_after",
+        "dispatch_failure_before",
+        "dispatch_failure_after"
+      ],
+      "properties": {
+        "kind": { "const": "operator.probe_result" },
+        "probe": { "enum": ["socks5-connect", "http-connect", "mesh-peer"] },
+        "ok": { "type": "boolean" },
+        "target": { "type": "string" },
+        "route_group": { "type": ["string", "null"] },
+        "close_reason": { "type": "string" },
+        "dispatch_success_before": { "type": "integer", "minimum": 0 },
+        "dispatch_success_after": { "type": "integer", "minimum": 0 },
+        "dispatch_failure_before": { "type": "integer", "minimum": 0 },
+        "dispatch_failure_after": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    },
+    "CommonRun2Evidence": {
+      "type": "object",
+      "required": [
+        "kind",
+        "gateway_ssh",
+        "gateway_socks5",
+        "gateway_operator",
+        "gateway_service",
+        "gateway_bin",
+        "gateway_config",
+        "target",
+        "samples"
+      ],
+      "properties": {
+        "kind": { "type": "string" },
+        "gateway_ssh": { "type": "string", "minLength": 1 },
+        "gateway_socks5": { "type": "string", "minLength": 1 },
+        "gateway_operator": { "type": "string", "minLength": 1 },
+        "gateway_service": { "type": "string", "minLength": 1 },
+        "gateway_bin": { "type": "string", "minLength": 1 },
+        "gateway_admin_bin": { "type": "string", "minLength": 1 },
+        "gateway_config": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "status": { "$ref": "#/$defs/Status" },
+        "error": { "type": "string" },
+        "artifact": { "type": "string" },
+        "samples": { "type": "array" },
+        "delta": { "$ref": "#/$defs/RuntimeDropDelta" },
+        "moved_exits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/MovedExit" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "Run2PoolValidation": {
+      "allOf": [
+        { "$ref": "#/$defs/CommonRun2Evidence" },
+        {
+          "type": "object",
+          "required": ["kind", "probes", "curl_max_time_seconds"],
+          "properties": {
+            "kind": { "const": "mesh_bus.live_run2_pool_validation" },
+            "probes": { "type": "integer", "minimum": 1 },
+            "curl_max_time_seconds": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "Run2StreamValidation": {
+      "allOf": [
+        { "$ref": "#/$defs/CommonRun2Evidence" },
+        {
+          "type": "object",
+          "required": ["kind", "managed_origin", "min_bytes", "min_seconds"],
+          "properties": {
+            "kind": { "const": "mesh_bus.live_run2_stream_validation" },
+            "managed_origin": { "type": "boolean" },
+            "min_bytes": { "type": "integer", "minimum": 1 },
+            "min_seconds": { "type": "number", "minimum": 0 },
+            "curl": {
+              "type": "object",
+              "properties": {
+                "http_code": { "type": "string" },
+                "size_download": { "type": "string" },
+                "time_total": { "type": "string" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "ObserveHooksProfile": {
+      "type": "object",
+      "required": [
+        "kind",
+        "remote_ssh",
+        "remote_operator",
+        "admin_bin",
+        "service",
+        "target",
+        "probe",
+        "iterations",
+        "status",
+        "status_before",
+        "metrics_before",
+        "metrics_after",
+        "delta",
+        "samples",
+        "assertions"
+      ],
+      "properties": {
+        "kind": { "const": "mesh_bus.live_observe_hooks_profile" },
+        "remote_ssh": { "type": "string", "minLength": 1 },
+        "remote_operator": { "type": "string", "minLength": 1 },
+        "admin_bin": { "type": "string", "minLength": 1 },
+        "service": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "probe": { "enum": ["socks5-connect", "http-connect", "mesh-peer"] },
+        "iterations": { "type": "integer", "minimum": 1 },
+        "status": { "$ref": "#/$defs/Status" },
+        "error": { "type": "string" },
+        "artifact": { "type": "string" },
+        "status_before": {
+          "type": "object",
+          "required": ["kind", "status", "metrics"],
+          "properties": {
+            "kind": { "const": "operator.live_status" },
+            "status": { "type": "object" },
+            "metrics": { "$ref": "#/$defs/OperatorMetricsSnapshot" }
+          },
+          "additionalProperties": true
+        },
+        "metrics_before": { "$ref": "#/$defs/OperatorMetricsSnapshot" },
+        "metrics_after": { "$ref": "#/$defs/OperatorMetricsSnapshot" },
+        "delta": { "$ref": "#/$defs/RuntimeDropDelta" },
+        "samples": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["iteration", "probe", "selected_exits"],
+            "properties": {
+              "iteration": { "type": "integer", "minimum": 1 },
+              "probe": { "$ref": "#/$defs/OperatorProbeResult" },
+              "selected_exits": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "metrics": { "$ref": "#/$defs/OperatorMetricsSnapshot" },
+              "host": { "type": "object" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "assertions": {
+          "type": "object",
+          "required": [
+            "observer_projection_moved",
+            "probe_used_operator_api",
+            "no_dispatch_failure_delta",
+            "no_meshsec_drop_delta",
+            "no_native_drop_delta"
+          ],
+          "properties": {
+            "observer_projection_moved": { "const": true },
+            "probe_used_operator_api": { "const": true },
+            "no_dispatch_failure_delta": { "const": true },
+            "no_meshsec_drop_delta": { "const": true },
+            "no_native_drop_delta": { "const": true }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "ObserveSyscallProfile": {
+      "type": "object",
+      "required": [
+        "kind",
+        "remote_ssh",
+        "remote_operator",
+        "admin_bin",
+        "service",
+        "target",
+        "probe",
+        "strace_seconds",
+        "active_probes",
+        "thresholds",
+        "status",
+        "status_before",
+        "metrics_before",
+        "metrics_after",
+        "delta",
+        "phases",
+        "assertions"
+      ],
+      "properties": {
+        "kind": { "const": "mesh_bus.live_observe_syscall_profile" },
+        "remote_ssh": { "type": "string", "minLength": 1 },
+        "remote_operator": { "type": "string", "minLength": 1 },
+        "admin_bin": { "type": "string", "minLength": 1 },
+        "service": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "probe": { "enum": ["socks5-connect", "http-connect", "mesh-peer"] },
+        "strace_seconds": { "type": "integer", "minimum": 1 },
+        "active_probes": { "type": "integer", "minimum": 1 },
+        "thresholds": {
+          "type": "object",
+          "required": ["max_mmap_per_sec"],
+          "properties": {
+            "max_mmap_per_sec": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": true
+        },
+        "status": { "$ref": "#/$defs/Status" },
+        "error": { "type": "string" },
+        "artifact": { "type": "string" },
+        "report": { "type": "string" },
+        "status_before": {
+          "type": "object",
+          "required": ["kind", "status", "metrics"],
+          "properties": {
+            "kind": { "const": "operator.live_status" },
+            "status": { "type": "object" },
+            "metrics": { "$ref": "#/$defs/OperatorMetricsSnapshot" }
+          },
+          "additionalProperties": true
+        },
+        "metrics_before": { "$ref": "#/$defs/OperatorMetricsSnapshot" },
+        "metrics_after": { "$ref": "#/$defs/OperatorMetricsSnapshot" },
+        "delta": { "$ref": "#/$defs/RuntimeDropDelta" },
+        "phases": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["label", "metrics_before", "metrics_after", "delta", "syscall", "selected_exits"],
+            "properties": {
+              "label": { "enum": ["idle", "active_probe"] },
+              "metrics_before": { "$ref": "#/$defs/OperatorMetricsSnapshot" },
+              "metrics_after": { "$ref": "#/$defs/OperatorMetricsSnapshot" },
+              "delta": { "$ref": "#/$defs/RuntimeDropDelta" },
+              "selected_exits": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "probes": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/OperatorProbeResult" }
+              },
+              "syscall": {
+                "type": "object",
+                "required": ["tool", "seconds", "calls", "rates_per_sec"],
+                "properties": {
+                  "tool": { "const": "strace -f -c" },
+                  "seconds": { "type": "integer", "minimum": 1 },
+                  "calls": { "type": "object" },
+                  "rates_per_sec": { "type": "object" }
+                },
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "assertions": {
+          "type": "object",
+          "required": [
+            "service_active",
+            "syscall_profiles_captured",
+            "no_mmap_churn",
+            "no_dispatch_failure_delta",
+            "no_drop_delta",
+            "active_probe_moved"
+          ],
+          "properties": {
+            "service_active": { "const": true },
+            "syscall_profiles_captured": { "const": true },
+            "no_mmap_churn": { "const": true },
+            "no_dispatch_failure_delta": { "const": true },
+            "no_drop_delta": { "const": true },
+            "active_probe_moved": { "const": true }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

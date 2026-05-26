@@ -29,6 +29,7 @@ fn ctx(flow: &str, traffic_class: TrafficClass) -> RankContext {
         return_semantics: ReturnSemantics::Direct,
         source_key: None,
         target_key: None,
+        source_activity: None,
     }
 }
 

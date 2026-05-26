@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meshbus.rs/schemas/mesh-bus-pipeline-hooks.schema.json",
+  "title": "mesh-bus-pipeline-hooks owner contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "owner",
+    "owned_data",
+    "metadata_boundary",
+    "hook_execution"
+  ],
+  "properties": {
+    "owner": {
+      "const": "mesh-bus-pipeline-hooks"
+    },
+    "owned_data": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "SharedHookCtx",
+          "PipelineRuntime",
+          "HookSpec templates",
+          "ExitCandidate projection"
+        ]
+      },
+      "minItems": 4,
+      "uniqueItems": true
+    },
+    "metadata_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reads",
+        "writes",
+        "forbidden"
+      ],
+      "properties": {
+        "reads": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(net|policy|transport|auth|trace|ext)\\."
+          }
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(net|policy|transport|auth|trace|ext)\\."
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "payload parsing",
+              "L7 protocol branching",
+              "kernel data-plane internals",
+              "adapter-specific sink ids in templates"
+            ]
+          },
+          "minItems": 4,
+          "uniqueItems": true
+        }
+      }
+    },
+    "hook_execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "call_shape",
+        "async_bridge",
+        "runtime_gate"
+      ],
+      "properties": {
+        "call_shape": {
+          "const": "sync HookFn pointer"
+        },
+        "async_bridge": {
+          "const": "SharedHookCtx tokio Handle block_on"
+        },
+        "runtime_gate": {
+          "const": "KernelRegistry verify before PipelineRuntime attachment"
+        }
+      }
+    }
+  }
+}

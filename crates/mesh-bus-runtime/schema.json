@@ -323,13 +323,49 @@
               "enum": [
                 "round-robin",
                 "sticky-sessions",
-                "consistent-hashing"
+                "consistent-hashing",
+                "source-lease-rotate"
               ]
             },
             "sticky_ttl_secs": {
               "type": "integer",
               "minimum": 1,
               "default": 600
+            },
+            "source_lease_rotate": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "key_scope": {
+                  "enum": [
+                    "source"
+                  ],
+                  "default": "source"
+                },
+                "idle_timeout_secs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 600
+                },
+                "max_age_secs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 3600
+                },
+                "max_age_policy": {
+                  "enum": [
+                    "off",
+                    "soft",
+                    "hard"
+                  ],
+                  "default": "off"
+                },
+                "switch_cooldown_secs": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 60
+                }
+              }
             }
           }
         }

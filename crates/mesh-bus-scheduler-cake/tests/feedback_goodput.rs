@@ -29,6 +29,7 @@ fn rank_context(flow_id_str: &str) -> RankContext {
         return_semantics: ReturnSemantics::Direct,
         source_key: None,
         target_key: None,
+        source_activity: None,
     }
 }
 

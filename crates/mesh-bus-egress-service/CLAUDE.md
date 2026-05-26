@@ -9,18 +9,18 @@ mesh-bus-egress-service implements:
   StreamEgress — local service sink for native direct reverse stream; a source selects a service through the normal scheduler and the data plane opens a local connector
   DatagramEgress — local service sink for native direct reverse datagram; a source selects a service through the normal scheduler and the data plane sends each datagram to the configured UDP endpoint
 
-mesh-bus-egress-service governs:
+owned files:
   src/lib.rs — ServiceTcpEgress and ServiceUdpEgress: scheduler-selectable service sinks that delegate TCP/UDP session machinery to fixed-target egresses and carry a static service_id label
   schema.json — config surface: id, service_id, route_group, groups, connect, timeout_ms
   tests/service.rs — service sinks ignore request.target, use the configured connect endpoint, preserve bytes/datagram payloads, and expose service_id
 
-mesh-bus-egress-service depends_on:
+local dependencies:
   mesh-bus-core — StreamEgress, DatagramEgress, StreamSession, DatagramSession, BusSessionRequest, BusSessionInfo, Capabilities, ExitId, DisconnectReason
   mesh-bus-egress-tcp — TcpEgress (with_fixed_target substrate; no duplicated TCP session code)
   mesh-bus-egress-udp — UdpEgress (with_fixed_target substrate; no duplicated UDP session code)
   mb-endpoint — Endpoint type
 
-mesh-bus-egress-service invariants:
+boundary rules:
   - service connect endpoint is configured locally; request.target is service-intent metadata only and never used for the dial
   - this is L4/L5 service selection; no L7 route parsing enters core or scheduler
   - ServiceTcp capability is stream-only (supports_stream=true, supports_datagram=false); ServiceUdp capability is datagram-only (supports_stream=false, supports_datagram=true)

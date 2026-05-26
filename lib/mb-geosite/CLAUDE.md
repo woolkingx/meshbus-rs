@@ -8,14 +8,14 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mb-geosite governs:
+owned files:
   src/lib.rs — GeositeDb, GeositeError, GeositeDb::open / empty / parse / lookup / lookup_packed
   tests/lookup.rs — datafile parsing, suffix lookup, packed tag output, missing-file fallback
 
-mb-geosite depends_on:
+local dependencies:
   thiserror
 
-mb-geosite invariants:
+boundary rules:
   - lookup is sync and performs no I/O after open
   - internal storage is a reversed-label tree, so lookup walks host labels instead of scanning every datafile entry
   - hot-path hook use goes through lookup_packed(), which writes NUL-separated tag bytes without cloning tag strings

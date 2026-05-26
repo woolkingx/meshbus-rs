@@ -12,6 +12,8 @@
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+#[cfg(target_os = "linux")]
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering};
 
 use tokio::net::UdpSocket;
@@ -75,6 +77,8 @@ pub(crate) struct UdpEndpoint {
     offload: OffloadCaps,
     gso_disabled: AtomicBool,
     last_gso_segment_size: AtomicU16,
+    #[cfg(target_os = "linux")]
+    recv_scratch: Mutex<super::batch_linux::RecvBatchScratch>,
 }
 
 impl UdpEndpoint {
@@ -87,6 +91,8 @@ impl UdpEndpoint {
             offload,
             gso_disabled: AtomicBool::new(false),
             last_gso_segment_size: AtomicU16::new(0),
+            #[cfg(target_os = "linux")]
+            recv_scratch: Mutex::new(super::batch_linux::RecvBatchScratch::new()),
         })
     }
 
@@ -241,7 +247,8 @@ impl UdpEndpoint {
         let mut out = Vec::new();
         loop {
             match self.socket.try_io(Interest::READABLE, || {
-                super::batch_linux::recvmmsg(self.socket.as_raw_fd())
+                let mut scratch = self.recv_scratch.lock().expect("udp recv scratch mutex");
+                super::batch_linux::recvmmsg(self.socket.as_raw_fd(), &mut scratch)
             }) {
                 Ok(batch) => {
                     self.counters.recv_syscalls.fetch_add(1, Ordering::Relaxed);

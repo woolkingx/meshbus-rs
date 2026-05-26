@@ -158,3 +158,202 @@ impl StickyTable {
         self.picker = Wrr::new(candidates.to_vec());
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MaxAgePolicy {
+    Off,
+    Soft,
+    Hard,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceLeaseRotateConfig {
+    pub idle_timeout_ms: u64,
+    pub max_age_ms: u64,
+    pub max_age_policy: MaxAgePolicy,
+    pub switch_cooldown_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceLeaseActivity {
+    pub active_flows: u32,
+    pub idle_since_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceLeaseReason {
+    New,
+    Hit,
+    IdleExpired,
+    MaxAgeSoft,
+    MaxAgeHard,
+    Unhealthy,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceLeaseDecision {
+    pub candidate_id: String,
+    pub reason: SourceLeaseReason,
+    pub generation: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SourceLeaseEntry {
+    candidate_id: String,
+    created_at_ms: u64,
+    last_seen_at_ms: u64,
+    generation: u64,
+    cooldown_until_ms: u64,
+}
+
+pub struct SourceLeaseRotate {
+    config: SourceLeaseRotateConfig,
+    entries: HashMap<String, SourceLeaseEntry>,
+}
+
+impl SourceLeaseRotate {
+    pub fn new(config: SourceLeaseRotateConfig) -> Self {
+        Self {
+            config: SourceLeaseRotateConfig {
+                idle_timeout_ms: config.idle_timeout_ms.max(1),
+                max_age_ms: config.max_age_ms.max(1),
+                switch_cooldown_ms: config.switch_cooldown_ms,
+                max_age_policy: config.max_age_policy,
+            },
+            entries: HashMap::new(),
+        }
+    }
+
+    pub fn pick(
+        &mut self,
+        source_key: &str,
+        candidates: &[Candidate],
+        now_ms: u64,
+    ) -> Option<SourceLeaseDecision> {
+        self.pick_inner(source_key, candidates, now_ms, None)
+    }
+
+    pub fn pick_with_activity(
+        &mut self,
+        source_key: &str,
+        candidates: &[Candidate],
+        now_ms: u64,
+        activity: Option<SourceLeaseActivity>,
+    ) -> Option<SourceLeaseDecision> {
+        self.pick_inner(source_key, candidates, now_ms, activity)
+    }
+
+    fn pick_inner(
+        &mut self,
+        source_key: &str,
+        candidates: &[Candidate],
+        now_ms: u64,
+        activity: Option<SourceLeaseActivity>,
+    ) -> Option<SourceLeaseDecision> {
+        if candidates.is_empty() {
+            self.entries.clear();
+            return None;
+        }
+
+        let active_ids: HashSet<&str> = candidates.iter().map(|c| c.id.as_str()).collect();
+        let existing = self.entries.get(source_key).cloned();
+        let (reason, generation, exclude_id) = match existing.as_ref() {
+            None => (SourceLeaseReason::New, 0, None),
+            Some(entry) if !active_ids.contains(entry.candidate_id.as_str()) => {
+                (SourceLeaseReason::Unhealthy, entry.generation + 1, None)
+            }
+            Some(entry) if self.idle_expired(entry, now_ms, activity) => {
+                (SourceLeaseReason::IdleExpired, entry.generation + 1, None)
+            }
+            Some(entry)
+                if self.config.max_age_policy != MaxAgePolicy::Off
+                    && now_ms.saturating_sub(entry.created_at_ms) >= self.config.max_age_ms
+                    && now_ms >= entry.cooldown_until_ms =>
+            {
+                let reason = match self.config.max_age_policy {
+                    MaxAgePolicy::Off => SourceLeaseReason::Hit,
+                    MaxAgePolicy::Soft => SourceLeaseReason::MaxAgeSoft,
+                    MaxAgePolicy::Hard => SourceLeaseReason::MaxAgeHard,
+                };
+                let exclude_id =
+                    if self.config.max_age_policy == MaxAgePolicy::Hard && candidates.len() > 1 {
+                        Some(entry.candidate_id.as_str())
+                    } else {
+                        None
+                    };
+                (reason, entry.generation + 1, exclude_id)
+            }
+            Some(entry) => {
+                let mut updated = entry.clone();
+                updated.last_seen_at_ms = now_ms;
+                self.entries.insert(source_key.to_string(), updated);
+                return Some(SourceLeaseDecision {
+                    candidate_id: entry.candidate_id.clone(),
+                    reason: SourceLeaseReason::Hit,
+                    generation: entry.generation,
+                });
+            }
+        };
+
+        let picked = pick_weighted_rendezvous(source_key, generation, candidates, exclude_id)?;
+        self.entries.insert(
+            source_key.to_string(),
+            SourceLeaseEntry {
+                candidate_id: picked.clone(),
+                created_at_ms: now_ms,
+                last_seen_at_ms: now_ms,
+                generation,
+                cooldown_until_ms: now_ms.saturating_add(self.config.switch_cooldown_ms),
+            },
+        );
+        Some(SourceLeaseDecision {
+            candidate_id: picked,
+            reason,
+            generation,
+        })
+    }
+
+    fn idle_expired(
+        &self,
+        entry: &SourceLeaseEntry,
+        now_ms: u64,
+        activity: Option<SourceLeaseActivity>,
+    ) -> bool {
+        match activity {
+            Some(activity) if activity.active_flows > 0 => false,
+            Some(SourceLeaseActivity {
+                idle_since_ms: Some(idle_since),
+                ..
+            }) => now_ms.saturating_sub(idle_since) >= self.config.idle_timeout_ms,
+            None => now_ms.saturating_sub(entry.last_seen_at_ms) >= self.config.idle_timeout_ms,
+            Some(_) => now_ms.saturating_sub(entry.last_seen_at_ms) >= self.config.idle_timeout_ms,
+        }
+    }
+}
+
+fn pick_weighted_rendezvous(
+    source_key: &str,
+    generation: u64,
+    candidates: &[Candidate],
+    exclude_id: Option<&str>,
+) -> Option<String> {
+    let mut best: Option<(&str, f64)> = None;
+    for candidate in candidates {
+        if Some(candidate.id.as_str()) == exclude_id {
+            continue;
+        }
+        let mut hasher = fxhash::FxHasher::default();
+        hasher.write(source_key.as_bytes());
+        hasher.write_u8(0xff);
+        hasher.write_u64(generation);
+        hasher.write_u8(0xfe);
+        hasher.write(candidate.id.as_bytes());
+        let hash = hasher.finish();
+        let unit = (((hash >> 11) as f64) + 1.0) / (((1u64 << 53) as f64) + 1.0);
+        let score = (candidate.weight.max(1) as f64) / -unit.ln();
+        if best.is_none_or(|(_, best_score)| score > best_score) {
+            best = Some((candidate.id.as_str(), score));
+        }
+    }
+    best.map(|(id, _)| id.to_string())
+}

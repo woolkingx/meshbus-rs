@@ -8,15 +8,15 @@ design-rule:
 mesh-bus-observer-prometheus implements:
   ObserverPlugin — Prometheus textfile and HTTP exporter for core flow/path observation telemetry
 
-mesh-bus-observer-prometheus governs:
+owned files:
   src/lib.rs — PrometheusTextfileObserver; writes or serves per-exit dispatch counters, RTT gauge, byte counter, success-rate gauge, optional wan_id label, and optional per-sink peer labels (node_id/peer_id/path_id/hop_count)
   schema.json — config surface: kind=PrometheusTextfile/path or kind=PrometheusHttp/listen, with Prometheus-valid static label names
   tests/schema.rs — config schema closure and static-label-name guard
 
-mesh-bus-observer-prometheus depends_on:
+local dependencies:
   mesh-bus-core — ObserverPlugin, BusEvent, Measurement, EventEnvelope/CoreEventId
 
-mesh-bus-observer-prometheus invariants:
+boundary rules:
   - observer is IO-only; it never affects scheduling or dispatch order
   - throughput is exported as cumulative bytes; Prometheus computes rates with rate()
   - wan_id labels come from runtime egress config and are never inferred from protocol data

@@ -5,17 +5,17 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-mesh-bus-egress-udp governs:
+owned files:
   src/lib.rs — UdpEgress DatagramEgress factory; each DatagramSession preserves one send_to/recv_from packet boundary
   tests/echo.rs — UDP datagram conformance and echo egress behavior
 
-mesh-bus-egress-udp depends_on:
+local dependencies:
   mesh-bus-core
   mb-endpoint
   tokio
   async-trait
 
-mesh-bus-egress-udp invariants:
+boundary rules:
   - UDP egress is an L4 edge adapter: opaque DatagramSession payload to one UDP datagram
   - fixed-target mode is service-sink plumbing only: request.target remains intent metadata, while send_to emits to the configured endpoint
   - it may measure timeout and response bytes, but must not decode application payload

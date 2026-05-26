@@ -15,7 +15,7 @@ mesh-bus-egress-socks5 implements:
   StreamEgress — SOCKS5 upstream CONNECT factory; each StreamSession owns one upstream SOCKS5 tunnel
   DatagramEgress — SOCKS5 upstream UDP ASSOCIATE factory; each DatagramSession owns one UDP relay plus its retained TCP control connection
 
-mesh-bus-egress-socks5 invariants:
+boundary rules:
   - live-egress command/auth support is the `live_egress_stream_commands` (Connect), `live_egress_datagram_commands` (UdpAssociate), and `live_egress_auth` (NoAuth/UserPass) columns of `lib/mb-proto-socks5/schema.json` `command_auth_matrix`; that matrix is the single contract source and this crate must not diverge from it
   - L7 stitcher boundary: code in this crate may import mb-proto-socks5 (L6 codec) and canonical Bus* L5 session surface only; it must never reference mesh-bus-core::Frame, FrameKind, EgressPlugin, SchedulerPlugin, or any L4 internal type
   - upstream SOCKS5 wire bytes are produced/parsed by mb-proto-socks5; this crate owns only the I/O timing, auth-method selection, and the L5 session lifecycle
@@ -26,14 +26,14 @@ mesh-bus-egress-socks5 invariants:
   - the TCP control connection is retained for the DatagramSession lifetime and dropped on close(); dropping it terminates the UDP association per RFC1928
   - if the BND.ADDR in the UDP ASSOCIATE reply is unspecified (0.0.0.0 / ::), the relay endpoint is the control connection peer IP with BND.PORT
 
-mesh-bus-egress-socks5 governs:
+owned files:
   src/lib.rs — Socks5Egress StreamEgress factory; stitches the upstream CONNECT handshake then exposes split send/recv halves
   src/udp.rs — Socks5UdpEgress DatagramEgress factory; UDP ASSOCIATE handshake, relay-addr resolution, encode/decode UDP datagram wrap, split halves, control-TCP retention
   src/upstream.rs — shared upstream handshake helpers: Socks5UpstreamAuth, negotiate_auth, read_reply_frame_atyp, timed_io, disconnect mappers
   tests/upstream.rs — fake SOCKS5 server stream conformance: auth, ATYP reply, roundtrip, large response streaming
   tests/upstream_udp.rs — fake SOCKS5 UDP ASSOCIATE conformance: datagram send/recv roundtrip, send non-blocking, reply-source decode, control-drop terminates association
 
-mesh-bus-egress-socks5 depends_on:
+local dependencies:
   mesh-bus-core — StreamEgress/StreamSession/StreamSendHalf/StreamRecvHalf, DatagramEgress/DatagramSession/DatagramSendHalf/DatagramRecvHalf, SessionInfo, SendError
   mb-endpoint — Endpoint type
   mb-proto-socks5 — greeting, connect-request, udp-associate-request, reply, udp-datagram codec (no inline byte twiddling)

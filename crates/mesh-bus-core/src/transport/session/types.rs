@@ -98,6 +98,7 @@ pub enum DisconnectReason {
     NoUsableExit,
     SessionClosed,
     ReaderClosed,
+    QueueFull,
     AddressNotSupported,
     Other(String),
 }

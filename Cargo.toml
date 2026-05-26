@@ -29,6 +29,7 @@ members = [
     "lib/mb-loadbalance",
     "lib/mb-cake",
     "lib/mb-reorder",
+    "lib/mb-mesh-control",
     "lib/mb-chunker",
     "lib/mb-pool",
     "lib/mb-proto-socks5",

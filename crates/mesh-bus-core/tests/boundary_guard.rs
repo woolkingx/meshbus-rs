@@ -18,6 +18,14 @@ fn read_src(rel: &str) -> String {
     fs::read_to_string(&p).unwrap_or_else(|_| panic!("read {}", p.display()))
 }
 
+fn workspace_root() -> PathBuf {
+    manifest_dir()
+        .parent()
+        .and_then(Path::parent)
+        .expect("workspace root")
+        .to_path_buf()
+}
+
 #[test]
 fn domain_directories_exist() {
     // kernel/ stays at top level; transport substrate domains live under transport/.
@@ -259,6 +267,88 @@ fn walk_rs(dir: &Path, visit: &mut dyn FnMut(&Path, usize)) {
         };
         visit(&p, text.lines().count());
     }
+}
+
+fn walk_workspace_rs(dir: &Path, visit: &mut dyn FnMut(&Path)) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let p = entry.path();
+        let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        if p.is_dir() {
+            if matches!(
+                name,
+                "target" | ".git" | ".bare" | ".cleanup" | ".backup" | "release"
+            ) {
+                continue;
+            }
+            walk_workspace_rs(&p, visit);
+            continue;
+        }
+        if p.extension().is_some_and(|e| e == "rs") {
+            visit(&p);
+        }
+    }
+}
+
+#[test]
+fn udp_loop_has_no_restore_inbound_front_escape_hatch() {
+    let root = workspace_root();
+    let mut hits = Vec::new();
+    walk_workspace_rs(&root, &mut |path| {
+        let text = fs::read_to_string(path).unwrap_or_default();
+        if path.ends_with("tests/boundary_guard.rs") {
+            return;
+        }
+        if text.contains("restore_inbound_front") {
+            hits.push(
+                path.strip_prefix(&root)
+                    .unwrap_or(path)
+                    .display()
+                    .to_string(),
+            );
+        }
+    });
+    assert!(
+        hits.is_empty(),
+        "L4 must not expose payload-aware inbound restore escape hatch:\n{}",
+        hits.join("\n")
+    );
+}
+
+#[test]
+fn udp_loop_drain_inbound_callers_are_allowlisted_packet_owners() {
+    let root = workspace_root();
+    let mut violations = Vec::new();
+    walk_workspace_rs(&root, &mut |path| {
+        let rel = path
+            .strip_prefix(&root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let text = fs::read_to_string(path).unwrap_or_default();
+        if rel == "crates/mesh-bus-core/tests/boundary_guard.rs" {
+            return;
+        }
+        if !text.contains("drain_inbound(") {
+            return;
+        }
+        let allowed = rel == "crates/mesh-bus-core/src/transport/udp_loop/mod.rs"
+            || rel == "crates/mesh-bus-core/src/transport/udp_loop/queue.rs"
+            || rel == "crates/mesh-bus-egress-mesh-peer-udp/src/demux.rs"
+            || rel == "crates/mesh-bus-ingress-mesh-peer-udp/src/lib.rs"
+            || rel.starts_with("crates/mesh-bus-core/tests/udp_loop")
+            || rel == "crates/mesh-bus-bin/tests/throughput_transport.rs";
+        if !allowed {
+            violations.push(rel);
+        }
+    });
+    assert!(
+        violations.is_empty(),
+        "drain_inbound callers must stay behind packet-loop owners/tests:\n{}",
+        violations.join("\n")
+    );
 }
 
 #[test]

@@ -5,7 +5,7 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-transform governs:
+owned files:
   schema.json — local mirror of /schemas/transform.schema.json, fragment.schema.json, reassembly.schema.json
   types.rs — TransformKind, TransformDescriptor, FragmentMetadata, ReassemblyMode, ReassemblyPolicy, TransformError
   data_handle.rs — validate_fragment metadata invariant check
@@ -14,7 +14,7 @@ transform governs:
 transform owns:
   L6 transform descriptors, fragment metadata, reassembly policy, and transform metadata validators only
 
-transform invariants:
+boundary rules:
   - core executes no transform algorithm; it only validates metadata shape
   - TransformDescriptor.policy_ref is opaque to bus; algorithm crates own its grammar
   - validate_fragment enforces total > 0, seq < total, non-empty group_id and fragment_id

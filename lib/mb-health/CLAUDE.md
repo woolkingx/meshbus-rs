@@ -5,14 +5,14 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-mb-health governs:
+owned files:
   src/lib.rs — HealthWindow with sliding-window RTT/outcome aggregation; HealthPolicy and ExitHealthTable for per-exit dispatch health
   tests/window.rs — window aggregation and ExitHealthTable unhealthy/probe/recovery behavior
 
-mb-health depends_on:
+local dependencies:
   std collections only
 
-mb-health invariants:
+boundary rules:
   - shared health logic lives here, not in bus core or scheduler plugins
   - ExitHealthTable can mark exits unhealthy after repeated failures and re-admit them for probe after policy delay
   - success clears the unhealthy state so recovery is reachable

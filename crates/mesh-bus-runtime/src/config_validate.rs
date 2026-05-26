@@ -415,6 +415,18 @@ fn validate_scheduler(cfg: &Config) -> anyhow::Result<()> {
         SchedulerCfg::LoadBalance {
             sticky_ttl_secs: 0, ..
         } => Err(anyhow!("scheduler sticky_ttl_secs must be >= 1")),
+        SchedulerCfg::LoadBalance {
+            source_lease_rotate,
+            ..
+        } if source_lease_rotate.idle_timeout_secs == 0 => Err(anyhow!(
+            "scheduler source_lease_rotate idle_timeout_secs must be >= 1"
+        )),
+        SchedulerCfg::LoadBalance {
+            source_lease_rotate,
+            ..
+        } if source_lease_rotate.max_age_secs == 0 => Err(anyhow!(
+            "scheduler source_lease_rotate max_age_secs must be >= 1"
+        )),
         _ => Ok(()),
     }
 }

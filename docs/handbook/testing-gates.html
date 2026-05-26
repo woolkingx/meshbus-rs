@@ -13,6 +13,7 @@
     h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
     code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
     table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
     .warn { color:var(--warn); font-weight:600; }
   </style>
 </head>
@@ -25,6 +26,7 @@
   <main>
     <section id="thesis">
       <h2>Testing Thesis</h2>
+      <div class="flow">thesis -> completion claim -> proof chain -> evidence readback</div>
       <ul>
         <li>Passing `cargo test -p one-crate` is never a system-complete claim.</li>
         <li>Test evidence must name exact command, scope, and live environment.</li>
@@ -83,6 +85,21 @@
       </table>
     </section>
 
+    <section id="path-contract-graph">
+      <h2>Path Contract Graph</h2>
+      <p>The flowgraph is a verification projection for seeing how a green path is built. It is not a replacement source of truth: handbook chapters define the contract, schemas define legal shape, owner tests prove transforms, and the graph checks the crossings between them.</p>
+      <table>
+        <tr><th>Artifact</th><th>Role</th><th>Gate</th></tr>
+        <tr><td><code>artifacts/flowgraph/path-contracts.md</code></td><td>Readable stage-by-stage path contract evidence.</td><td>Every affected path contract must be <code>ok</code>; <code>warning</code> requires a named follow-up or local fix before a completion claim.</td></tr>
+        <tr><td><code>artifacts/flowgraph/path-contracts.mmd</code></td><td>Mermaid owner/stage graph for visual review.</td><td>Stage direction must match the owner boundary; no convenient reverse edge may become architecture.</td></tr>
+        <tr><td><code>artifacts/flowgraph/boundary-edges.json</code></td><td>Machine-readable owner/boundary/crossing edge projection.</td><td>Every edge has stable id, from/to owner, edge role, flow kinds, and evidence gate.</td></tr>
+        <tr><td><code>artifacts/flowgraph/data-control-matrix.json</code></td><td>Machine matrix projection: family/layer ownership crossed with data/control/evidence/lifecycle/backpressure flow.</td><td>Every flowgraph edge must have exactly one matrix cell naming family, layer, schema owner, code owner, carried SDU, and proof gate.</td></tr>
+        <tr><td><code>artifacts/flowgraph/flowgraph-report.md</code></td><td>Static/runtime findings over boundary, data, control, backpressure, and live overlay.</td><td>No critical/high finding; medium findings are coverage gaps and must not be hidden inside "green".</td></tr>
+      </table>
+      <p>Command: <code>node tools/flowgraph.mjs --focus mesh-peer-udp --out-dir artifacts/flowgraph</code>. Use it after tests or live smoke to explain the result: graph first shows owner, boundary, edge, and state flow; tests then prove the named owner behavior.</p>
+      <p>Live optimization work should prefer the observe/hooks profiler before raw host tools: <code>node tests/live-observe-hooks-profile.mjs</code> drives public Operator probes through ingress, pipeline hooks, scheduler, and egress, then reads observer projection deltas to explain which exit moved and whether dispatch/drop counters stayed flat. Host process/socket evidence is attached only as supporting context. For CPU or syscall churn claims, use <code>node tests/live-observe-syscall-profile.mjs</code>: it keeps Operator/observer deltas as path truth and adds idle versus active <code>strace -c</code> syscall rates so mmap/munmap storms, futex saturation, or recvmmsg wakeups are visible as typed phase evidence.</p>
+    </section>
+
     <section id="feature-matrix">
       <h2>Feature Matrix</h2>
       <table>
@@ -97,6 +114,9 @@
         <tr><td>QUIC protocol library</td><td>`mb-quic` owns QUIC packet/crypto/recovery/stream/datagram data shapes as protocol-library proof only. It is not a native mesh peer runtime gate and must not carry Mesh Protocol as the production substrate.</td></tr>
         <tr><td>Rule routing</td><td>`mb-rule`, pipeline hooks, adapter rule_ctx tests, runtime assembly, binary e2e showing selected sink metrics.</td></tr>
         <tr><td>Observer/metrics</td><td>Core observation tests, observer crate tests, binary metrics e2e proving exported counters and labels.</td></tr>
+        <tr><td>Observe/hooks live profiling</td><td><code>tests/live-observe-hooks-profile.mjs</code> proves optimization evidence comes from Operator probes and observer projections, not private dispatch shortcuts or raw log scraping.</td></tr>
+        <tr><td>Observe/syscall live profiling</td><td><code>tests/live-observe-syscall-profile.mjs</code> proves CPU optimization claims with idle and active phase syscall rates while requiring Operator dispatch/drop deltas to remain clean.</td></tr>
+        <tr><td>LoadBalance source lease rotate</td><td><code>GATE-LB-SOURCE-LEASE-01</code>: schema admits <code>source-lease-rotate</code>; <code>mb-loadbalance</code> proves lease create/hit/true-idle-expire/max-age-off/max-age-soft/max-age-hard/unhealthy-exit transitions and rejects the half-idle source activity shape; <code>mesh-bus-scheduler-loadbalance</code> proves source-only keys, default active-source stability past max-age, core SourceActivity blocking idle expiry, weighted candidate ordering, cooldown, and ordered fallbacks; runtime assembly proves filtered healthy candidates and source active-flow projection reach the scheduler before dispatch; binary/live gates prove same-source active-window stability, idle rotation after 600s with no active flows, no force-move of active flows, and observation labels for source lease generation and reason.</td></tr>
         <tr><td>Data-plane speed</td><td>`mb-splice` relay matrix, SOCKS5 throughput bench, and comparison against current perf backlog guidance.</td></tr>
         <tr><td>Direct forward/reverse</td><td>Handbook direct-proxy gate, direct TCP/UDP source runtime schema, pipeline deny/accept tests, route_group e2e, service sink reverse e2e, direct-vs-SOCKS5 comparison record.</td></tr>
         <tr><td>Dataplane observation</td><td>Core event surface guard, forwarder lifecycle tests, no async Drop guard, observation boundary scan, scheduler-feedback ownership tests, observer overflow isolation.</td></tr>
@@ -107,6 +127,7 @@
 
     <section id="completion">
       <h2>Completion Rules</h2>
+      <div class="flow">completion -> completion claim -> proof chain -> evidence readback</div>
       <p>Feature-complete requires the narrow test, owning module test, runtime assembly if config/wiring changed, binary e2e if traffic path changed, and live WAN smoke if the claim includes deployment or WAN readiness.</p>
       <p>Production-ready requires all relevant phases plus `cargo fmt --check`, `cargo test --workspace`, and `git diff --check`.</p>
       <p>A skipped ignored test is not a pass unless the skip reason is explicitly named.</p>
@@ -126,6 +147,7 @@
 
     <section id="anti-patterns">
       <h2>Anti-Patterns</h2>
+      <div class="flow">anti-patterns -> completion claim -> proof chain -> evidence readback</div>
       <ul>
         <li>Do not claim system completion from one crate's unit tests.</li>
         <li>Do not call loopback e2e a WAN live smoke.</li>
@@ -140,6 +162,7 @@
 
     <section id="env">
       <h2>Live Environment Gates</h2>
+      <div class="flow">env -> completion claim -> proof chain -> evidence readback</div>
       <p>SOCKS5 upstream live smoke uses `MESH_BUS_LIVE_SOCKS5_UPSTREAMS`, with optional target host and port variables. Native mesh WAN smoke uses the Secure UDP / MeshSec peer topology and records absent env as not live-verified.</p>
       <p><span class="warn">Report absent env as not live-verified.</span></p>
     </section>

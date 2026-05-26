@@ -11,7 +11,7 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mesh-bus-pipeline-hooks governs:
+owned files:
   src/context.rs    — SharedHookCtx thread-local install/current/clear + scoped guard (Tokio Handle + cache handles + GeoIpDb + GeositeDb + ExitCandidate set)
   src/ext_meta.rs   — crate-local TypedMap.ext write helper; validates local key tails via mesh-bus-core::kernel::is_valid_ext_key_tail in debug builds
   src/runtime.rs    — protocol-neutral PipelineRuntime { SharedHookCtx + verified KernelRegistry + SourceId } + run_pipeline_event helper for source adapters
@@ -23,7 +23,7 @@ mesh-bus-pipeline-hooks governs:
   tests/wiring.rs   — KernelRegistry.verify() passes with all four hooks registered
   tests/runtime.rs  — PipelineRuntime construction/run guards, including protocol-neutral SourceSpec fixture shape
 
-mesh-bus-pipeline-hooks depends_on:
+local dependencies:
   mesh-bus-core     — kernel pipeline types
   mesh-bus-resolver — ResolverHandle (for resolve hook)
   mb-rule           — evaluate_with_trace (for rule hook)
@@ -31,7 +31,7 @@ mesh-bus-pipeline-hooks depends_on:
   mb-geosite        — GeositeDb::lookup_packed (for domain-side geosite tags)
   mb-cake / mb-cost / mb-health — rank/score/window (for pick_sink hook)
 
-mesh-bus-pipeline-hooks invariants:
+boundary rules:
   - HookFn is a sync fn-pointer; async work uses tokio::runtime::Handle::block_on through SharedHookCtx per kernel spec §4; runtime execution installs SharedHookCtx through a scoped guard so unwind paths clear thread-local state
   - HookSpec.allowed_namespaces uses glob form `<head>.*`; KernelRegistry::verify checks both reads and writes
   - HookSpec.may_accept_to lists every SinkId the hook's Accept verdict may name (verify enforces UnknownSink)

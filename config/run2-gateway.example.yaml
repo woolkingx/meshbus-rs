@@ -22,8 +22,13 @@ logging:
 
 scheduler:
   kind: LoadBalance
-  mode: sticky-sessions
-  sticky_ttl_secs: 600
+  mode: source-lease-rotate
+  source_lease_rotate:
+    key_scope: source
+    idle_timeout_secs: 600
+    max_age_secs: 3600
+    max_age_policy: off
+    switch_cooldown_secs: 60
 
 peers:
   - id: pool-20

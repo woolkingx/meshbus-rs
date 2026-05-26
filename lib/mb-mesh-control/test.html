@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>mb-mesh-control - Owner Proof Contract</title></head>
+<body>
+  <h1>mb-mesh-control - Owner Proof Contract</h1>
+  <section>
+    <h2>Owned Data</h2>
+    <p>Owns path controller state for Mesh DataPackage send budget, in-flight accounting, RTT, loss, PTO, and AckNack repair decisions. It owns no socket, runtime task, QUIC connection, QUIC stream, or L7 payload meaning.</p>
+  </section>
+  <section>
+    <h2>Proof Commands</h2>
+    <ul>
+      <li><code>cargo test -p mb-mesh-control</code></li>
+      <li><code>cargo test -p mb-proto-mesh --test schema</code></li>
+    </ul>
+  </section>
+</body>
+</html>

@@ -8,19 +8,19 @@ design-rule:
 mesh-bus-scheduler-cake implements:
   SchedulerPlugin — CAKE-based exit ranking
 
-mesh-bus-scheduler-cake governs:
+owned files:
   src/lib.rs — CakeScheduler; per-exit HealthWindow, mb-cake rank on feedback
   tests/cake.rs — low-RTT ranked first, unknown exits fall through
   tests/feedback_goodput.rs — goodput_bps_for + score_for live window coverage
   tests/schema.rs — schema closure and metadata-only wording guard
 
-mesh-bus-scheduler-cake depends_on:
+local dependencies:
   mesh-bus-core — SchedulerPlugin, RankContext, ExitId, ExitResult, FlowId, TrafficClass
   mb-health — HealthWindow (sliding-window RTT and success rate)
   mb-cake — rank() pure function, ExitMetric, RankConfig
   mb-cost — Score, ScoreInputs (score_for implementation)
 
-mesh-bus-scheduler-cake invariants:
+boundary rules:
   - CAKE ranks exits from L4 metadata and feedback windows only
   - CAKE must not inspect Frame.payload or protocol-specific fields
   - protocol-specific routing belongs in edge plugins or future metadata producers, not in this scheduler

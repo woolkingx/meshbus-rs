@@ -1,6 +1,6 @@
 #[test]
 fn connect_relay_uses_owned_spawned_direction_tasks() {
-    let src = std::fs::read_to_string("src/lib.rs").expect("read socks5 ingress source");
+    let src = std::fs::read_to_string("src/connect.rs").expect("read SOCKS5 CONNECT source");
     let start = src
         .find("async fn pipe_connect")
         .expect("pipe_connect exists");
@@ -26,7 +26,7 @@ fn connect_relay_uses_owned_spawned_direction_tasks() {
 
 #[test]
 fn connect_relay_attempts_splice_before_async_halves() {
-    let src = std::fs::read_to_string("src/lib.rs").expect("read socks5 ingress source");
+    let src = std::fs::read_to_string("src/connect.rs").expect("read SOCKS5 CONNECT source");
     let start = src
         .find("async fn pipe_connect")
         .expect("pipe_connect exists");
@@ -48,7 +48,7 @@ fn connect_relay_attempts_splice_before_async_halves() {
 
 #[test]
 fn splice_error_path_has_explicit_close_reason() {
-    let src = std::fs::read_to_string("src/lib.rs").expect("read socks5 ingress source");
+    let src = std::fs::read_to_string("src/connect.rs").expect("read SOCKS5 CONNECT source");
     let start = src
         .find("async fn try_splice_tcp_connect")
         .expect("try_splice_tcp_connect exists");

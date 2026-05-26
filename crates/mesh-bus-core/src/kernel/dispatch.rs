@@ -6,6 +6,7 @@ use super::dispatch_observation::{
     close_flow_if_open, publish_flow_opened, publish_path_io_error, record_dispatch,
 };
 use super::dispatch_return::{send_return, send_return_with_packet_id};
+use super::source_activity::{self, SourceActivityState};
 use crate::kernel::forwarder::{
     DatagramForwarderProbeOutcome, DataplaneShape, FlowCounters, ForwarderDatagramState,
     ForwarderStreamState, TransformRequirements,
@@ -30,6 +31,7 @@ pub(super) struct DispatchRuntime {
     pub observation_bus: Arc<ObservationBus>,
     pub flow_counters: Arc<dashmap::DashMap<FlowId, Arc<FlowCounters>>>,
     pub flow_states: Arc<dashmap::DashMap<FlowId, FlowState>>,
+    pub source_activity: Arc<dashmap::DashMap<String, SourceActivityState>>,
     pub forwarder_streams: Arc<dashmap::DashMap<crate::SessionId, ForwarderStreamState>>,
     pub forwarder_datagrams: Arc<dashmap::DashMap<crate::SessionId, ForwarderDatagramState>>,
     pub probe_channels: Arc<
@@ -53,6 +55,7 @@ pub(super) struct FlowState {
     pub sink_idx: usize,
     pub exit_id: ExitId,
     pub counters: Arc<FlowCounters>,
+    pub source_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -121,7 +124,8 @@ pub(super) async fn dispatch(
         frame.route_group.as_deref(),
         frame.target_sink.as_deref(),
     );
-    let ctx = RankContext::from(&frame);
+    let mut ctx = RankContext::from(&frame);
+    ctx.source_activity = source_activity::snapshot(&runtime, frame.source_key.as_deref());
     let decision = schedule_frame(&frame, &candidates, &ctx, &runtime).await;
     match decision {
         ScheduleDecision::Ordered(mut order) => {
@@ -295,15 +299,19 @@ async fn dispatch_ordered(
                     .entry(frame.flow_id.clone())
                     .or_insert_with(|| Arc::new(FlowCounters::new()))
                     .clone();
-                runtime.flow_states.insert(
+                let previous = runtime.flow_states.insert(
                     frame.flow_id.clone(),
                     FlowState {
                         shape,
                         sink_idx: idx,
                         exit_id: result.exit_id.clone(),
                         counters: counters.clone(),
+                        source_key: frame.source_key.clone(),
                     },
                 );
+                if previous.is_none() {
+                    source_activity::mark_open(&runtime, frame.source_key.as_deref());
+                }
                 publish_flow_opened(&runtime, &frame, &result, shape).await;
             } else if let Some(counters) = runtime.flow_counters.get(&frame.flow_id) {
                 counters

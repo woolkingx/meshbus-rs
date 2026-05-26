@@ -10,7 +10,7 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mb-quic governs:
+owned files:
   src/lib.rs — crate surface and errors
   src/conn.rs — QUIC connection state machine
   src/packet.rs — packet/header encoding and packet-number handling
@@ -24,7 +24,7 @@ mb-quic governs:
   schema.json — protocol-library data contract summary
   test.html — owner proof contract
 
-mb-quic invariants:
+boundary rules:
   - library only; no socket, no mesh peer runtime binding, no product topology gate
   - may be used later by a QUIC application adapter over Mesh Protocol
   - must not carry Mesh Protocol as the native mesh production substrate

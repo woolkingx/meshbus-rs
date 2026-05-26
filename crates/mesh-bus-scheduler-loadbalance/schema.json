@@ -10,12 +10,43 @@
   "properties": {
     "mode": {
       "type": "string",
-      "enum": ["round-robin", "sticky-sessions", "consistent-hashing"]
+      "enum": ["round-robin", "sticky-sessions", "consistent-hashing", "source-lease-rotate"]
     },
     "sticky_ttl_ms": {
       "type": "integer",
       "minimum": 1,
       "default": 600000
+    },
+    "source_lease_rotate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key_scope": {
+          "type": "string",
+          "enum": ["source"],
+          "default": "source"
+        },
+        "idle_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 600000
+        },
+        "max_age_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3600000
+        },
+        "max_age_policy": {
+          "type": "string",
+          "enum": ["off", "soft", "hard"],
+          "default": "off"
+        },
+        "switch_cooldown_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 60000
+        }
+      }
     },
     "weights": {
       "type": "object",

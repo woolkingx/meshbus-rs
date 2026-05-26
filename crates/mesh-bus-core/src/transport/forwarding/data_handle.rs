@@ -18,6 +18,7 @@ impl From<&Frame> for RankContext {
             return_semantics: frame.return_semantics,
             source_key: frame.source_key.clone(),
             target_key: frame.target_key.clone(),
+            source_activity: None,
         }
     }
 }

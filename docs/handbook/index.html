@@ -75,16 +75,19 @@ code/tests = implementation and proof</div>
 
       <section id="plan-consolidation">
         <h2>Plan Consolidation</h2>
+      <div class="flow">plan-consolidation -> reader concern -> owning chapter -> proof/readback</div>
         <p>Durable architecture, spec decisions, current completion status, and remaining gaps recovered from Markdown plans/specs are consolidated in <a href="plan-consolidation.html">Plan Consolidation</a>. After absorption, plans remain active task decomposition only and do not define architecture.</p>
       </section>
 
       <section id="task-plans">
         <h2>Task Plans</h2>
+      <div class="flow">task-plans -> reader concern -> owning chapter -> proof/readback</div>
         <p><a href="task-plans.html">Task Plans</a> is the active work control chapter. It maps runnable files in <code>docs/plan</code> to their owning handbook sections, current status, blockers, and verification gates so progress cannot drift away from the spec layer.</p>
       </section>
 
       <section id="canonical-chapters">
         <h2>Canonical Chapters</h2>
+      <div class="flow">canonical-chapters -> reader concern -> owning chapter -> proof/readback</div>
         <p>Use these chapters as the topologic/logic schema before reading plans, module rules, schema, code, or tests. Detailed authoring rules live in <a href="documentation-architecture.html">Documentation architecture</a>.</p>
         <pre class="topology">product-roadmap
   -> direct-proxy
@@ -107,6 +110,7 @@ Rule: downstream chapters link to owner chapters; they do not redefine owner ter
 
       <section id="source-map">
         <h2>Source Map</h2>
+      <div class="flow">source-map -> reader concern -> owning chapter -> proof/readback</div>
         <p>This map links the current handbook spine to owner chapters, module boot cards, schema contracts, code surfaces, and proving tests. Plans decompose work; they do not replace the spec layer.</p>
         <details open>
           <summary>Canonical handbook chapters</summary>
@@ -153,12 +157,12 @@ Rule: downstream chapters link to owner chapters; they do not redefine owner ter
         <h2>Directory Structure</h2>
         <table>
           <tr><th>Path</th><th>Role</th><th>Canonical links</th></tr>
-          <tr><td><code>docs/handbook/</code></td><td>HTML topologic/logic schema plus handbook-owned spec attachments under <code>docs/handbook/spec</code>.</td><td><a href="documentation-architecture.html">documentation architecture</a>, <a href="product-roadmap.html">product roadmap</a>, <a href="system-architecture.html">system architecture</a></td></tr>
+          <tr><td><code>docs/handbook/</code></td><td>HTML topologic/logic schema plus handbook-owned spec attachments under <code>docs/handbook/spec</code>.</td><td><a href="documentation-architecture.html">documentation architecture</a>, <a href="product-roadmap.html">product roadmap</a>, <a href="system-architecture.html">system architecture</a>, <a href="spec/data-control-matrix.schema.json">data/control matrix schema</a></td></tr>
           <tr><td><code>docs/plan/</code></td><td>Active task decomposition, command order, checkpoint state, and handoff notes.</td><td><a href="task-plans.html">task plan control</a>, <a href="plan-consolidation.html">plan consolidation rules</a></td></tr>
           <tr><td><code>CLAUDE.md</code></td><td>Execution rules, owner navigation, local invariants, and latest decision summary.</td><td><a href="../../CLAUDE.md">root boot card</a></td></tr>
           <tr><td><code>crates/mesh-bus-*</code></td><td>Runtime, adapters, schedulers, observers, and binary e2e surfaces.</td><td><a href="../../crates/mesh-bus-runtime/CLAUDE.md">runtime</a>, <a href="../../crates/mesh-bus-core/CLAUDE.md">core</a>, <a href="../../crates/mesh-bus-bin/CLAUDE.md">bin</a></td></tr>
           <tr><td><code>lib/mb-*</code></td><td>Pure algorithms, codecs, endpoint/health/rule utilities.</td><td><a href="../../lib/mb-rule/CLAUDE.md">rule</a>, <a href="../../lib/mb-proto-socks5/CLAUDE.md">socks5 codec</a>, <a href="../../lib/mb-proto-mesh/CLAUDE.md">mesh codec</a></td></tr>
-          <tr><td><code>tests/</code></td><td>System test handbook and cross-module completion gates.</td><td><a href="../../tests/CLAUDE.md">tests guide</a></td></tr>
+          <tr><td><code>tests/</code></td><td>System test handbook and cross-module completion gates.</td><td><a href="../../tests/CLAUDE.md">tests guide</a>, <a href="../../tests/schema.json">live evidence schema</a></td></tr>
           <tr><td><code>*/schema.json</code></td><td>Machine-verifiable config, capability, and protocol contracts.</td><td><a href="../../crates/mesh-bus-runtime/schema.json">runtime schema</a>, <a href="../../lib/mb-proto-socks5/schema.json">SOCKS5 schema</a>, <a href="../../lib/mb-proto-mesh/schema.json">MeshSec schema</a></td></tr>
         </table>
       </section>
@@ -195,6 +199,7 @@ Rule: downstream chapters link to owner chapters; they do not redefine owner ter
 
       <section id="direct-proxy">
         <h2>Direct Proxy Foundation</h2>
+      <div class="flow">direct-proxy -> reader concern -> owning chapter -> proof/readback</div>
         <p>The direct path is rule-first, not speed-only. It makes source intent visible to rule/policy/scheduler before bytes move.</p>
         <div class="grid">
           <div class="card"><h3>Forward</h3><p>Direct stream/datagram source to TCP/UDP egress through normal pipeline selection.</p></div>
@@ -206,6 +211,7 @@ Rule: downstream chapters link to owner chapters; they do not redefine owner ter
 
       <section id="mesh-protocol">
         <h2>Mesh Protocol</h2>
+      <div class="flow">mesh-protocol -> reader concern -> owning chapter -> proof/readback</div>
         <p>Canonical topology, semantics, owner rules, MeshSec wire contract, and native event-family status live in <a href="mesh-protocol.html">Mesh Protocol</a>. Consolidated release status lives in <a href="plan-consolidation.html">plan consolidation</a>.</p>
       </section>
 
@@ -223,6 +229,7 @@ Rule: downstream chapters link to owner chapters; they do not redefine owner ter
 
       <section id="operator-plane">
         <h2>Operator Plane</h2>
+      <div class="flow">operator-plane -> reader concern -> owning chapter -> proof/readback</div>
         <p>The system management interface is API-first. Config, status, metrics, probes, deployment, hot reload, Web dashboard, remote admin, and future cluster control compose through the <a href="operator-plane.html">operator plane</a>, not through ad hoc CLI/Web logic or core dispatch shortcuts.</p>
         <pre class="topology">human/tool
   -> Operator API
@@ -235,17 +242,20 @@ Rule: downstream chapters link to owner chapters; they do not redefine owner ter
 
       <section id="transport">
         <h2>UDP / QUIC Transport</h2>
+      <div class="flow">transport -> reader concern -> owning chapter -> proof/readback</div>
         <p>Delivery substrate mechanics, UDP packet loop, QUIC reference binding, and transport throughput gates live in <a href="transport.html">UDP and QUIC transport</a>. Mesh semantics are owned by <a href="mesh-protocol.html">Mesh Protocol</a>.</p>
       </section>
 
       <section id="testing">
         <h2>Testing Gates</h2>
-        <p>A feature is not complete until codec, adapter, core session/runtime, pipeline hooks, observers, scheduler behavior, binary e2e, and required live WAN smoke pass for the affected path.</p>
-        <p>Canonical chapter: <a href="testing-gates.html">testing gates</a>. Generated topology: <a href="testing-index.html">module test index</a>. Execution guide: <a href="../../tests/CLAUDE.md">tests/CLAUDE.md</a>.</p>
+      <div class="flow">testing -> reader concern -> owning chapter -> proof/readback</div>
+        <p>A feature is not complete until codec, adapter, core session/runtime, pipeline hooks, observers, scheduler behavior, binary e2e, required live WAN smoke, and the affected path-contract graph gate pass for the affected path.</p>
+        <p>Canonical chapter: <a href="testing-gates.html">testing gates</a>. Generated topology: <a href="testing-index.html">module test index</a>. Flowgraph projections: <code>artifacts/flowgraph/flowgraph-report.md</code>, <code>artifacts/flowgraph/path-contracts.md</code>, <code>artifacts/flowgraph/boundary-edges.json</code>, and <code>artifacts/flowgraph/data-control-matrix.json</code>. Execution guide: <a href="../../tests/CLAUDE.md">tests/CLAUDE.md</a>.</p>
       </section>
 
       <section id="production">
         <h2>Production Readiness</h2>
+      <div class="flow">production -> reader concern -> owning chapter -> proof/readback</div>
         <p><a href="production-readiness.html">Production Readiness</a> owns the deployment and operation layer: config check, service supervision, MeshSec fail-closed gates, secret redaction, metrics, live two-node acceptance, rollback, and release evidence.</p>
         <pre class="topology">local SOCKS5
   -> MeshSec MeshPeerUdp
@@ -258,6 +268,7 @@ Rule: production support hardens this existing path; it does not create new core
 
       <section id="decisions">
         <h2>Decision Timeline</h2>
+      <div class="flow">decisions -> reader concern -> owning chapter -> proof/readback</div>
         <ul>
           <li><strong>0.4.30</strong>: Native direct forward/reverse proxy slice is functionally verified; live WAN timing and datagram per-exit dispatch telemetry remain gaps.</li>
           <li><strong>0.4.29</strong>: Mesh Protocol stays under OSI owner boundaries; channel, port, socket, and QUIC connection state are projections, not session truth.</li>
@@ -268,6 +279,7 @@ Rule: production support hardens this existing path; it does not create new core
 
       <section id="next">
         <h2>Next Integration</h2>
+      <div class="flow">next -> reader concern -> owning chapter -> proof/readback</div>
         <ol>
           <li>Trim module CLAUDE.md files to scope, keypoints, rules, and handbook links.</li>
           <li>Move remaining machine contracts into schema links beside each handbook chapter.</li>

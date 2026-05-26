@@ -5,7 +5,7 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-mesh-bus-bin governs:
+owned files:
   src/main.rs — CLI entrypoint; supports run/check/status and admin M0 commands with optional --config path
   schema.json — binary CLI surface schema metadata
   tests/boot.rs — integration smoke: bus starts and shuts down from embedded YAML
@@ -13,7 +13,7 @@ mesh-bus-bin governs:
   tests/pipeline_source.rs — binary smoke for `pipeline.source.ingress_index` attachment selection
   tests/throughput_transport.rs — release transport-substrate matrix; seven `#[ignore]` rows (plain/batch/GSO-GRO/pacing-PMTU UDP, native Secure UDP steer/replicate/stripe) gated on `MESH_BUS_TRANSPORT_BENCH` + one non-ignored `matrix_skips_clean_without_env` build-skip-clean guard; every row drives real `UdpPacketLoop` or native policy evidence
 
-mesh-bus-bin depends_on:
+local dependencies:
   mesh-bus-runtime — parse_config, status_text, run, build_pipeline_runtime, BusHandle, LoggingCfg
   tokio — async runtime, signal::ctrl_c and Unix SIGTERM
   tracing-subscriber — fmt logger init
@@ -22,7 +22,7 @@ mesh-bus-bin depends_on:
   mb-endpoint — dev-only endpoint construction for binary e2e smoke
   bytes — dev-only BytesMut for binary e2e smoke decoding
 
-mesh-bus-bin invariants:
+boundary rules:
   - `check` must resolve every operator-owned relative path the same way `run` does; config-local legacy `ingress.rule_chain_path` is resolved against the config file directory, not the process cwd
   - `check` must load legacy local `rule_sets` with the same chain-file-relative semantics as runtime fallback policy loading
   - `check` must reject legacy RulePolicy actions that the selected SOCKS5 adapter cannot project onto BusSessionRequest; preflight must not be weaker than run startup

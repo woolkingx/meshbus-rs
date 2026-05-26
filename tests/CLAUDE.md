@@ -8,7 +8,7 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-tests thesis:
+purpose:
   - A module test proves only the module contract.
   - Tests are designed from `data -> schema -> module -> integration -> e2e`.
   - The module that owns a data shape owns the schema and lowest contract tests for that data.
@@ -16,7 +16,7 @@ tests thesis:
   - Passing `cargo test -p <one crate>` is never a system-complete claim.
   - Test evidence must name the exact command, scope, and live environment used.
 
-tests governs:
+owned files:
   owner module tests — colocated with the module code and schema that own the data
   crates/*/tests — crate-level public contract tests for that crate only
   lib/*/tests — pure algorithm, data-structure, and codec contract tests
@@ -24,7 +24,7 @@ tests governs:
   crates/mesh-bus-bin/tests — product composition, binary boot, e2e, perf, and live smoke tests
   tests/ — root testing guide, shared composition policy, and product live runners, not a dumping ground for module-owned tests
 
-tests depends_on:
+local dependencies:
   docs/handbook/index.html — topologic/logic schema and layer ownership
   CLAUDE.md — execution rules and owner navigation
   crate-local CLAUDE.md — module contract and invariants
@@ -32,7 +32,7 @@ tests depends_on:
   docs/handbook/spec/*.schema.json — handbook-owned cross-layer machine contracts
   docs/plan — active implementation-specific acceptance gates
 
-tests invariants:
+boundary rules:
   - Start every non-trivial test change by reading root `CLAUDE.md`, the affected module `CLAUDE.md`, its `schema.json`, and existing tests for the same surface.
   - New behavior starts from the data it creates or consumes; add or update the schema before writing behavior tests.
   - New behavior requires tests at the lowest owner layer and at the integration layer that can observe the real feature.
@@ -106,9 +106,20 @@ tests phases:
      Purpose: prove the deployed service can sustain repeated real SOCKS5 HTTPS probes while dispatch_success increases, dispatch_failure stays flat, RSS/fd counts stay bounded, and systemd remains active.
      Diagnose bundle gate: `MESH_BUS_REMOTE_SSH=root@198.51.100.36 MESH_BUS_REMOTE_OPERATOR=http://127.0.0.1:19080 node tests/live-diagnose-bundle.mjs`.
      Purpose: prove the deployed Operator diagnose path returns redacted status, metrics, effective config, systemd, process, socket, and journal evidence.
-     Run2 pool gate: `MESH_BUS_RUN2_GATEWAY_SSH=root@192.0.2.36 MESH_BUS_RUN2_GATEWAY_SOCKS5=192.0.2.36:2080 MESH_BUS_RUN2_GATEWAY_OPERATOR=http://127.0.0.1:19081 node tests/live-run2-pool-validation.mjs`.
-     Purpose: prove a gateway with multiple MeshSec MeshPeerUdp upstream exits is active, accepts SOCKS5 traffic, increments at least one pool exit, keeps dispatch failures and MeshSec/native drops flat in a quiet window, and emits a JSON report with per-exit deltas. Optional service-mutation failover requires `MESH_BUS_RUN2_ALLOW_SERVICE_MUTATION=1` plus `MESH_BUS_RUN2_FAILOVER_PEER_SSH` and `MESH_BUS_RUN2_FAILOVER_EXIT`.
+     Observe/hooks profile gate: `MESH_BUS_OBSERVE_REMOTE_SSH=root@192.0.2.36 MESH_BUS_OBSERVE_REMOTE_OPERATOR=http://127.0.0.1:19081 node tests/live-observe-hooks-profile.mjs`.
+     Purpose: prove a deployed node can be optimized through existing Operator probes and observer projections: every probe enters the public Operator API, crosses the normal ingress -> hooks -> scheduler -> egress path, moves dispatch/exit counters, and keeps dispatch failures plus MeshSec/native drops flat.
+     Observe/syscall profile gate: `MESH_BUS_PROFILE_REMOTE_SSH=root@192.0.2.36 MESH_BUS_PROFILE_REMOTE_OPERATOR=http://127.0.0.1:19081 node tests/live-observe-syscall-profile.mjs`.
+     Purpose: prove CPU optimization claims with phase evidence: idle and active Operator-probe windows keep dispatch/drop deltas flat while `strace -c` syscall rates stay under the configured mmap/munmap churn threshold. Raw syscall data is supporting evidence; Operator/observer deltas remain the path truth.
+     Run2 pool gate: `MESH_BUS_RUN2_GATEWAY_SSH=root@192.0.2.36 MESH_BUS_RUN2_GATEWAY_SOCKS5=192.0.2.36:2080 MESH_BUS_RUN2_GATEWAY_OPERATOR=http://127.0.0.1:19081 MESH_BUS_RUN2_GATEWAY_SERVICE=mesh-bus-run2.service MESH_BUS_RUN2_GATEWAY_BIN=/opt/mesh-bus/bin/mesh-bus-run2 MESH_BUS_RUN2_GATEWAY_CONFIG=/etc/mesh-bus/run2.yaml node tests/live-run2-pool-validation.mjs`.
+     Purpose: prove the exact systemd-owned gateway service is active, its ExecStart binary/config match the expected Run2 role, SOCKS5 traffic increments at least one pool exit, dispatch failures and MeshSec/native drops stay flat in a quiet window, and the JSON artifact captures service identity, binary/config hashes, MainPID/thread CPU, sockets, journal tail, metrics, and per-exit deltas. Optional service-mutation failover requires `MESH_BUS_RUN2_ALLOW_SERVICE_MUTATION=1` plus `MESH_BUS_RUN2_FAILOVER_PEER_SSH` and `MESH_BUS_RUN2_FAILOVER_EXIT`.
+     Run2 stream gate: `MESH_BUS_RUN2_GATEWAY_SSH=root@192.0.2.36 MESH_BUS_RUN2_GATEWAY_SOCKS5=192.0.2.36:2080 MESH_BUS_RUN2_GATEWAY_OPERATOR=http://127.0.0.1:19081 MESH_BUS_RUN2_GATEWAY_SERVICE=mesh-bus-run2.service MESH_BUS_RUN2_GATEWAY_BIN=/opt/mesh-bus/bin/mesh-bus-run2 MESH_BUS_RUN2_GATEWAY_CONFIG=/etc/mesh-bus/run2.yaml node tests/live-run2-stream-validation.mjs`.
+     Purpose: prove a long-lived HTTP/video-like stream through the deployed Run2 gateway remains active until EOF, downloads the expected bytes, keeps dispatch failures and MeshSec/native drops flat in a quiet window, and keeps gateway CPU under the configured threshold. The default mode starts a temporary systemd-owned origin on the gateway; external progressive video URLs may be tested with `MESH_BUS_RUN2_STREAM_TARGET`.
      Purpose: prove traffic reaches the real remote MeshPeerUdp service and real upstream targets, with SOCKS5 CONNECT, SOCKS5 UDP DNS, encrypted wire capture, and clear-packet fail-closed evidence.
+
+  10. Path contract graph:
+     Run after affected module tests and after live smoke when runtime evidence is part of the claim.
+     Command: `node tools/flowgraph.mjs --focus mesh-peer-udp --out-dir artifacts/flowgraph`.
+     Purpose: explain how green is built by owner, boundary, edge, data flow, control flow, and backpressure paths. `artifacts/flowgraph/path-contracts.md` must show affected contracts as `ok`; `warning` is a named gap/fix, not a completion claim. `artifacts/flowgraph/flowgraph-report.md` must have no critical/high findings.
 
 tests completion rules:
   - Module-complete requires data/schema proof plus owner module contract tests.

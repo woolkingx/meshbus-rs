@@ -1,0 +1,30 @@
+id: parse_loadbalance_source_lease_rotate
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_ok
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    scheduler:
+      kind: LoadBalance
+      mode: source-lease-rotate
+      source_lease_rotate:
+        key_scope: source
+        idle_timeout_secs: 600
+        max_age_secs: 3600
+        switch_cooldown_secs: 60
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: true
+  debug_contains:
+    - "SourceLeaseRotate"
+    - "idle_timeout_secs: 600"
+    - "max_age_policy: Off"
+observations: []
+tags: []

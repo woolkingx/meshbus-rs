@@ -89,6 +89,30 @@
     "Measurement": {
       "$ref": "../../../../../schemas/measurement.schema.json"
     },
+    "SourceActivity": {
+      "description": "Core-owned L4 source lifecycle projection for scheduler decisions. Absence means no core lifecycle evidence exists for the source. Presence is closed: active sources have active_flows >= 1 and no idle_since_ms; true-idle sources have active_flows = 0 plus idle_since_ms.",
+      "oneOf": [
+        {
+          "title": "active-source",
+          "type": "object",
+          "required": ["active_flows"],
+          "properties": {
+            "active_flows": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "idle-source",
+          "type": "object",
+          "required": ["active_flows", "idle_since_ms"],
+          "properties": {
+            "active_flows": { "const": 0 },
+            "idle_since_ms": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "RankContext": {
       "description": "Forwarding metadata passed from a Frame to the scheduler for exit ranking.",
       "type": "object",
@@ -105,7 +129,8 @@
         "flow_semantics": { "$ref": "#/definitions/FlowSemantics" },
         "return_semantics": { "$ref": "#/definitions/ReturnSemantics" },
         "source_key": { "type": "string" },
-        "target_key": { "type": "string" }
+        "target_key": { "type": "string" },
+        "source_activity": { "$ref": "#/definitions/SourceActivity" }
       },
       "additionalProperties": false
     },

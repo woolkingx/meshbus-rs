@@ -7,9 +7,14 @@ const env = process.env;
 const gatewaySsh = required("MESH_BUS_RUN2_GATEWAY_SSH");
 const gatewaySocks5 = required("MESH_BUS_RUN2_GATEWAY_SOCKS5");
 const gatewayOperator = required("MESH_BUS_RUN2_GATEWAY_OPERATOR");
+const gatewayService = env.MESH_BUS_RUN2_GATEWAY_SERVICE || "mesh-bus-run2.service";
+const gatewayBin = env.MESH_BUS_RUN2_GATEWAY_BIN || "/opt/mesh-bus/bin/mesh-bus-run2";
+const gatewayAdminBin = env.MESH_BUS_RUN2_GATEWAY_ADMIN_BIN || gatewayBin;
+const gatewayConfig = env.MESH_BUS_RUN2_GATEWAY_CONFIG || "/etc/mesh-bus/run2.yaml";
 const target = env.MESH_BUS_RUN2_TARGET || "https://example.com";
 const probes = numberEnv("MESH_BUS_RUN2_PROBES", 10);
 const curlMaxTimeSeconds = numberEnv("MESH_BUS_RUN2_CURL_MAX_TIME_SECONDS", 30);
+const journalLines = numberEnv("MESH_BUS_RUN2_JOURNAL_LINES", 160);
 const artifactDir = env.MESH_BUS_ARTIFACT_DIR || "artifacts/live-acceptance";
 const allowBackgroundTraffic = boolEnv("MESH_BUS_RUN2_ALLOW_BACKGROUND_TRAFFIC");
 const allowServiceMutation = boolEnv("MESH_BUS_RUN2_ALLOW_SERVICE_MUTATION");
@@ -23,9 +28,14 @@ const result = {
   gateway_ssh: gatewaySsh,
   gateway_socks5: gatewaySocks5,
   gateway_operator: gatewayOperator,
+  gateway_service: gatewayService,
+  gateway_bin: gatewayBin,
+  gateway_admin_bin: gatewayAdminBin,
+  gateway_config: gatewayConfig,
   target,
   probes,
   curl_max_time_seconds: curlMaxTimeSeconds,
+  journal_lines: journalLines,
   allow_background_traffic: allowBackgroundTraffic,
   failover: {
     requested: Boolean(failoverPeerSsh || failoverExit),
@@ -36,20 +46,31 @@ const result = {
     stopped_exit_send_limit: failoverStoppedExitSendLimit,
   },
   samples: [],
+  diagnostics: {},
 };
 
 try {
-  await assertGatewayActive("before");
+  result.diagnostics.before = await assertGatewayService("before");
   result.status_before = await gatewayAdminJson("status");
   result.metrics_before = await gatewayAdminJson("metrics-snapshot");
   assertRun2Shape(result.status_before);
 
   for (let i = 1; i <= probes; i += 1) {
-    result.samples.push({
+    const sample = {
       iteration: i,
-      curl: await socks5Curl(),
-      metrics: summarizeMetrics(await gatewayAdminJson("metrics-snapshot")),
-    });
+      diagnostics_before: await collectGatewaySample(`probe-${i}-before`),
+    };
+    try {
+      sample.curl = await socks5Curl();
+      sample.metrics = summarizeMetrics(await gatewayAdminJson("metrics-snapshot"));
+      sample.diagnostics_after = await collectGatewaySample(`probe-${i}-after`);
+      result.samples.push(sample);
+    } catch (err) {
+      sample.error = err.message;
+      sample.diagnostics_after = await collectGatewayFull(`probe-${i}-failed`);
+      result.samples.push(sample);
+      throw err;
+    }
   }
 
   result.metrics_after = await gatewayAdminJson("metrics-snapshot");
@@ -61,11 +82,13 @@ try {
   }
 
   result.status = "ok";
+  result.diagnostics.after = await collectGatewayFull("after");
   result.artifact = writeArtifact(result);
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {
   result.status = "failed";
   result.error = err.message;
+  result.diagnostics.failure = await collectGatewayFull("failure");
   result.artifact = writeArtifact(result);
   console.error(`LIVE_RUN2_POOL_VALIDATION failed: ${err.message}`);
   console.error(`artifact=${result.artifact}`);
@@ -93,13 +116,30 @@ function boolEnv(name) {
   return raw === "1" || raw === "true" || raw === "yes";
 }
 
-async function assertGatewayActive(label) {
-  const active = (await ssh(gatewaySsh, "systemctl is-active mesh-bus-run2.service || systemctl is-active mesh-bus.service || true")).trim();
-  if (active !== "active") throw new Error(`gateway mesh-bus service not active ${label}: ${active}`);
+async function assertGatewayService(label) {
+  const snapshot = await collectGatewayFull(label);
+  result.diagnostics[label] = snapshot;
+  const state = snapshot.systemd?.ActiveState || "";
+  if (state !== "active") {
+    throw new Error(`${gatewayService} not active ${label}: ${state || "unknown"}`);
+  }
+  if (snapshot.exec_path !== gatewayBin) {
+    throw new Error(`${gatewayService} ExecStart mismatch: expected=${gatewayBin} actual=${snapshot.exec_path || "unknown"}`);
+  }
+  if (!snapshot.exec_start?.includes(gatewayConfig)) {
+    throw new Error(`${gatewayService} ExecStart does not include config ${gatewayConfig}`);
+  }
+  if (snapshot.binary?.status !== "ok") {
+    throw new Error(`gateway binary evidence missing: ${snapshot.binary?.error || gatewayBin}`);
+  }
+  if (snapshot.config?.status !== "ok") {
+    throw new Error(`gateway config evidence missing: ${snapshot.config?.error || gatewayConfig}`);
+  }
+  return snapshot;
 }
 
 async function gatewayAdminJson(command) {
-  const out = await ssh(gatewaySsh, `/opt/mesh-bus/bin/mesh-bus admin ${command} --api ${q(gatewayOperator)}`);
+  const out = await ssh(gatewaySsh, `${q(gatewayAdminBin)} admin ${command} --api ${q(gatewayOperator)}`);
   try {
     return JSON.parse(out);
   } catch (err) {
@@ -107,6 +147,95 @@ async function gatewayAdminJson(command) {
     err.stdout = out;
     throw err;
   }
+}
+
+async function collectGatewayFull(label) {
+  const systemdText = await sshText(
+    gatewaySsh,
+    `systemctl show ${q(gatewayService)} --no-pager ` +
+      "-p ActiveState -p SubState -p MainPID -p ExecMainPID -p ExecMainCode -p ExecMainStatus " +
+      "-p NRestarts -p ActiveEnterTimestamp -p FragmentPath -p ExecStart",
+  );
+  const systemd = parseKeyValues(systemdText);
+  const mainPid = nonZero(systemd.MainPID || systemd.ExecMainPID);
+  const execStart = systemd.ExecStart || "";
+  const snapshot = {
+    label,
+    at: new Date().toISOString(),
+    systemd,
+    exec_start: execStart,
+    exec_path: parseExecStartPath(execStart),
+    exec_path_expected: gatewayBin,
+    config_arg_expected: gatewayConfig,
+    binary: await remoteFileEvidence(gatewayBin),
+    admin_binary: gatewayAdminBin === gatewayBin ? null : await remoteFileEvidence(gatewayAdminBin),
+    config: await remoteFileEvidence(gatewayConfig),
+    process: mainPid ? await sshText(gatewaySsh, `ps -p ${q(mainPid)} -o pid,ppid,pcpu,pmem,rss,vsz,etime,stat,comm,args --no-headers || true`) : "",
+    threads: mainPid ? await sshText(gatewaySsh, `ps -L -p ${q(mainPid)} -o pid,tid,psr,pcpu,stat,comm,wchan:32 --no-headers || true`) : "",
+    proc_status: mainPid ? await sshText(gatewaySsh, `cat /proc/${q(mainPid)}/status 2>/dev/null || true`) : "",
+    sockets: await sshText(gatewaySsh, "ss -tanup 2>/dev/null | grep -E '(:2080|:19081|:9092|mesh-bus)' || true"),
+    journal_tail: await sshText(gatewaySsh, `journalctl -u ${q(gatewayService)} -n ${journalLines} --no-pager 2>/dev/null || true`),
+  };
+  snapshot.exec_path_matches = snapshot.exec_path === gatewayBin;
+  snapshot.config_arg_present = execStart.includes(gatewayConfig);
+  return snapshot;
+}
+
+async function collectGatewaySample(label) {
+  const systemdText = await sshText(
+    gatewaySsh,
+    `systemctl show ${q(gatewayService)} --no-pager -p ActiveState -p SubState -p MainPID -p ExecMainPID -p NRestarts`,
+  );
+  const systemd = parseKeyValues(systemdText);
+  const mainPid = nonZero(systemd.MainPID || systemd.ExecMainPID);
+  return {
+    label,
+    at: new Date().toISOString(),
+    systemd,
+    process: mainPid ? await sshText(gatewaySsh, `ps -p ${q(mainPid)} -o pid,pcpu,pmem,rss,vsz,etime,stat,comm --no-headers || true`) : "",
+    threads: mainPid ? await sshText(gatewaySsh, `ps -L -p ${q(mainPid)} -o pid,tid,psr,pcpu,stat,comm,wchan:32 --no-headers || true`) : "",
+    sockets: await sshText(gatewaySsh, "ss -tanup 2>/dev/null | grep -E '(:2080|:19081|:9092|mesh-bus)' || true"),
+  };
+}
+
+async function remoteFileEvidence(file) {
+  const out = await sshMaybe(gatewaySsh, [
+    "set -e",
+    `if [ ! -e ${q(file)} ]; then echo status=missing; exit 0; fi`,
+    `printf 'status=ok\\npath=%s\\n' ${q(file)}`,
+    `sha256sum ${q(file)} | awk '{print "sha256="$1}'`,
+    `stat -c 'size=%s mtime=%y mode=%a owner=%U:%G' ${q(file)}`,
+  ].join("; "));
+  if (!out.ok) {
+    return { status: "error", error: out.error, stdout: out.stdout, stderr: out.stderr };
+  }
+  return parseKeyValues(out.stdout);
+}
+
+function parseKeyValues(text) {
+  const out = {};
+  for (const line of String(text).split(/\r?\n/)) {
+    const idx = line.indexOf("=");
+    if (idx <= 0) continue;
+    out[line.slice(0, idx)] = line.slice(idx + 1);
+  }
+  return out;
+}
+
+function parseExecStartPath(execStart) {
+  const match = String(execStart).match(/path=([^ ;]+)/);
+  return match ? match[1] : "";
+}
+
+function nonZero(value) {
+  const text = String(value || "").trim();
+  return text && text !== "0" ? text : "";
+}
+
+async function sshText(host, command) {
+  const out = await sshMaybe(host, command);
+  if (out.ok) return out.stdout;
+  return [`error=${out.error}`, out.stdout.trim(), out.stderr.trim()].filter(Boolean).join("\n");
 }
 
 function assertRun2Shape(status) {
@@ -274,6 +403,20 @@ function writeArtifact(data) {
 
 function ssh(host, command) {
   return run("ssh", [host, command]);
+}
+
+async function sshMaybe(host, command) {
+  try {
+    const stdout = await ssh(host, command);
+    return { ok: true, stdout, stderr: "", error: "" };
+  } catch (err) {
+    return {
+      ok: false,
+      stdout: err.stdout || "",
+      stderr: err.stderr || "",
+      error: err.message,
+    };
+  }
 }
 
 function run(command, args) {

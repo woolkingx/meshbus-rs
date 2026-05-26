@@ -27,6 +27,33 @@ const MAX_UDP_PAYLOAD_BYTES: usize = 65_507;
 /// Largest UDP payload a single received datagram may carry.
 const RECV_BUF_BYTES: usize = 65_535;
 
+pub(super) struct RecvBatchScratch {
+    bufs: Vec<Vec<u8>>,
+    addrs: Vec<libc::sockaddr_storage>,
+}
+
+impl RecvBatchScratch {
+    pub(super) fn new() -> Self {
+        let bufs: Vec<Vec<u8>> = (0..MAX_MMSG).map(|_| vec![0u8; RECV_BUF_BYTES]).collect();
+        let addrs: Vec<libc::sockaddr_storage> =
+            (0..MAX_MMSG).map(|_| unsafe { mem::zeroed() }).collect();
+        let mut scratch = Self { bufs, addrs };
+        scratch.prepare_for_recv();
+        scratch
+    }
+
+    pub(super) fn prepare_for_recv(&mut self) {
+        for i in 0..MAX_MMSG {
+            self.addrs[i] = unsafe { mem::zeroed() };
+        }
+    }
+
+    #[cfg(test)]
+    fn buffer_ptrs_for_test(&self) -> Vec<usize> {
+        self.bufs.iter().map(|buf| buf.as_ptr() as usize).collect()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct GsoOutcome {
     pub segments: usize,
@@ -212,20 +239,22 @@ pub(super) fn sendmmsg(fd: RawFd, batch: &[OutboundDatagram]) -> io::Result<usiz
 
 /// Receive up to `MAX_MMSG` datagrams in one syscall. One vector entry per
 /// logical datagram, source endpoint preserved.
-pub(super) fn recvmmsg(fd: RawFd) -> io::Result<Vec<(SocketAddr, Vec<u8>)>> {
-    let mut bufs: Vec<Vec<u8>> = (0..MAX_MMSG).map(|_| vec![0u8; RECV_BUF_BYTES]).collect();
-    let mut addrs: Vec<libc::sockaddr_storage> =
-        (0..MAX_MMSG).map(|_| unsafe { mem::zeroed() }).collect();
+pub(super) fn recvmmsg(
+    fd: RawFd,
+    scratch: &mut RecvBatchScratch,
+) -> io::Result<Vec<(SocketAddr, Vec<u8>)>> {
+    scratch.prepare_for_recv();
     let mut iovecs: Vec<libc::iovec> = (0..MAX_MMSG)
         .map(|i| libc::iovec {
-            iov_base: bufs[i].as_mut_ptr() as *mut libc::c_void,
+            iov_base: scratch.bufs[i].as_mut_ptr() as *mut libc::c_void,
             iov_len: RECV_BUF_BYTES,
         })
         .collect();
     let mut msgs: Vec<libc::mmsghdr> = Vec::with_capacity(MAX_MMSG);
     for i in 0..MAX_MMSG {
         let mut hdr: libc::mmsghdr = unsafe { mem::zeroed() };
-        hdr.msg_hdr.msg_name = &mut addrs[i] as *mut libc::sockaddr_storage as *mut libc::c_void;
+        hdr.msg_hdr.msg_name =
+            &mut scratch.addrs[i] as *mut libc::sockaddr_storage as *mut libc::c_void;
         hdr.msg_hdr.msg_namelen = mem::size_of::<libc::sockaddr_storage>() as libc::socklen_t;
         hdr.msg_hdr.msg_iov = &mut iovecs[i] as *mut libc::iovec;
         hdr.msg_hdr.msg_iovlen = 1;
@@ -246,10 +275,14 @@ pub(super) fn recvmmsg(fd: RawFd) -> io::Result<Vec<(SocketAddr, Vec<u8>)>> {
     let mut out = Vec::with_capacity(res as usize);
     for i in 0..res as usize {
         let len = msgs[i].msg_len as usize;
-        let Some(src) = from_sockaddr(&addrs[i]) else {
+        let Some(src) = from_sockaddr(&scratch.addrs[i]) else {
             continue;
         };
-        out.push((src, bufs[i][..len.min(RECV_BUF_BYTES)].to_vec()));
+        out.push((src, scratch.bufs[i][..len.min(RECV_BUF_BYTES)].to_vec()));
     }
     Ok(out)
 }
+
+#[cfg(test)]
+#[path = "batch_linux_tests.rs"]
+mod batch_linux_tests;

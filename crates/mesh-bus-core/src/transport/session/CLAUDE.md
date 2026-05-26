@@ -5,7 +5,7 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-session governs:
+owned files:
   schema.json — data contract for L5 session domain types and trait capabilities
   types.rs — BusSessionRequest, BusSessionInfo, BusPathInfo, PathState, DisconnectReason, SendError; StreamSession/StreamSendHalf/StreamRecvHalf/DatagramSession/StreamEgress/DatagramEgress traits; Bus* canonical aliases
   data_handle.rs — InternalStreamSession, InternalStreamSendHalf, InternalStreamRecvHalf, InternalDatagramSession; session_info_for, validate_stream_request, validate_datagram_request, apply_request helpers

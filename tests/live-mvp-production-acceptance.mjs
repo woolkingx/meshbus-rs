@@ -9,6 +9,9 @@ const remoteHost = required("MESH_BUS_REMOTE_HOST");
 const remoteSocks5 = required("MESH_BUS_REMOTE_SOCKS5");
 const remoteOperator = required("MESH_BUS_REMOTE_OPERATOR");
 const remoteSsh = required("MESH_BUS_REMOTE_SSH");
+const remoteService = env.MESH_BUS_REMOTE_SERVICE || "mesh-bus.service";
+const remoteBin = env.MESH_BUS_REMOTE_BIN || "/opt/mesh-bus/bin/mesh-bus";
+const remoteAdminBin = env.MESH_BUS_REMOTE_ADMIN_BIN || remoteBin;
 const httpTarget = env.MESH_BUS_LIVE_HTTP_TARGET || "https://example.com";
 const dnsName = env.MESH_BUS_LIVE_DNS_NAME || "example.com";
 const httpProxy = env.MESH_BUS_REMOTE_HTTP_PROXY || "";
@@ -21,6 +24,9 @@ const meshsecProbeCommand = env.MESH_BUS_MESHSEC_PROBE_COMMAND || "";
 const result = {
   kind: "mesh_bus.live_mvp_production_acceptance",
   remote_host: remoteHost,
+  remote_service: remoteService,
+  remote_bin: remoteBin,
+  remote_admin_bin: remoteAdminBin,
   http_target: httpTarget,
   dns_name: dnsName,
   probes: [],
@@ -63,13 +69,13 @@ function required(name) {
 }
 
 async function assertRemoteServiceActive() {
-  const active = (await ssh("systemctl is-active mesh-bus.service")).trim();
-  if (active !== "active") die(`mesh-bus.service is not active: ${active}`);
+  const active = (await ssh(`systemctl is-active ${shellQuote(remoteService)}`)).trim();
+  if (active !== "active") die(`${remoteService} is not active: ${active}`);
   result.probes.push({ name: "systemd_active", status: "ok" });
 }
 
 async function remoteAdminJson(command) {
-  const out = await ssh(`/opt/mesh-bus/bin/mesh-bus admin ${command} --api ${shellQuote(remoteOperator)}`);
+  const out = await ssh(`${shellQuote(remoteAdminBin)} admin ${command} --api ${shellQuote(remoteOperator)}`);
   try {
     return JSON.parse(out);
   } catch (err) {
@@ -177,9 +183,9 @@ async function optionalClearFailClosedProbe() {
 }
 
 async function journalAuditProbe() {
-  const recent = await ssh("journalctl -u mesh-bus.service -n 200 --no-pager");
-  const activeSince = (await ssh("systemctl show mesh-bus.service -p ActiveEnterTimestamp --value")).trim();
-  const startup = await ssh(`journalctl -u mesh-bus.service --since ${shellQuote(activeSince)} --no-pager`);
+  const recent = await ssh(`journalctl -u ${shellQuote(remoteService)} -n 200 --no-pager`);
+  const activeSince = (await ssh(`systemctl show ${shellQuote(remoteService)} -p ActiveEnterTimestamp --value`)).trim();
+  const startup = await ssh(`journalctl -u ${shellQuote(remoteService)} --since ${shellQuote(activeSince)} --no-pager`);
 
   const startupRequired = [
     "mesh_bus_starting",

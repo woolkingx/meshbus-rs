@@ -1,40 +1,44 @@
 //! Raw UDP Mesh Protocol ingress adapter.
 
+mod mouth_registry;
+mod sender;
+
 use async_trait::async_trait;
 use bytes::{Bytes, BytesMut};
 use mb_endpoint::Endpoint;
+#[cfg(test)]
+use mb_proto_mesh::ReceiverMouth;
 use mb_proto_mesh::{
     CloseReasonWire, EventSemantic, MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS, MESHSEC_REPLAY_WINDOW_BITS,
     MeshFrame, MeshSecError, MeshSecOpenKey, MeshSecReplayCache, MeshSecSealContext,
-    NativeEventMode, ReceiverMouth, StreamOpenRejectReason, decode_event, decode_frame,
-    decode_mesh_frame_clear, encode_frame, event_frame_payload, meshsec_epoch_number, open_bytes,
-    seal_mesh_frame,
+    NativeEventMode, StreamOpenRejectReason, decode_event, decode_frame, decode_mesh_frame_clear,
+    event_frame_payload, meshsec_epoch_number, open_bytes,
 };
 use mb_reorder::{FamilyPushOutcome, FamilyReorderState};
-use mesh_bus_core::transport::udp_loop::{OutboundDatagram, UdpPacketLoop};
+use mesh_bus_core::transport::udp_loop::UdpPacketLoop;
 use mesh_bus_core::{
     BusDatagramRecvHalf, BusDatagramSendHalf, BusError, BusPort, BusSessionRequest,
     BusStreamRecvHalf, BusStreamSendHalf, DisconnectReason, IngressPlugin,
     kernel::observation::{EventPayload, EventPayloadInner, OBS_MESHSEC_DROP, OBS_NATIVE_DROP},
 };
+#[cfg(test)]
+use mouth_registry::MOUTH_SOFT_TTL_SECS;
+use mouth_registry::{MouthEntry, MouthKey, apply_port_close, apply_port_open};
+use sender::MeshPeerIngressSender;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
 
 const MAX_PEER_SESSIONS: usize = 1024;
+const DEFAULT_PENDING_STREAM_DATA_MAX_BYTES: usize = 64 * 1024;
 
 /// Bounded per-family reorder window for native-mode ordered families. Frames
 /// beyond this distance close the family fail-closed (no bus re-entry).
 const NATIVE_REORDER_WINDOW: u16 = 64;
-
-/// Soft TTL for a receiver mouth entry. A mouth not re-advertised within this
-/// window is pruned on the next PortOpen for its peer. The registry holds
-/// delivery coordinates only; expiry never tears down a bus session.
-const MOUTH_SOFT_TTL_SECS: u64 = 30;
 
 fn now_unix_secs() -> u64 {
     SystemTime::now()
@@ -56,6 +60,7 @@ enum NativeDropReason {
     UnsupportedEventFamily,
     QueueOverflow,
     PackageFrameDecode,
+    StreamDataPending,
 }
 
 fn native_drop_reason(reason: NativeDropReason) -> &'static str {
@@ -66,6 +71,7 @@ fn native_drop_reason(reason: NativeDropReason) -> &'static str {
         NativeDropReason::UnsupportedEventFamily => "unsupported_event_family",
         NativeDropReason::QueueOverflow => "queue_overflow",
         NativeDropReason::PackageFrameDecode => "package_frame_decode",
+        NativeDropReason::StreamDataPending => "stream_data_pending",
     }
 }
 
@@ -120,6 +126,8 @@ struct MeshSecIngress {
 }
 
 const MESHSEC_STREAM_CHUNK_BYTES: usize = 832;
+const STREAM_FLUSH_CHUNK_BATCH: usize = 64;
+const CONTROL_REPLY_BOUND: usize = 64;
 
 /// Reverse sealing state for one matched peer so `DatagramReturn` /
 /// `StreamOpenReject` replies never travel in clear. The counter is shared per
@@ -154,6 +162,7 @@ fn reply_seal_for(
 pub struct MeshPeerUdpIngress {
     packet_loop: UdpPacketLoop,
     max_peer_sessions: usize,
+    pending_stream_data_max_bytes: usize,
     meshsec: Option<MeshSecIngress>,
     native_event_mode: NativeEventMode,
 }
@@ -163,6 +172,7 @@ impl MeshPeerUdpIngress {
         Self {
             packet_loop,
             max_peer_sessions: MAX_PEER_SESSIONS,
+            pending_stream_data_max_bytes: DEFAULT_PENDING_STREAM_DATA_MAX_BYTES,
             meshsec: None,
             native_event_mode: NativeEventMode::default(),
         }
@@ -170,6 +180,11 @@ impl MeshPeerUdpIngress {
 
     pub fn with_max_peer_sessions(mut self, max: usize) -> Self {
         self.max_peer_sessions = max.max(1);
+        self
+    }
+
+    pub fn with_pending_stream_data_max_bytes(mut self, max: usize) -> Self {
+        self.pending_stream_data_max_bytes = max.max(1);
         self
     }
 
@@ -223,90 +238,46 @@ impl PeerStreamSession {
 
 type SessionKey = (SocketAddr, String);
 type FamilyKey = (SocketAddr, String);
-type MouthKey = (SocketAddr, String);
 
-/// One receiver-mouth registry entry. Delivery coordinate only — it carries no
-/// session, route, or channel truth and never owns a bus session. `epoch` and
-/// `last_seen` drive rotation/TTL; the remaining fields are the recorded
-/// delivery-coordinate evidence consumed by M6 LinkEvidence / M7 DeliveryPolicy.
-struct MouthEntry {
-    epoch: u64,
-    #[allow(dead_code)]
-    udp_addr: String,
-    #[allow(dead_code)]
-    family_filter: Vec<String>,
-    #[allow(dead_code)]
-    advertised_capacity: u32,
-    last_seen: u64,
+struct ControlReply {
+    peer: SocketAddr,
+    native_event_mode: NativeEventMode,
+    seal: Option<MeshSecReplySeal>,
+    frame: MeshFrame,
 }
 
-/// Apply a PortOpen advertisement to the receiver-mouth registry. Pure
-/// delivery-coordinate bookkeeping: it never opens, closes, or mutates a bus
-/// session, family-reorder state, or route. Soft-TTL-expired entries for the
-/// peer are pruned first. A stale-epoch advertisement (older than the recorded
-/// epoch for the same mouth) is ignored. Make-before-break: a fresh or rotated
-/// mouth is eligible immediately on upsert. Returns true when the registry now
-/// reflects this mouth, false when the advertisement was ignored as stale.
-fn apply_port_open(
-    mouths: &mut HashMap<MouthKey, MouthEntry>,
-    peer: SocketAddr,
-    mouth: &ReceiverMouth,
-    now: u64,
-) -> bool {
-    mouths.retain(|(p, _), e| *p != peer || now.saturating_sub(e.last_seen) <= MOUTH_SOFT_TTL_SECS);
-    let key = (peer, mouth.mouth_id.clone());
-    if let Some(existing) = mouths.get(&key) {
-        if existing.epoch > mouth.epoch {
-            return false;
-        }
-    }
-    mouths.insert(
-        key,
-        MouthEntry {
-            epoch: mouth.epoch,
-            udp_addr: mouth.udp_addr.clone(),
-            family_filter: mouth.family_filter.clone(),
-            advertised_capacity: mouth.advertised_capacity,
-            last_seen: now,
-        },
-    );
-    true
+struct PendingStreamData {
+    frames: Vec<Bytes>,
+    bytes: usize,
 }
 
-/// Apply a PortClose to the registry. A stale-epoch close (older than the
-/// recorded epoch) is ignored so a late close cannot retract a rotated mouth.
-/// Pure registry bookkeeping — never touches a bus session. Returns true when
-/// an entry was removed.
-fn apply_port_close(
-    mouths: &mut HashMap<MouthKey, MouthEntry>,
-    peer: SocketAddr,
-    mouth_id: &str,
-    epoch: u64,
-) -> bool {
-    let key = (peer, mouth_id.to_string());
-    match mouths.get(&key) {
-        Some(existing) if existing.epoch > epoch => false,
-        Some(_) => mouths.remove(&key).is_some(),
-        None => false,
+impl PendingStreamData {
+    fn push(&mut self, payload: Bytes) {
+        self.bytes = self.bytes.saturating_add(payload.len());
+        self.frames.push(payload);
     }
 }
 
 fn spawn_response_pump(
-    packet_loop: Arc<UdpPacketLoop>,
+    sender: MeshPeerIngressSender,
     peer: SocketAddr,
     session_id: String,
     mut recv: Box<dyn BusDatagramRecvHalf>,
     reply_seal: Option<MeshSecReplySeal>,
+    native_event_mode: NativeEventMode,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
+        let mut seq = 1u64;
         while let Some((source, payload)) = recv.recv_from().await {
             let frame = MeshFrame::DatagramReturn {
                 session_id: session_id.clone(),
-                seq: 0,
+                seq,
                 source,
                 payload,
             };
-            if send_mesh_frame(&packet_loop, peer, reply_seal.as_ref(), &frame)
+            seq = seq.saturating_add(1);
+            if sender
+                .send_frame(peer, native_event_mode, reply_seal.clone(), frame)
                 .await
                 .is_err()
             {
@@ -316,44 +287,72 @@ fn spawn_response_pump(
     })
 }
 
+fn spawn_control_reply_worker(
+    sender: MeshPeerIngressSender,
+    mut rx: mpsc::Receiver<ControlReply>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        while let Some(reply) = rx.recv().await {
+            let _ = sender
+                .send_frame(reply.peer, reply.native_event_mode, reply.seal, reply.frame)
+                .await;
+        }
+    })
+}
+
 fn spawn_stream_response_pump(
-    packet_loop: Arc<UdpPacketLoop>,
+    sender: MeshPeerIngressSender,
     peer: SocketAddr,
     session_id: String,
     mut recv: Box<dyn BusStreamRecvHalf>,
     reply_seal: Option<MeshSecReplySeal>,
+    native_event_mode: NativeEventMode,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut seq = 1u64;
         while let Some(payload) = recv.recv().await {
             let chunk_bytes = stream_chunk_bytes(reply_seal.as_ref());
+            let mut frames = Vec::new();
             for chunk in payload.chunks(chunk_bytes) {
-                let frame = MeshFrame::StreamData {
+                frames.push(MeshFrame::StreamData {
                     session_id: session_id.clone(),
                     seq,
                     payload: Bytes::copy_from_slice(chunk),
-                };
+                });
                 seq = seq.saturating_add(1);
-                if send_mesh_frame(&packet_loop, peer, reply_seal.as_ref(), &frame)
-                    .await
-                    .is_err()
-                {
-                    return;
-                }
-                if reply_seal.is_some() {
-                    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+                if frames.len() >= STREAM_FLUSH_CHUNK_BATCH {
+                    if sender
+                        .send_data_frames(
+                            peer,
+                            native_event_mode,
+                            reply_seal.clone(),
+                            std::mem::take(&mut frames),
+                        )
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
                 }
             }
+            if sender
+                .send_data_frames(peer, native_event_mode, reply_seal.clone(), frames)
+                .await
+                .is_err()
+            {
+                return;
+            }
         }
-        let _ = send_mesh_frame(
-            &packet_loop,
-            peer,
-            reply_seal.as_ref(),
-            &MeshFrame::StreamShutdownWrite {
-                session_id: session_id.clone(),
-            },
-        )
-        .await;
+        let _ = sender
+            .send_frame(
+                peer,
+                native_event_mode,
+                reply_seal,
+                MeshFrame::StreamShutdownWrite {
+                    session_id: session_id.clone(),
+                },
+            )
+            .await;
     })
 }
 
@@ -367,11 +366,12 @@ fn stream_chunk_bytes(seal: Option<&MeshSecReplySeal>) -> usize {
 
 async fn open_peer_datagram_session(
     port: &BusPort,
-    packet_loop: Arc<UdpPacketLoop>,
+    sender: MeshPeerIngressSender,
     peer: SocketAddr,
     session_id: String,
     target: Endpoint,
     reply_seal: Option<MeshSecReplySeal>,
+    native_event_mode: NativeEventMode,
 ) -> Option<Arc<PeerDatagramSession>> {
     let Ok(session) = port
         .open_datagram(BusSessionRequest::datagram(target))
@@ -380,7 +380,14 @@ async fn open_peer_datagram_session(
         return None;
     };
     let (send, recv) = session.split();
-    let pump = spawn_response_pump(packet_loop, peer, session_id, recv, reply_seal);
+    let pump = spawn_response_pump(
+        sender,
+        peer,
+        session_id,
+        recv,
+        reply_seal,
+        native_event_mode,
+    );
     Some(Arc::new(PeerDatagramSession {
         send: Mutex::new(send),
         pump,
@@ -389,10 +396,11 @@ async fn open_peer_datagram_session(
 
 async fn open_peer_stream_session(
     port: &BusPort,
-    packet_loop: Arc<UdpPacketLoop>,
+    sender: MeshPeerIngressSender,
     peer: SocketAddr,
     open: mb_proto_mesh::StreamOpen,
     reply_seal: Option<MeshSecReplySeal>,
+    native_event_mode: NativeEventMode,
 ) -> Result<Arc<PeerStreamSession>, DisconnectReason> {
     let mut request = BusSessionRequest::stream(open.target);
     if let Some(route_group) = open.route_group {
@@ -401,7 +409,14 @@ async fn open_peer_stream_session(
     let mut session = port.open_stream(request).await?;
     session.connect().await?;
     let (send, recv) = session.split();
-    let pump = spawn_stream_response_pump(packet_loop, peer, open.session_id, recv, reply_seal);
+    let pump = spawn_stream_response_pump(
+        sender,
+        peer,
+        open.session_id,
+        recv,
+        reply_seal,
+        native_event_mode,
+    );
     Ok(Arc::new(PeerStreamSession {
         send: Mutex::new(send),
         pump,
@@ -416,12 +431,16 @@ impl IngressPlugin for MeshPeerUdpIngress {
 
     async fn run(self: Box<Self>, port: BusPort) -> Result<(), BusError> {
         let max_peer_sessions = self.max_peer_sessions;
+        let pending_stream_data_max_bytes = self.pending_stream_data_max_bytes;
         let meshsec = self.meshsec;
         let native_event_mode = self.native_event_mode;
         let packet_loop = Arc::new(self.packet_loop);
+        let sender = MeshPeerIngressSender::spawn(packet_loop.clone());
+        let (control_reply_tx, control_reply_rx) = mpsc::channel(CONTROL_REPLY_BOUND);
+        let _control_reply_worker = spawn_control_reply_worker(sender.clone(), control_reply_rx);
         let mut sessions: HashMap<SessionKey, Arc<PeerDatagramSession>> = HashMap::new();
         let mut stream_sessions: HashMap<SessionKey, Arc<PeerStreamSession>> = HashMap::new();
-        let mut pending_stream_data: HashMap<SessionKey, Vec<Bytes>> = HashMap::new();
+        let mut pending_stream_data: HashMap<SessionKey, PendingStreamData> = HashMap::new();
         let mut family_states: HashMap<FamilyKey, FamilyReorderState> = HashMap::new();
         let mut mouths: HashMap<MouthKey, MouthEntry> = HashMap::new();
         let mut replay = MeshSecReplayCache::new(MESHSEC_REPLAY_WINDOW_BITS);
@@ -573,19 +592,15 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                     FamilyPushOutcome::Gap(ack) => {
                                         // L5 feedback: report the missing seqs
                                         // so a Repair-mode egress retransmits.
-                                        // Best-effort; the AckNack carries no
-                                        // route/session truth and a failed
-                                        // send-back just waits for the next
-                                        // gap. Replicate dedup needs nothing
-                                        // here — a duplicate seq already lands
-                                        // as Duplicate below.
-                                        let _ = send_mesh_frame(
-                                            &packet_loop,
+                                        // Control replies are queued to the
+                                        // worker so native receive/reorder never
+                                        // waits on packet-loop flush.
+                                        let _ = control_reply_tx.try_send(ControlReply {
                                             peer,
-                                            reply_seal.as_ref(),
-                                            &MeshFrame::AckNack(ack),
-                                        )
-                                        .await;
+                                            native_event_mode,
+                                            seal: reply_seal.clone(),
+                                            frame: MeshFrame::AckNack(ack),
+                                        });
                                         continue;
                                     }
                                     FamilyPushOutcome::Buffered | FamilyPushOutcome::Duplicate => {
@@ -610,11 +625,12 @@ impl IngressPlugin for MeshPeerUdpIngress {
                             }
                             if let Some(session) = open_peer_datagram_session(
                                 &port,
-                                packet_loop.clone(),
+                                sender.clone(),
                                 peer,
                                 open.session_id,
                                 target,
                                 reply_seal,
+                                native_event_mode,
                             )
                             .await
                             {
@@ -640,11 +656,12 @@ impl IngressPlugin for MeshPeerUdpIngress {
                             } else {
                                 let Some(session) = open_peer_datagram_session(
                                     &port,
-                                    packet_loop.clone(),
+                                    sender.clone(),
                                     peer,
                                     session_id.clone(),
                                     target.clone(),
                                     reply_seal,
+                                    native_event_mode,
                                 )
                                 .await
                                 else {
@@ -677,10 +694,11 @@ impl IngressPlugin for MeshPeerUdpIngress {
                             let open_token = open.open_token;
                             match open_peer_stream_session(
                                 &port,
-                                packet_loop.clone(),
+                                sender.clone(),
                                 peer,
                                 open,
                                 reply_seal.clone(),
+                                native_event_mode,
                             )
                             .await
                             {
@@ -689,13 +707,14 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                         session_id: session_id.clone(),
                                         open_token,
                                     };
-                                    let _ = send_mesh_frame(
-                                        &packet_loop,
-                                        peer,
-                                        reply_seal.as_ref(),
-                                        &accepted,
-                                    )
-                                    .await;
+                                    let _ = sender
+                                        .send_frame(
+                                            peer,
+                                            native_event_mode,
+                                            reply_seal.clone(),
+                                            accepted,
+                                        )
+                                        .await;
                                     if stream_sessions.len() >= max_peer_sessions {
                                         if let Some(evict) = stream_sessions.keys().next().cloned()
                                         {
@@ -706,7 +725,7 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                     }
                                     stream_sessions.insert(key.clone(), session.clone());
                                     if let Some(pending) = pending_stream_data.remove(&key) {
-                                        for payload in pending {
+                                        for payload in pending.frames {
                                             if session
                                                 .send
                                                 .lock()
@@ -731,13 +750,9 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                         reason: reject_reason(&reason),
                                         close_reason: close_reason_wire(&reason),
                                     };
-                                    let _ = send_mesh_frame(
-                                        &packet_loop,
-                                        peer,
-                                        reply_seal.as_ref(),
-                                        &reject,
-                                    )
-                                    .await;
+                                    let _ = sender
+                                        .send_frame(peer, native_event_mode, reply_seal, reject)
+                                        .await;
                                 }
                             }
                         }
@@ -754,7 +769,19 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                     }
                                 }
                             } else {
-                                pending_stream_data.entry(key).or_default().push(payload);
+                                let pending = pending_stream_data.entry(key).or_insert_with(|| {
+                                    PendingStreamData {
+                                        frames: Vec::new(),
+                                        bytes: 0,
+                                    }
+                                });
+                                if pending.bytes.saturating_add(payload.len())
+                                    > pending_stream_data_max_bytes
+                                {
+                                    drop_native(&port, peer, NativeDropReason::StreamDataPending);
+                                    continue;
+                                }
+                                pending.push(payload);
                             }
                         }
                         MeshFrame::StreamOpenAccepted { .. } => {}
@@ -785,30 +812,6 @@ impl IngressPlugin for MeshPeerUdpIngress {
     }
 }
 
-async fn send_mesh_frame(
-    packet_loop: &UdpPacketLoop,
-    peer: SocketAddr,
-    seal: Option<&MeshSecReplySeal>,
-    frame: &MeshFrame,
-) -> Result<(), std::io::Error> {
-    let encoded = match seal {
-        Some(s) => seal_mesh_frame(
-            frame,
-            &s.ctx,
-            meshsec_epoch_number(now_unix_secs()),
-            s.counter.fetch_add(1, Ordering::Relaxed),
-        )
-        .map_err(|err| std::io::Error::other(err.to_string()))?,
-        None => encode_frame(frame).map_err(|err| std::io::Error::other(err.to_string()))?,
-    };
-    packet_loop.enqueue(OutboundDatagram {
-        destination: peer,
-        payload: Bytes::from(encoded),
-    });
-    packet_loop.flush().await?;
-    Ok(())
-}
-
 fn reject_reason(reason: &DisconnectReason) -> StreamOpenRejectReason {
     match reason {
         DisconnectReason::NoUsableExit | DisconnectReason::HostUnreachable => {
@@ -837,92 +840,4 @@ fn close_reason_wire(reason: &DisconnectReason) -> CloseReasonWire {
 }
 
 #[cfg(test)]
-mod mouth_registry_tests {
-    use super::*;
-
-    fn mouth(id: &str, addr: &str, epoch: u64) -> ReceiverMouth {
-        ReceiverMouth {
-            mouth_id: id.into(),
-            udp_addr: addr.into(),
-            family_filter: vec!["datagram".into()],
-            advertised_capacity: 1024,
-            epoch,
-        }
-    }
-
-    fn peer() -> SocketAddr {
-        "127.0.0.1:9100".parse().unwrap()
-    }
-
-    #[test]
-    fn initial_mouth_is_recorded() {
-        let mut mouths: HashMap<MouthKey, MouthEntry> = HashMap::new();
-        assert!(apply_port_open(
-            &mut mouths,
-            peer(),
-            &mouth("m1", "10.0.0.1:7001", 1),
-            100
-        ));
-        let e = mouths.get(&(peer(), "m1".into())).unwrap();
-        assert_eq!(e.epoch, 1);
-        assert_eq!(e.udp_addr, "10.0.0.1:7001");
-        assert_eq!(e.last_seen, 100);
-    }
-
-    #[test]
-    fn mouth_rotation_make_before_break_keeps_old_until_close() {
-        let mut mouths: HashMap<MouthKey, MouthEntry> = HashMap::new();
-        apply_port_open(&mut mouths, peer(), &mouth("m1", "10.0.0.1:7001", 1), 100);
-        // New mouth becomes eligible immediately; old mouth still present.
-        assert!(apply_port_open(
-            &mut mouths,
-            peer(),
-            &mouth("m2", "10.0.0.1:7002", 2),
-            101
-        ));
-        assert!(mouths.contains_key(&(peer(), "m1".into())));
-        assert!(mouths.contains_key(&(peer(), "m2".into())));
-        // Old mouth closes only after the new one is live (break).
-        assert!(apply_port_close(&mut mouths, peer(), "m1", 1));
-        assert!(!mouths.contains_key(&(peer(), "m1".into())));
-        assert!(mouths.contains_key(&(peer(), "m2".into())));
-    }
-
-    #[test]
-    fn stale_epoch_mouth_open_and_close_are_ignored() {
-        let mut mouths: HashMap<MouthKey, MouthEntry> = HashMap::new();
-        apply_port_open(&mut mouths, peer(), &mouth("m1", "10.0.0.1:7002", 5), 100);
-        // Stale-epoch re-open does not regress the coordinate.
-        assert!(!apply_port_open(
-            &mut mouths,
-            peer(),
-            &mouth("m1", "10.0.0.1:7001", 3),
-            101
-        ));
-        assert_eq!(
-            mouths.get(&(peer(), "m1".into())).unwrap().udp_addr,
-            "10.0.0.1:7002"
-        );
-        // Stale-epoch close cannot retract a rotated mouth.
-        assert!(!apply_port_close(&mut mouths, peer(), "m1", 4));
-        assert!(mouths.contains_key(&(peer(), "m1".into())));
-        // Current-or-newer-epoch close removes it.
-        assert!(apply_port_close(&mut mouths, peer(), "m1", 5));
-        assert!(!mouths.contains_key(&(peer(), "m1".into())));
-    }
-
-    #[test]
-    fn soft_ttl_expired_mouth_is_pruned_on_next_open() {
-        let mut mouths: HashMap<MouthKey, MouthEntry> = HashMap::new();
-        apply_port_open(&mut mouths, peer(), &mouth("m1", "10.0.0.1:7001", 1), 100);
-        // A later PortOpen for a different mouth, past the soft TTL, prunes m1.
-        apply_port_open(
-            &mut mouths,
-            peer(),
-            &mouth("m2", "10.0.0.1:7002", 1),
-            100 + MOUTH_SOFT_TTL_SECS + 1,
-        );
-        assert!(!mouths.contains_key(&(peer(), "m1".into())));
-        assert!(mouths.contains_key(&(peer(), "m2".into())));
-    }
-}
+mod mouth_registry_tests;

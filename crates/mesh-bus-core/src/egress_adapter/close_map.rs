@@ -13,6 +13,7 @@ pub(super) fn close_from_disconnect(reason: DisconnectReason) -> CloseReason {
         DisconnectReason::NoUsableExit => CloseReason::NoUsableExit,
         DisconnectReason::SessionClosed => CloseReason::SessionClosed,
         DisconnectReason::ReaderClosed => CloseReason::ReaderClosed,
+        DisconnectReason::QueueFull => CloseReason::ConnectionReset,
         DisconnectReason::AddressNotSupported => CloseReason::AddressNotSupported,
         DisconnectReason::Other(s) => CloseReason::Other(s),
     }

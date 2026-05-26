@@ -2,6 +2,74 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "mb-loadbalance/schema.json",
   "title": "mb-loadbalance",
-  "description": "This crate provides pure load-balancing algorithms (WRR, SWRR, ConsistentHash, StickyTable); data types are imported from /schemas/ via mesh-bus-schema.",
-  "type": "object"
+  "description": "Pure load-balancing algorithm data: candidate rows, sticky state, and source lease rotation. It owns no runtime health, sockets, protocol syntax, or dispatch evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "candidate": { "$ref": "#/$defs/Candidate" },
+    "source_lease_activity": { "$ref": "#/$defs/SourceLeaseActivity" },
+    "source_lease_rotate_config": { "$ref": "#/$defs/SourceLeaseRotateConfig" },
+    "source_lease_decision": { "$ref": "#/$defs/SourceLeaseDecision" }
+  },
+  "$defs": {
+    "Candidate": {
+      "description": "Weighted algorithm input row. The scheduler/runtime owns candidate filtering; this crate only ranks rows it receives.",
+      "type": "object",
+      "required": ["id", "weight"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "weight": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "SourceLeaseActivity": {
+      "description": "External source lifecycle evidence consumed by SourceLeaseRotate. It mirrors core SourceActivity: absence means unknown/no lifecycle evidence; presence is either active or true-idle.",
+      "oneOf": [
+        {
+          "title": "active-source",
+          "type": "object",
+          "required": ["active_flows"],
+          "properties": {
+            "active_flows": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "title": "idle-source",
+          "type": "object",
+          "required": ["active_flows", "idle_since_ms"],
+          "properties": {
+            "active_flows": { "const": 0 },
+            "idle_since_ms": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SourceLeaseRotateConfig": {
+      "type": "object",
+      "required": ["idle_timeout_ms", "max_age_ms", "max_age_policy", "switch_cooldown_ms"],
+      "properties": {
+        "idle_timeout_ms": { "type": "integer", "minimum": 1 },
+        "max_age_ms": { "type": "integer", "minimum": 1 },
+        "max_age_policy": { "type": "string", "enum": ["off", "soft", "hard"] },
+        "switch_cooldown_ms": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "SourceLeaseReason": {
+      "type": "string",
+      "enum": ["new", "hit", "idle-expired", "max-age-soft", "max-age-hard", "unhealthy"]
+    },
+    "SourceLeaseDecision": {
+      "type": "object",
+      "required": ["candidate_id", "reason", "generation"],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "reason": { "$ref": "#/$defs/SourceLeaseReason" },
+        "generation": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
 }

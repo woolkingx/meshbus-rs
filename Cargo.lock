@@ -639,6 +639,14 @@ name = "mb-loadbalance"
 version = "0.1.0"
 dependencies = [
  "fxhash",
+ "serde_json",
+]
+
+[[package]]
+name = "mb-mesh-control"
+version = "0.1.0"
+dependencies = [
+ "mb-proto-mesh",
 ]
 
 [[package]]
@@ -679,6 +687,7 @@ dependencies = [
  "hmac",
  "mb-endpoint",
  "serde",
+ "serde_json",
  "sha2",
  "thiserror 1.0.69",
 ]
@@ -751,7 +760,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "mesh-bus-bin"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -802,6 +811,7 @@ dependencies = [
  "bytes",
  "mb-endpoint",
  "mb-proto-mesh",
+ "mb-reorder",
  "mesh-bus-core",
  "rand",
  "tokio",

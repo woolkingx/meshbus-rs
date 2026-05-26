@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mb-mesh-control/schema.json",
+  "title": "mb-mesh-control",
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Pure Mesh Protocol path controller state. It borrows QUIC loss/control primitives without owning QUIC connection or stream ontology.",
+  "properties": {
+    "owner_layer": { "const": "L5/L4-control" },
+    "path_controller_ref": { "const": "lib/mb-proto-mesh/schema.json#/properties/path_controller_v1" },
+    "forbidden_ownership": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "quic_connection",
+          "quic_stream",
+          "udp_socket",
+          "mesh_route_truth",
+          "mesh_session_truth",
+          "l7_payload"
+        ]
+      }
+    }
+  },
+  "required": ["owner_layer", "path_controller_ref"]
+}

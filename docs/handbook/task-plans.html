@@ -94,6 +94,20 @@ tests/live gates = completion evidence</div>
           <td>Gate before NVIDIA Air: <code>tests/live-run2-pool-validation.mjs</code> passes in read-only mode; optional failover mode proves failed-peer avoidance and service recovery; sanitized configs pass <code>mesh-bus check</code>.</td>
         </tr>
         <tr>
+          <td>5.4</td>
+          <td><a href="../plan/2026-05-26-coding-structure-systematic-optimization.md">Coding structure systematic optimization</a></td>
+          <td><a href="documentation-architecture.html">documentation architecture</a>, <a href="testing-gates.html">testing gates</a>, <a href="testing-index.html">testing index</a></td>
+          <td><span class="ok">Complete.</span> Production logic and durable proof bodies were split back into owner-local files, and structural drift is now mechanically visible through repository tooling.</td>
+          <td>Gate passed: <code>node tools/audit-coding-structure.mjs --fail</code> reports inline test bodies 0, oversized source files 0, oversized test files 0, and contract coverage issues 0; <code>node tools/extract-inline-rust-tests.mjs --dry-run</code> reports 0 extracted modules; workspace lib and affected integration tests passed during plan closure.</td>
+        </tr>
+        <tr>
+          <td>5.5</td>
+          <td><a href="../plan/2026-05-26-handbook-consistency-fix-plan.md">Handbook consistency fix plan</a></td>
+          <td><a href="documentation-architecture.html">documentation architecture</a>, <a href="system-architecture.html">system architecture</a>, <a href="mesh-protocol.html">Mesh Protocol</a>, <a href="testing-gates.html">testing gates</a></td>
+          <td><span class="ok">Complete.</span> Hard handbook drift is fixed, stale test projection was regenerated, flowgraph now emits the machine-readable boundary edge projection, act-rule graph headings were normalized, and every handbook section has a table/flow/svg coordinate surface.</td>
+          <td>Gate passed: <code>node docs/handbook/handbook-gate.mjs</code> hard=0 advisory=0, <code>node tools/audit-coding-structure.mjs --fail</code> clean, <code>node tools/flowgraph.mjs --out-dir artifacts/flowgraph</code> findings none, <code>python3 tools/validate-schema-instances.py</code> validates the data/control matrix, and <code>git diff --check</code> passes.</td>
+        </tr>
+        <tr>
           <td>6</td>
           <td>test runtime rewrite</td>
           <td><a href="testing-gates.html">testing gates</a>, <a href="testing-index.html">testing index</a></td>
@@ -105,7 +119,7 @@ tests/live gates = completion evidence</div>
           <td>handbook topology alignment cleanup</td>
           <td><a href="documentation-architecture.html">documentation architecture</a>, <a href="mesh-protocol.html">Mesh Protocol</a></td>
           <td><span class="ok">Complete.</span> Handbook is the topologic/logic schema; schema.json is data/structure schema; CLAUDE.md is execution boot card; plans are one-time task artifacts.</td>
-          <td>Gate green: handbook topology gate hard=0, link check OK, parse OK, stale semantics OK. Remaining advisory items are boot-card slimming and optional diagram/table enrichment.</td>
+          <td>Gate green: handbook topology gate hard=0 advisory=0, link check OK, parse OK, stale semantics OK. Boot-card headings and section coordinate coverage have been folded into the handbook consistency line.</td>
         </tr>
         <tr>
           <td>8</td>
@@ -136,6 +150,7 @@ tests/live gates = completion evidence</div>
 
     <section id="status-rules">
       <h2>Status Rules</h2>
+      <div class="flow">status-rules -> runnable plan -> verification gate -> status truth</div>
       <ul>
         <li><span class="bad">Blocked</span> means a lower layer can make higher-layer test results misleading.</li>
         <li><span class="warn">To execute</span> means the handbook spec is ready and the runnable plan exists, but implementation has not passed gates.</li>

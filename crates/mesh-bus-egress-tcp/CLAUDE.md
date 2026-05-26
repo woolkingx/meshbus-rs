@@ -8,11 +8,11 @@ design-rule:
 mesh-bus-egress-tcp implements:
   StreamEgress — TCP target factory; each StreamSession owns one TCP connection
 
-mesh-bus-egress-tcp governs:
+owned files:
   src/lib.rs — TcpEgress factory plus per-session split send/recv halves; send writes client bytes, recv returns upstream chunks; with_fixed_target(Endpoint) pins the dial endpoint so the session ignores request.target (used by service-sink egress for reverse stream)
   tests/echo.rs — stream conformance, echo server roundtrip, large response streaming, delayed-reader backpressure smoke, and timeout failure tests
 
-mesh-bus-egress-tcp depends_on:
+local dependencies:
   mesh-bus-core — StreamEgress, StreamSession, StreamSendHalf, StreamRecvHalf, SessionInfo
   mb-endpoint — Endpoint type
   tokio — async TCP, timeouts

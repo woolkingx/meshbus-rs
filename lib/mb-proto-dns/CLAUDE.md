@@ -9,7 +9,7 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mb-proto-dns governs:
+owned files:
   src/types.rs — Name, QType, RClass, RData (A/AAAA/PTR/CNAME/TXT/OPT), Question, ResourceRecord, Message, MessageHeader, EdnsConfig, TcpDnsFrame
   src/encode.rs — encode_message, encode_query, encode_name, edns_opt_rr
   src/decode.rs — decode_message, decode_name (RFC 1035 §4.1.4 compression pointers, loop guard), decode_rr; RFC 4343 case folding via Name::as_ascii_lower()
@@ -20,12 +20,12 @@ mb-proto-dns governs:
   tests/framing.rs — length-prefix split-buffer reads and partial frames
   tests/compression_pointers.rs — pointer following + cycle rejection
 
-mb-proto-dns depends_on:
+local dependencies:
   bytes — Bytes/BytesMut buffer surface
   thiserror — DecodeError variants
   mb-endpoint — IpAddr re-use for A/AAAA payloads
 
-mb-proto-dns invariants:
+boundary rules:
   - no dependency on mesh-bus-core, tokio, async-trait, or any L7 protocol crate
   - decode_name enforces a pointer-hop budget (default 16) and rejects cycles with DecodeError::CompressionLoop
   - decode_message returns DecodeError on truncation rather than partial answers; callers handle TC=1 via the parsed header.tc field

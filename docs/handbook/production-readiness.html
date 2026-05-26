@@ -13,6 +13,7 @@
     h1,h2,h3 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
     code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
     table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
     .topology { white-space:pre; padding:12px; border:1px solid var(--line); border-radius:8px; background:rgba(127,127,127,.10); overflow:auto; line-height:1.35; }
     .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
   </style>
@@ -26,6 +27,7 @@
   <main>
     <section id="scope">
       <h2>Scope</h2>
+      <div class="flow">scope -> deployment state -> supervised runtime -> live evidence gate</div>
       <p>This chapter owns production accessories and release gates. Product meaning stays in <a href="product-roadmap.html">product roadmap</a>, OSI ownership stays in <a href="system-architecture.html">system architecture</a>, Mesh Protocol stays in <a href="mesh-protocol.html">mesh protocol</a>, the management surface stays in <a href="operator-plane.html">operator plane</a>, and proof rules stay in <a href="testing-gates.html">testing gates</a>.</p>
       <pre class="topology">handbook spec
   -> schema/config
@@ -260,6 +262,7 @@ client
 
     <section id="operator-workflow">
       <h2>Operator Workflow</h2>
+      <div class="flow">operator-workflow -> deployment state -> supervised runtime -> live evidence gate</div>
       <ol>
         <li>Build release binary and record checksum.</li>
         <li>Generate or load MeshSec key material from protected operator storage.</li>
@@ -339,6 +342,7 @@ client
 
     <section id="non-goals">
       <h2>Non-Goals</h2>
+      <div class="flow">non-goals -> deployment state -> supervised runtime -> live evidence gate</div>
       <p>This chapter does not define new protocols, add L7 parsers, replace Mesh Protocol semantics, or make a production security claim from loopback tests. It only defines the accessories and gates required to operate the existing substrate honestly.</p>
     </section>
   </main>

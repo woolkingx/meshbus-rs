@@ -8,7 +8,21 @@ use crate::{
     kernel::observation::{CoreEventId, EventPayload, EventPayloadInner, EventTypeId},
 };
 
-use super::dispatch::DispatchRuntime;
+use super::dispatch::{DispatchRuntime, FlowState};
+use super::source_activity;
+
+pub(super) async fn remove_flow_runtime_state(
+    runtime: &DispatchRuntime,
+    flow_id: &FlowId,
+) -> Option<FlowState> {
+    let removed = runtime.flow_states.remove(flow_id).map(|(_, state)| state);
+    if let Some(state) = removed.as_ref() {
+        source_activity::mark_closed(runtime, state.source_key.as_deref());
+    }
+    runtime.flow_counters.remove(flow_id);
+    let _ = runtime.flow_pins.lock().await.remove(flow_id);
+    removed
+}
 
 pub(super) fn record_dispatch(runtime: &DispatchRuntime, result: &ExitResult, payload_bytes: u64) {
     let measurement = Measurement {
@@ -91,11 +105,9 @@ pub(super) async fn close_flow_if_open(
     reason: CloseReason,
     session_id: crate::SessionId,
 ) {
-    let Some((_, state)) = runtime.flow_states.remove(flow_id) else {
+    let Some(state) = remove_flow_runtime_state(runtime, flow_id).await else {
         return;
     };
-    runtime.flow_counters.remove(flow_id);
-    let _ = runtime.flow_pins.lock().await.remove(flow_id);
     let payload = EventPayload(Arc::new(EventPayloadInner {
         flow_id_text: Some(flow_id.0.clone()),
         session_id_text: Some(session_id.0),

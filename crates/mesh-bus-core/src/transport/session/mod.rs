@@ -4,7 +4,7 @@ mod direct_forwarder_halves;
 mod tcp_splice_compat;
 pub mod types;
 
+pub use types::*;
+
 #[cfg(test)]
 mod tests;
-
-pub use types::*;

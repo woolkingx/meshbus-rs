@@ -5,9 +5,6 @@ pub(crate) mod id_shape;
 pub(crate) mod types;
 pub(crate) mod verify_error;
 
-#[cfg(test)]
-mod tests;
-
 #[allow(unused_imports)]
 pub(crate) use data_handle::verify;
 #[allow(unused_imports)]
@@ -16,3 +13,6 @@ pub(crate) use types::{
 };
 #[allow(unused_imports)]
 pub(crate) use verify_error::VerifyError;
+
+#[cfg(test)]
+mod tests;

@@ -6,3 +6,6 @@ rust-version.workspace = true
 
 [dependencies]
 fxhash = "0.2"
+
+[dev-dependencies]
+serde_json = { workspace = true }

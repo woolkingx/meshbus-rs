@@ -58,6 +58,7 @@
         <tr><td>PDU</td><td>The complete data unit for this layer: this layer's PCI plus the carried SDU.</td><td>This is the layer's CRUD boundary and state-machine unit.</td></tr>
       </table>
       <p>Architecture starts by asking what data exists and who owns it. Logic, modules, state machines, errors, timeouts, observers, and fast paths all follow from that ownership. A module is the implementation boundary of a data owner, not a place to hide scattered behavior.</p>
+      <p>The machine-checkable review frame is the two-axis <a href="spec/data-control-matrix.schema.json">data/control matrix schema</a>: one axis names layer and protocol family ownership; the other names data, control, evidence, lifecycle, and backpressure flow crossings. A row is valid only when it names owned PCI, carried SDU, schema owner, code owner, and proof gate.</p>
       <table>
         <tr><th>Layer</th><th>Native owned data</th><th>Carried SDU rule</th></tr>
         <tr><td>L7 application</td><td>Protocol syntax, credentials, application intent, rule input context, external request state.</td><td>Stitches L6 codec, L5 control, and L4 transport surfaces into one application behavior.</td></tr>
@@ -188,6 +189,7 @@
   -> transport.pick_sink_cake
   -> Verdict::Accept(SinkId) | Reject | Drop</div>
       <p>A source adapter creates an event from protocol input and projected metadata, then invokes the protocol-neutral pipeline runtime. For SOCKS5, CONNECT runs the pipeline once per session open; UDP relay packets run it once per target-bearing datagram; UDP ASSOCIATE control does not run the forward pipeline because no target exists yet.</p>
+      <p>Machine contract: <a href="../../crates/mesh-bus-pipeline-hooks/schema.json">mesh-bus-pipeline-hooks/schema.json</a> owns the hook/runtime metadata boundary for <code>SharedHookCtx</code>, <code>PipelineRuntime</code>, hook templates, and exit-candidate projection.</p>
       <table>
         <tr><th>Hook</th><th>Role</th><th>Terminal behavior</th></tr>
         <tr><td><code>net.resolve_or_recover</code></td><td>Resolve hostname, recover host data from IP reverse map, fill DNS RTT and resolution mode.</td><td>Rejects when no target exists; never accepts a sink.</td></tr>
@@ -199,6 +201,7 @@
 
     <section id="kernel-registry">
       <h2>Registry Verification</h2>
+      <div class="flow">kernel-registry -> owned primitive -> legal boundary -> registry/proof gate</div>
       <p>`KernelRegistry` validates sources, sinks, hooks, pipelines, wiring, IDs, hook functions, accept/jump declarations, DAG shape, namespace access, unsatisfied reads, side-effect restrictions, and unknown sinks before the bus starts.</p>
       <p>End-of-pipeline `Continue` is invalid. Pipeline jumps must form a DAG. Runtime `Accept` and `Jump` payloads are checked against the hook declaration.</p>
       <p>Verification also protects source wiring as a total single-valued function: every registered source has exactly one wiring entry, and no source appears twice. Hook namespace patterns are not wildcards; declared reads and writes must be covered by explicit namespace patterns.</p>
@@ -224,12 +227,14 @@
 
     <section id="async-observation">
       <h2>Async and Observation</h2>
+      <div class="flow">async-observation -> owned primitive -> legal boundary -> registry/proof gate</div>
       <p>Hooks are sync function pointers. Async upstream work, such as DNS resolver calls, crosses the boundary only through scoped shared hook context and a Tokio handle. Hooks must not spawn persistent tasks, hold state across hook boundaries, or keep locks around pipeline progress.</p>
       <p>The data plane emits only declared observation facts. The canonical contract is <a href="dataplane-observation.html#observation-topology">Dataplane and Observation</a>: core lifecycle/path facts use <code>core.*</code>, owner facts such as MeshSec/native drops use <code>obs.*</code>, and counters/path samples use declared pull sources. Metrics, Prometheus, exit-health updates, Operator snapshots, and CAKE feedback are projections rather than inline dispatch logic. Dispatch remains pick -&gt; send -&gt; emit.</p>
     </section>
 
     <section id="boundaries">
       <h2>Boundary Rules</h2>
+      <div class="flow">boundaries -> owned primitive -> legal boundary -> registry/proof gate</div>
       <ul>
         <li>Core depends on no L7 protocol crate.</li>
         <li>Routing decisions use request metadata and path evidence, not protocol syntax or payload bytes.</li>

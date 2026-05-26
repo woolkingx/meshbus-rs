@@ -26,6 +26,7 @@
   <main>
     <section id="problem">
       <h2>Problem</h2>
+      <div class="flow">problem -> runtime fact -> observation owner -> metrics/readback gate</div>
       <p>Per-chunk routing makes an L4 stream look like L3 packet dispatch. That adds channel wakeups, locks, observer wakeups, and broadcast fan-out on every chunk. The bottleneck is control-plane churn, not memcpy.</p>
       <p>The retired T0 userspace fastpath bypassed the control plane to escape inline algorithms. The restoration removed that escape hatch: the hot path became pick, send, emit; scheduler feedback, metrics, health, and logging moved behind observer-owned subscriptions.</p>
       <p>The correct replacement is not another bypass. Core derives a dataplane shape at open, commits eligible flows to direct halves, and keeps observers and schedulers in their own ownership domains.</p>
@@ -33,6 +34,7 @@
 
     <section id="observation-first-principle">
       <h2>Observation First Principle</h2>
+      <div class="flow">observation-first-principle -> runtime fact -> observation owner -> metrics/readback gate</div>
       <p>Observation facts are data. Owners emit typed facts or expose declared pull sources; observers derive projections. Metrics are projections, not owner state.</p>
       <p>An owner fact is born where the owner can prove it. The MeshSec ingress owner can prove an authentication, replay, or native decode drop. FlowCounters can prove byte deltas. PathStats can prove RTT, loss, PMTU, pacing, and queue evidence. Projection observers can count, summarize, and export these facts, but they do not become the original owner.</p>
     </section>
@@ -94,6 +96,7 @@
 
     <section id="forwarder">
       <h2>Forwarder Lifecycle</h2>
+      <div class="flow">forwarder -> runtime fact -> observation owner -> metrics/readback gate</div>
       <p>A supervisor owns exactly-once lifecycle emission. Direction tasks report EndOfStream, IoError, Cancelled, panic, or protocol violation. First terminal error wins and cancels the peer direction. Half-close is internal state; FlowClosed emits only when both directions finish.</p>
       <p>Per-chunk production cost target is one relaxed atomic byte-counter update per direction plus normal IO wakeup: no mutex, no observation publish, no broadcast, no channel send.</p>
       <p>Direct stream forwarding is expressed through committed stream halves. The first accepted path opens the egress once; split session halves move bytes directly while lifecycle and counters remain visible to observers.</p>
@@ -127,6 +130,7 @@
 
     <section id="pull">
       <h2>Pull Telemetry</h2>
+      <div class="flow">pull -> runtime fact -> observation owner -> metrics/readback gate</div>
       <p>`FlowCounters` owns bytes_in and bytes_out as lockless atomics. Samplers derive throughput windows by comparing snapshots.</p>
       <p>`PathStatsProvider` is separate from egress plugin. TCP may provide RTT, rttvar, cwnd, send buffer usage, retransmits, and sample time. Non-socket transports may expose their own equivalent path telemetry.</p>
       <p>Sampler observers use a fixed cadence and skip publication when counters did not change. RTT and path capacity never come from successful write completion; they come only from a declared path stats provider.</p>
@@ -176,12 +180,14 @@
 
     <section id="closed-loop">
       <h2>CAKE Closed Loop</h2>
+      <div class="flow">closed-loop -> runtime fact -> observation owner -> metrics/readback gate</div>
       <p>CAKE feedback is scheduler-owned, not kernel-owned. Metrics and health observers consume core lifecycle and path events, pull FlowCounters and PathStats, publish obs.path.rtt_sample, obs.path.throughput_sample, and obs.health.degraded, and the CAKE plugin consumes those derived signals on its own observer task.</p>
       <p>The kernel may read the latest health snapshot while choosing candidates, but it does not update EWMA, jitter, goodput windows, saturation penalties, or hysteresis inline. That keeps the adaptive loop closed without making the dataplane hot path an algorithm host.</p>
     </section>
 
     <section id="gates">
       <h2>Acceptance Gates</h2>
+      <div class="flow">gates -> runtime fact -> observation owner -> metrics/readback gate</div>
       <ul>
         <li>Forwarder qualifies single-path ByteStream flows and preserves full-duplex, half-close, cancellation, panic, and exactly-once lifecycle behavior.</li>
         <li>Core event surface stays exactly four variants.</li>

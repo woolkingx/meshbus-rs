@@ -81,6 +81,7 @@
         { "const": "NoUsableExit" },
         { "const": "SessionClosed" },
         { "const": "ReaderClosed" },
+        { "const": "QueueFull" },
         { "const": "AddressNotSupported" },
         {
           "type": "object",

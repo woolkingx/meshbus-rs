@@ -10,20 +10,20 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mb-proto-http-proxy governs:
+owned files:
   src/lib.rs — RequestKind, RequestHead, HttpProxyError, parse_request_head
   tests/codec.rs — RFC-shaped CONNECT authority-form, absolute-form rewrite, malformed, incomplete, and bounded-header proofs
 
-mb-proto-http-proxy depends_on:
+local dependencies:
   bytes — immutable forwarded request-head bytes
   mb-endpoint — decoded authority endpoint
   thiserror — error enum derive
 
-mb-proto-http-proxy invariants:
+boundary rules:
   - RFC 9110/9112 only: CONNECT target is authority-form; non-CONNECT forward proxy input must be absolute-form
   - parsing is request-head only; after CONNECT succeeds the adapter must relay opaque bytes and this crate must not inspect tunneled payload
   - forwarded HTTP request heads remove proxy-only headers before upstream relay
   - this crate must not depend on mesh-bus-core or any L4/L5 surface
 
-mb-proto-http-proxy extends:
+handbook links:
   ../../docs/handbook/direct-proxy.html

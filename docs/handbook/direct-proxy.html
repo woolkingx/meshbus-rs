@@ -120,11 +120,37 @@
       <table>
         <tr><th>Concern</th><th>Run 2 contract</th><th>Deferred</th></tr>
         <tr><td>Selection unit</td><td>Session-sticky stream selection and association-sticky datagram selection. A logical flow stays on the selected peer unless a new session is opened.</td><td>Per-packet striping, segment reorder, and live migration of an existing stream.</td></tr>
-        <tr><td>Scheduler mode</td><td><code>sticky-sessions</code> is the daily-use mode because many web sites, login systems, and CDN risk paths assume a stable client exit for related connections. <code>round-robin</code> is a validation mode used to prove every pool peer can carry traffic.</td><td>Health-aware sticky reselection and weighted path scoring.</td></tr>
+        <tr><td>Scheduler mode</td><td><code>source-lease-rotate</code> is the daily-use mode because modern pages need a stable source exit across many target hosts while still allowing source-idle new-flow reselection. <code>sticky-sessions</code> remains the legacy source-target sticky mode. <code>round-robin</code> remains a validation mode used to prove every pool peer can carry traffic.</td><td>Live deployment, observation label projection, health-aware sticky reselection, and weighted path scoring.</td></tr>
         <tr><td>Pool node role</td><td>An upstream node can be both a remote exit for another gateway and a direct SOCKS5/HTTP CONNECT gateway for local clients.</td><td>Automatic global cluster role assignment.</td></tr>
         <tr><td>Observation</td><td>Metrics and logs must expose selected sink, peer_id, route_group, close reason, bytes/datagrams, and failure delta without inspecting payload.</td><td>Payload-derived route evidence.</td></tr>
       </table>
       <p>This is the modern Squid-like cluster shape, but lower-layer and protocol-neutral: parent/sibling composition without HTTP cache ownership, and MeshSec encrypted events instead of proxy-specific upstream sockets.</p>
+      <h3>Source Lease Rotate Scheduler</h3>
+      <p><span class="ok">Status:</span> source implementation and owner tests are local-green; live deployment and observation label projection remain. The owner is <code>mesh-bus-scheduler-loadbalance</code>. Core still filters candidates by capability, <code>route_group</code>, target sink, and health before the scheduler runs.</p>
+<pre class="topology">source_key
+  + core SourceActivity { active_flows, idle_since_ms }
+  -> SourceLease { exit_id, created_at_ms, last_seen_at_ms, generation, cooldown_until_ms }
+  -> weighted rendezvous hash(source_key, generation, candidate_id)
+  -> ordered ScheduleDecision(chosen exit first, fallbacks after)</pre>
+      <table>
+        <tr><th>Axis</th><th>Contract</th></tr>
+        <tr><td>Input</td><td><code>RankContext.source_key</code>, <code>RankContext.source_activity</code>, healthy filtered candidates, configured weights, and scheduler-owned clock. The default key scope is source-only; <code>target_key</code> must not participate in the daily-use key.</td></tr>
+        <tr><td>State owner</td><td>The loadbalance scheduler owns one lease table per scheduler instance: <code>source_key -> SourceLease</code>. The kernel owns active <code>flow_pin</code> preservation; the scheduler only selects for new flow opens.</td></tr>
+        <tr><td>Selection</td><td>If no lease exists, the leased exit is absent, or the leased exit is unhealthy, select by weighted rendezvous hash over the current candidate set. Otherwise daily mode keeps the leased exit until core reports true source idle long enough to expire the lease.</td></tr>
+        <tr><td>Idle rotation</td><td><code>idle_timeout_secs</code> expires the source lease only after core reports <code>source_activity.active_flows == 0</code> and <code>now - idle_since_ms</code> reaches the configured window. The next new flow reselects; active flows are never force-moved.</td></tr>
+        <tr><td>Max age</td><td>Daily default is <code>max_age_policy=off</code>, so active sources rotate only on idle/unhealthy. <code>soft</code> lets the next new flow advance <code>generation</code> after <code>max_age_secs</code> and cooldown, but it may land on the same exit. <code>hard</code> must choose a different healthy exit when one exists; use soft/hard for validation or deliberate distribution, not as the daily default.</td></tr>
+        <tr><td>Why not source-target</td><td>Modern pages open many self-check, CDN, API, telemetry, and asset connections to different targets. A source-target key splits one user page across exits and breaks the stable-exit property the daily mode needs.</td></tr>
+        <tr><td>Observation</td><td>Logs/metrics must expose selected sink, peer_id, source lease generation, lease reason (<code>new</code>, <code>hit</code>, <code>idle_expired</code>, <code>max_age_soft</code>, <code>max_age_hard</code>, <code>unhealthy</code>), route_group, close reason, and failure delta without inspecting payload.</td></tr>
+      </table>
+      <pre class="flow">scheduler:
+  kind: LoadBalance
+  mode: source-lease-rotate
+  source_lease_rotate:
+    key_scope: source
+    idle_timeout_secs: 600
+    max_age_secs: 3600
+    max_age_policy: off
+    switch_cooldown_secs: 60</pre>
     </section>
 
     <section id="compatibility-mapping">
@@ -143,6 +169,7 @@
 
     <section id="movement">
       <h2>Data Movement Contract</h2>
+      <div class="flow">movement -> source intent -> bus session -> direct path proof</div>
       <p>Timing must separate source wait, pipeline/rule time, scheduler time, egress/service open time, movement time, return/write wait, and close propagation.</p>
       <p>Stream candidates are direct halves, Tokio copy, std copy, blocking splice where Linux endpoints allow it, and future sockmap only after a direct single pinned stream is proven. Datagram candidates are persistent session, normal UDP send/recv baseline, future packet loop, sendmmsg/recvmmsg, and GSO/GRO.</p>
       <p>EventBus must not move payload bytes.</p>
@@ -150,6 +177,7 @@
 
     <section id="observation">
       <h2>Observation Contract</h2>
+      <div class="flow">observation -> source intent -> bus session -> direct path proof</div>
       <p>Every direct path must emit or preserve source id, target/service id, selected sink, route_group, operation, bytes/datagrams in and out, close reason, path evidence, and compatibility adapter id when applicable.</p>
     </section>
 
@@ -170,6 +198,7 @@
 
     <section id="implementation-order">
       <h2>Implementation Order</h2>
+      <div class="flow">implementation-order -> source intent -> bus session -> direct path proof</div>
       <ol>
         <li>Keep proven direct TCP reverse and SOCKS5-over-Mesh paths as the MVP baseline.</li>
         <li>Keep UDP reverse service semantics and product e2e green.</li>
@@ -203,6 +232,7 @@
 
     <section id="non-goals">
       <h2>Non-Goals</h2>
+      <div class="flow">non-goals -> source intent -> bus session -> direct path proof</div>
       <p>Do not implement HTTP semantic routing, HTTPS interception, HTTP/3 semantic proxying, VMess, XRAY, TLS termination, HTTP path/header inspection, decrypted TLS inspection, or raw payload inspection in the foundation path. HTTP CONNECT is allowed as an edge adapter because it only projects target intent and then relays opaque bytes. Do not invent full service discovery before local service routing is proven. Do not claim production mesh from loopback-only direct tests.</p>
     </section>
   </main>

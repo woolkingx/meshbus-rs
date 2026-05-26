@@ -35,6 +35,7 @@
         <tr><th>Field</th><th>Value</th></tr>
         <tr><td>Module</td><td><code>crates/mesh-bus-pipeline-hooks</code></td></tr>
         <tr><td>CLAUDE.md</td><td><a href="CLAUDE.md">CLAUDE.md</a></td></tr>
+        <tr><td>Schema</td><td><a href="schema.json">schema.json</a></td></tr>
         <tr><td>Code</td><td><a href="src/context.rs">src/context.rs</a>, <a href="src/runtime.rs">src/runtime.rs</a>, <a href="src/specs.rs">src/specs.rs</a></td></tr>
         <tr><td>Runner</td><td><code>cargo test -p mesh-bus-pipeline-hooks</code></td></tr>
       </table>
@@ -53,7 +54,7 @@
 
     <section id="schema-source">
       <h2>Schema / Fixture Source</h2>
-      <p>Schema intent for hook reads/writes/capabilities is encoded in <code>src/specs.rs</code> and validated through kernel registry tests.</p>
+      <p><a href="schema.json">schema.json</a> declares the owner contract for hook context, runtime attachment, metadata reads/writes, and forbidden crossings. Concrete hook read/write sets are encoded in <code>src/specs.rs</code> and validated through kernel registry tests.</p>
       <p>Fixture/test sources:</p>
       <ul>
         <li><code>tests/wiring.rs</code> (HookSpec shape and four-hook wiring checks)</li>

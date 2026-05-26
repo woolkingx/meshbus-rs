@@ -13,6 +13,7 @@
     h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
     code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
     table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
     .topology { white-space:pre; padding:12px; border:1px solid var(--line); border-radius:8px; background:rgba(127,127,127,.10); overflow:auto; line-height:1.35; }
     .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
   </style>
@@ -26,6 +27,7 @@
   <main>
     <section id="thesis">
       <h2>Thesis</h2>
+      <div class="flow">thesis -> operator action -> API owner -> status/metrics readback</div>
       <pre class="topology">Data Plane
   client traffic -> ingress -> bus session/frame -> egress -> upstream
 
@@ -214,6 +216,7 @@ Operator Plane
 
     <section id="non-goals">
       <h2>Non-Goals</h2>
+      <div class="flow">non-goals -> operator action -> API owner -> status/metrics readback</div>
       <p>Do not make Operator API a new mesh protocol, core scheduler, policy language, or hidden dispatch surface. Do not let Web UI read config files, scrape raw logs as truth, mutate runtime maps, or bypass schema validation. Do not ship remote write before local read/probe/write gates are proven.</p>
     </section>
   </main>

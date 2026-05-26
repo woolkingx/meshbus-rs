@@ -135,6 +135,10 @@ async function runValidation(args, nodes) {
     MESH_BUS_RUN2_GATEWAY_SSH: nodes.gateway,
     MESH_BUS_RUN2_GATEWAY_SOCKS5: gatewaySocks5,
     MESH_BUS_RUN2_GATEWAY_OPERATOR: args.gatewayOperator,
+    MESH_BUS_RUN2_GATEWAY_SERVICE: args.gatewayService,
+    MESH_BUS_RUN2_GATEWAY_BIN: args.gatewayRemoteBin,
+    MESH_BUS_RUN2_GATEWAY_ADMIN_BIN: args.gatewayRemoteBin,
+    MESH_BUS_RUN2_GATEWAY_CONFIG: args.gatewayConfig,
     MESH_BUS_RUN2_PROBES: String(args.probes),
     MESH_BUS_RUN2_TARGET: args.target,
   };

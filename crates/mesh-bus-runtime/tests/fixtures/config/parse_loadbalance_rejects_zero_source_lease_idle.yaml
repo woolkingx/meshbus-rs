@@ -1,0 +1,28 @@
+id: parse_loadbalance_rejects_zero_source_lease_idle
+owner: mesh-bus-runtime.config
+kind: data-owner
+case: config.parse_err
+schema_ref: schemas/test-runtime.schema.json
+input:
+  yaml: |
+    scheduler:
+      kind: LoadBalance
+      mode: source-lease-rotate
+      source_lease_rotate:
+        key_scope: source
+        idle_timeout_secs: 0
+        max_age_secs: 3600
+        max_age_policy: off
+        switch_cooldown_secs: 60
+    ingresses:
+      - kind: Socks5
+        listen: 127.0.0.1:19080
+    egresses:
+      - kind: Tcp
+        id: direct
+        timeout_ms: 1000
+expect:
+  ok: false
+  error_contains: "scheduler source_lease_rotate idle_timeout_secs must be >= 1"
+observations: []
+tags: []

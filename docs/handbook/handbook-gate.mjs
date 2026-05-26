@@ -165,7 +165,9 @@ for (const s of sections) {
   }
   if (!/<table|class="flow"|<svg/.test(s.body)) r2cand++;
 }
-warn.push(`R2* ${r2cand} sections have no table/diagram (advisory: add data-concept to make enforceable)`);
+if (r2cand > 0) {
+  warn.push(`R2* ${r2cand} sections have no table/diagram (advisory: add data-concept to make enforceable)`);
+}
 
 // ---- R7: stale semantic wording must not return to active docs ----
 let r7 = 0;

@@ -5,7 +5,7 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-registry governs:
+owned files:
   schema.json    — KernelRegistry, HookSpec, HookFn, SourceSpec, SinkSpec, VerifyError
   types.rs       — KernelRegistry { sources, sinks, hooks, pipelines, wirings, fns } + HookFn + HookSpec { allowed_namespaces (glob), may_accept_to } + KernelCtx + SourceSpec + SinkSpec
   data_handle.rs — register ops + verify() (26 error classes: UnknownSource, UnknownWiringPipeline, DuplicateWiringSource, MissingSourceWiring, UnknownHook, MissingHookFn, UnknownHookFn, RegistryIdentityMismatch, InvalidSourceId, InvalidSinkId, InvalidPipelineId, InvalidHookId, InvalidSourceKind, InvalidSinkKind, UnknownSink, InvalidAcceptDeclaration, InvalidJumpDeclaration, UnknownPipelineJumpTarget, JumpCycle, InvalidMetadataKey, InvalidNamespacePattern, UnsatisfiedRead, NamespaceViolation, PolicyReadsPayload, SideEffectMutatesVerdict, PipelineDoesNotTerminate)

@@ -1,0 +1,9 @@
+[package]
+name = "mb-mesh-control"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+mb-proto-mesh = { path = "../mb-proto-mesh" }

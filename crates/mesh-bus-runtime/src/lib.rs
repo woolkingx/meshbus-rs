@@ -167,13 +167,18 @@ pub async fn run(cfg: Config, base_dir: &Path) -> anyhow::Result<BusHandle> {
         SchedulerCfg::LoadBalance {
             mode,
             sticky_ttl_secs,
-        } => Box::new(
-            LoadBalanceScheduler::with_sticky_ttl_ms(
-                mode.into(),
-                sticky_ttl_secs.saturating_mul(1_000),
-            )
-            .with_weights(weights),
-        ),
+            source_lease_rotate,
+        } => {
+            let scheduler = if mode == LoadBalanceModeCfg::SourceLeaseRotate {
+                LoadBalanceScheduler::with_source_lease_rotate(source_lease_rotate.into())
+            } else {
+                LoadBalanceScheduler::with_sticky_ttl_ms(
+                    mode.into(),
+                    sticky_ttl_secs.saturating_mul(1_000),
+                )
+            };
+            Box::new(scheduler.with_weights(weights))
+        }
     };
     let mut builder = BusBuilder::new()
         .scheduler(scheduler)

@@ -11,6 +11,67 @@
       "type": "string",
       "minLength": 1,
       "description": "host:port raw UDP Mesh Protocol ingress listener"
+    },
+    "mesh_packetizer": {
+      "type": "object",
+      "description": "Ingress-local adjacent-peer reply sender. It owns MeshFrame control/data queue split for DatagramReturn, stream response data, and control replies before UdpPacketLoop batching.",
+      "additionalProperties": false,
+      "properties": {
+        "owner_layer": { "const": "L5/L4-sender" },
+        "packetizer_ref": { "const": "lib/mb-proto-mesh/schema.json#/properties/mesh_packetizer_v1" },
+        "control_queue_bound": { "type": "integer", "minimum": 1 },
+        "data_queue_bound": { "type": "integer", "minimum": 1 },
+        "control_flush_max_delay_us": { "const": 0 },
+        "data_flush_batch_datagrams": { "const": 32 },
+        "data_flush_max_delay_us": { "const": 250 },
+        "data_budget_source": { "const": "path_controller_v1" },
+        "queue_full_failure": { "const": "QueueFull" },
+        "socket_owner": { "const": "UdpPacketLoop" }
+      },
+      "required": [
+        "owner_layer",
+        "packetizer_ref",
+        "control_queue_bound",
+        "data_queue_bound",
+        "control_flush_max_delay_us",
+        "data_flush_batch_datagrams",
+        "data_flush_max_delay_us",
+        "data_budget_source",
+        "queue_full_failure",
+        "socket_owner"
+      ]
+    },
+    "pending_stream_data": {
+      "type": "object",
+      "description": "Ingress-local L5 bound for StreamData that arrives before StreamOpen creates the local bus stream.",
+      "additionalProperties": false,
+      "properties": {
+        "owner_layer": { "const": "L5" },
+        "key": {
+          "type": "array",
+          "prefixItems": [
+            { "const": "peer" },
+            { "const": "session_id" }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "max_bytes_per_session": { "type": "integer", "minimum": 1 },
+        "overflow_drop_reason": { "const": "StreamDataPending" }
+      },
+      "required": ["owner_layer", "key", "max_bytes_per_session", "overflow_drop_reason"]
+    },
+    "control_reply_worker": {
+      "type": "object",
+      "description": "Ingress-local control feedback worker. FamilyReorderState Gap outcomes enqueue AckNack replies here; the receive/reorder loop must not await packet_loop.flush.",
+      "additionalProperties": false,
+      "properties": {
+        "owner_layer": { "const": "L5/L4-control" },
+        "ack_intent_bound": { "type": "integer", "minimum": 1 },
+        "input": { "const": "FamilyPushOutcome::Gap" },
+        "output": { "const": "MeshFrame::AckNack" }
+      },
+      "required": ["owner_layer", "ack_intent_bound", "input", "output"]
     }
   }
 }

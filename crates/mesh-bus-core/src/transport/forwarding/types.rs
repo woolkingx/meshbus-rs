@@ -135,6 +135,12 @@ pub enum CloseReason {
 
 // --- RankContext ---
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SourceActivity {
+    pub active_flows: u32,
+    pub idle_since_ms: Option<u64>,
+}
+
 #[derive(Debug, Clone)]
 pub struct RankContext {
     pub packet_id: PacketId,
@@ -149,4 +155,5 @@ pub struct RankContext {
     pub return_semantics: ReturnSemantics,
     pub source_key: Option<String>,
     pub target_key: Option<String>,
+    pub source_activity: Option<SourceActivity>,
 }

@@ -5,14 +5,14 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-mb-cake governs:
+owned files:
   src/lib.rs — ExitMetric, RankConfig, rank() pure function
 
-mb-cake depends_on:
+local dependencies:
   mb-cost — Score and ScoreInputs
   mb-loadbalance — Candidate (type reference)
 
-mb-cake extends:
+handbook links:
   ../../docs/handbook/dataplane-observation.html
 
 mb-cake decisions:

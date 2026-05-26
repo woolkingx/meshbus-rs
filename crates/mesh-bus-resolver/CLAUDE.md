@@ -12,7 +12,7 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mesh-bus-resolver governs:
+owned files:
   src/lib.rs — public surface (ResolverHandle trait, ResolverBuilder, re-exports from types)
   src/types.rs — Pool, PoolMode, ServerPolicy, ResolveRequest, ResolveAnswer, ResolveError, ResolverSource, ResolutionSignals, ConsumerId
   src/data_handle.rs — ResolverConfig validation, RuleChain hook, RFC 6761 special-use short-circuit, RFC 6303 PTR forwarding to M3
@@ -24,7 +24,7 @@ mesh-bus-resolver governs:
   src/signals.rs — ResolutionSignals builder + access-log emission (targets: mesh_bus.resolver.open, mesh_bus.resolver.denied)
   tests/{config_validate,ctx_build,rule_chain,policy,m3_system,m2_mesh_direct,m1_tunneled,signals,application_boundary}.rs
 
-mesh-bus-resolver depends_on:
+local dependencies:
   mesh-bus-core — BusPort, BusSessionRequest, BusStreamSession, BusDatagramSession, BusSessionInfo (canonical surface only)
   mb-proto-dns — wire codec + RFC 7766 framing helpers
   mb-rule — Action, RuleCtx, evaluate_with_trace, RuleDecision
@@ -32,7 +32,7 @@ mesh-bus-resolver depends_on:
   tokio — runtime + spawn_blocking
   tracing — structured access logs
 
-mesh-bus-resolver invariants:
+boundary rules:
   - this crate is an outbound DNS client/cache and resolver policy engine only; it must not bind port 53, expose a DNS listener, or become a bus ingress adapter
   - never imports mesh_bus_core::{Frame, FrameKind, EgressPlugin, SchedulerPlugin, ScheduleDecision, RankContext}
   - mesh-bus-core never depends on resolver or DNS concepts; application adapters may reach resolver through mesh-bus-pipeline-hooks when the event pipeline includes `net.resolve_or_recover`

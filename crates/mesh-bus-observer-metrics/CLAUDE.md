@@ -8,16 +8,16 @@ design-rule:
 mesh-bus-observer-metrics implements:
   ObserverPlugin — dispatch counter
 
-mesh-bus-observer-metrics governs:
+owned files:
   src/lib.rs — CounterObserver; increments per-exit counter on BusEvent::Core FlowOpened envelopes
   tests/counter.rs — two events on same exit produce count 2
   tests/schema.rs — no-runtime-config schema closure guard
 
-mesh-bus-observer-metrics depends_on:
+local dependencies:
   mesh-bus-core — ObserverPlugin, BusEvent, EventEnvelope/CoreEventId
   tokio — async Mutex for interior mutability
 
-mesh-bus-observer-metrics invariants:
+boundary rules:
   - observer consumes BusEvent after dispatch; it must not affect scheduling, routing, pipeline verdicts, or transport execution
   - CounterObserver has no runtime config surface; schema root is closed and construction stays CounterObserver::new()
 

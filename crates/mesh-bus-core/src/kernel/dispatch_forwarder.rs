@@ -3,6 +3,7 @@ use super::dispatch_observation::{
     close_flow_if_open, publish_flow_opened, publish_path_io_error, record_dispatch,
 };
 use super::dispatch_return::send_return;
+use super::source_activity;
 use crate::kernel::forwarder::{
     DatagramForwarderProbeOutcome, DataplaneShape, FlowCounters, ForwarderClose,
     ForwarderDatagramState, ForwarderStreamState, ForwarderTransport, OpenedForwarderTransport,
@@ -58,18 +59,24 @@ pub(super) async fn try_open_forwarder_stream(
                 .entry(frame.flow_id.clone())
                 .or_insert_with(|| Arc::new(FlowCounters::new()))
                 .clone();
-            runtime.flow_states.insert(
+            let previous = runtime.flow_states.insert(
                 frame.flow_id.clone(),
                 FlowState {
                     shape,
                     sink_idx: idx,
                     exit_id: result.exit_id.clone(),
                     counters: counters.clone(),
+                    source_key: frame.source_key.clone(),
                 },
             );
+            if previous.is_none() {
+                source_activity::mark_open(runtime, frame.source_key.as_deref());
+            }
             let flow_states_c = runtime.flow_states.clone();
             let flow_counters_c = runtime.flow_counters.clone();
             let flow_pins_c = runtime.flow_pins.clone();
+            let source_activity_c = runtime.source_activity.clone();
+            let clock_c = runtime.clock.clone();
             let flow_id_c = frame.flow_id.clone();
             let close = Arc::new(ForwarderClose::new(
                 runtime.observation_bus.clone(),
@@ -81,11 +88,21 @@ pub(super) async fn try_open_forwarder_stream(
                     let flow_states_c = flow_states_c.clone();
                     let flow_counters_c = flow_counters_c.clone();
                     let flow_pins_c = flow_pins_c.clone();
+                    let source_activity_c = source_activity_c.clone();
+                    let clock_c = clock_c.clone();
                     let flow_id_c = flow_id_c.clone();
                     Box::pin(async move {
-                        flow_pins_c.lock().await.remove(&flow_id_c);
-                        flow_states_c.remove(&flow_id_c);
+                        if let Some((_, state)) = flow_states_c.remove(&flow_id_c) {
+                            if let Some(source_key) = state.source_key {
+                                source_activity::mark_closed_in_table(
+                                    &source_activity_c,
+                                    source_key,
+                                    clock_c(),
+                                );
+                            }
+                        }
                         flow_counters_c.remove(&flow_id_c);
+                        flow_pins_c.lock().await.remove(&flow_id_c);
                     })
                 }),
                 DataplaneShape::Forwarder,
@@ -225,18 +242,24 @@ pub(super) async fn try_open_forwarder_datagram(
                 .entry(frame.flow_id.clone())
                 .or_insert_with(|| Arc::new(FlowCounters::new()))
                 .clone();
-            runtime.flow_states.insert(
+            let previous = runtime.flow_states.insert(
                 frame.flow_id.clone(),
                 FlowState {
                     shape,
                     sink_idx: idx,
                     exit_id: result.exit_id.clone(),
                     counters: counters.clone(),
+                    source_key: frame.source_key.clone(),
                 },
             );
+            if previous.is_none() {
+                source_activity::mark_open(runtime, frame.source_key.as_deref());
+            }
             let flow_states_c = runtime.flow_states.clone();
             let flow_counters_c = runtime.flow_counters.clone();
             let flow_pins_c = runtime.flow_pins.clone();
+            let source_activity_c = runtime.source_activity.clone();
+            let clock_c = runtime.clock.clone();
             let flow_id_c = frame.flow_id.clone();
             let close = Arc::new(ForwarderClose::new(
                 runtime.observation_bus.clone(),
@@ -248,11 +271,21 @@ pub(super) async fn try_open_forwarder_datagram(
                     let flow_states_c = flow_states_c.clone();
                     let flow_counters_c = flow_counters_c.clone();
                     let flow_pins_c = flow_pins_c.clone();
+                    let source_activity_c = source_activity_c.clone();
+                    let clock_c = clock_c.clone();
                     let flow_id_c = flow_id_c.clone();
                     Box::pin(async move {
-                        flow_pins_c.lock().await.remove(&flow_id_c);
-                        flow_states_c.remove(&flow_id_c);
+                        if let Some((_, state)) = flow_states_c.remove(&flow_id_c) {
+                            if let Some(source_key) = state.source_key {
+                                source_activity::mark_closed_in_table(
+                                    &source_activity_c,
+                                    source_key,
+                                    clock_c(),
+                                );
+                            }
+                        }
                         flow_counters_c.remove(&flow_id_c);
+                        flow_pins_c.lock().await.remove(&flow_id_c);
                     })
                 }),
                 DataplaneShape::DatagramForwarder,
@@ -304,6 +337,7 @@ fn close_from_disconnect(reason: crate::DisconnectReason) -> CloseReason {
         crate::DisconnectReason::NoUsableExit => CloseReason::NoUsableExit,
         crate::DisconnectReason::SessionClosed => CloseReason::SessionClosed,
         crate::DisconnectReason::ReaderClosed => CloseReason::ReaderClosed,
+        crate::DisconnectReason::QueueFull => CloseReason::ConnectionReset,
         crate::DisconnectReason::AddressNotSupported => CloseReason::AddressNotSupported,
         crate::DisconnectReason::Other(s) => CloseReason::Other(s),
     }

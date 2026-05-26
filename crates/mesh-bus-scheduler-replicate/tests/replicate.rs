@@ -19,6 +19,7 @@ fn ctx() -> RankContext {
         return_semantics: ReturnSemantics::PacketDedup,
         source_key: None,
         target_key: None,
+        source_activity: None,
     }
 }
 

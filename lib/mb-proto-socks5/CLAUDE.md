@@ -11,23 +11,23 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mb-proto-socks5 governs:
+owned files:
   src/lib.rs — Method, Command, Reply, Greeting, Request, ReplyFrame, UdpDatagram, CodecError; encode/decode functions for greeting, request, reply, reply-with-endpoint, and UDP relay datagram
   tests/codec.rs — codec roundtrips for CONNECT, UDP ASSOCIATE, reply, and UDP relay datagram
 
-mb-proto-socks5 depends_on:
+local dependencies:
   bytes — BytesMut buffer for zero-copy parsing
   mb-endpoint — Endpoint type for decoded target address
   thiserror — CodecError derive
 
-mb-proto-socks5 invariants:
+boundary rules:
   - L6 codec scope: SOCKS5 wire format only; no sockets, no async runtime, no bus dependencies
   - Command::Connect and Command::UdpAssociate are decoded as wire facts for the L7 adapter to translate into BusSessionRequest; the codec itself emits no session/L4 metadata
   - UDP relay datagram parser supports FRAG=0 only; fragmented SOCKS5 UDP packets are rejected explicitly
   - unknown authentication methods are preserved as Method::Unknown and must never be coerced into Method::NoAuth
   - this crate must not depend on mesh-bus-core or any L4/L5 surface; depending on it would invert the layer-model dependency direction
 
-mb-proto-socks5 extends:
+handbook links:
   ../../docs/handbook/compatibility.html
 
 mb-proto-socks5 decisions:

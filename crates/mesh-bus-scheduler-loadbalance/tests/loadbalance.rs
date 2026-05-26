@@ -1,9 +1,11 @@
 use mb_endpoint::Endpoint;
 use mesh_bus_core::{
     ExitId, ExitResult, FlowId, FlowSemantics, PacketId, RankContext, ReturnEvent, ReturnSemantics,
-    ScheduleHint, SchedulerPlugin, SessionId, TrafficClass,
+    ScheduleHint, SchedulerPlugin, SessionId, SourceActivity, TrafficClass,
 };
-use mesh_bus_scheduler_loadbalance::{LoadBalanceMode, LoadBalanceScheduler};
+use mesh_bus_scheduler_loadbalance::{
+    LoadBalanceMode, LoadBalanceScheduler, SourceLeaseReason, SourceLeaseRotateSettings,
+};
 use std::sync::{
     Arc,
     atomic::{AtomicU64, Ordering},
@@ -27,6 +29,7 @@ fn ctx_with_keys(flow: &str, source: Option<&str>, target: Option<&str>) -> Rank
         return_semantics: ReturnSemantics::Direct,
         source_key: source.map(|s| s.to_string()),
         target_key: target.map(|s| s.to_string()),
+        source_activity: None,
     }
 }
 
@@ -199,5 +202,157 @@ fn feedback_is_accepted_without_state_change() {
         },
         0,
         0,
+    );
+}
+
+fn source_lease_scheduler(now: Arc<AtomicU64>) -> LoadBalanceScheduler {
+    let clock_now = now.clone();
+    LoadBalanceScheduler::with_source_lease_rotate(SourceLeaseRotateSettings {
+        idle_timeout_ms: 600_000,
+        max_age_ms: 3_600_000,
+        max_age_policy: mesh_bus_scheduler_loadbalance::MaxAgePolicy::Off,
+        switch_cooldown_ms: 60_000,
+    })
+    .with_clock(Arc::new(move || clock_now.load(Ordering::SeqCst)))
+}
+
+#[test]
+fn source_lease_rotate_default_keeps_active_source_after_max_age() {
+    let now = Arc::new(AtomicU64::new(1_000));
+    let clock_now = now.clone();
+    let s = LoadBalanceScheduler::new(LoadBalanceMode::SourceLeaseRotate)
+        .with_clock(Arc::new(move || clock_now.load(Ordering::SeqCst)));
+    let cands = cands();
+    let source = Some("10.0.0.8");
+    let first = s
+        .schedule(
+            &cands,
+            &ctx_with_keys("flow-a", source, Some("api.example")),
+        )
+        .indices()[0];
+
+    let mut active_after_max_age = first;
+    for (idx, at_ms) in [
+        591_000, 1_181_000, 1_771_000, 2_361_000, 2_951_000, 3_541_000, 4_131_000,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        now.store(at_ms, Ordering::SeqCst);
+        active_after_max_age = s
+            .schedule(
+                &cands,
+                &ctx_with_keys(&format!("flow-active-{idx}"), source, Some("cdn.example")),
+            )
+            .indices()[0];
+    }
+
+    assert_eq!(
+        active_after_max_age, first,
+        "default source-lease-rotate must not age-switch an active source"
+    );
+}
+
+#[test]
+fn source_lease_rotate_uses_active_source_activity_for_idle() {
+    let now = Arc::new(AtomicU64::new(1_000));
+    let clock_now = now.clone();
+    let s = LoadBalanceScheduler::with_source_lease_rotate(SourceLeaseRotateSettings {
+        idle_timeout_ms: 600,
+        max_age_ms: 3_600,
+        max_age_policy: mesh_bus_scheduler_loadbalance::MaxAgePolicy::Off,
+        switch_cooldown_ms: 0,
+    })
+    .with_clock(Arc::new(move || clock_now.load(Ordering::SeqCst)));
+    let cands = cands();
+    let mut first_ctx = ctx_with_keys("flow-a", Some("10.0.0.8"), Some("api.example"));
+    first_ctx.source_activity = None;
+    let first = s
+        .source_lease_decision_for_test(&cands, &first_ctx)
+        .expect("first source lease");
+    assert_eq!(first.reason, SourceLeaseReason::New);
+
+    now.store(2_000, Ordering::SeqCst);
+    let mut active_ctx = ctx_with_keys("flow-b", Some("10.0.0.8"), Some("cdn.example"));
+    active_ctx.source_activity = Some(SourceActivity {
+        active_flows: 1,
+        idle_since_ms: None,
+    });
+    let active_after_timeout = s
+        .source_lease_decision_for_test(&cands, &active_ctx)
+        .expect("active source lease");
+
+    assert_eq!(
+        active_after_timeout.candidate_id, first.candidate_id,
+        "source lease must not idle-expire while core reports active flows"
+    );
+    assert_eq!(active_after_timeout.reason, SourceLeaseReason::Hit);
+    assert_eq!(active_after_timeout.generation, first.generation);
+
+    now.store(3_000, Ordering::SeqCst);
+    let mut idle_ctx = ctx_with_keys("flow-c", Some("10.0.0.8"), Some("media.example"));
+    idle_ctx.source_activity = Some(SourceActivity {
+        active_flows: 0,
+        idle_since_ms: Some(2_300),
+    });
+    let idle_after_timeout = s
+        .source_lease_decision_for_test(&cands, &idle_ctx)
+        .expect("idle-expired source lease");
+
+    assert_eq!(
+        idle_after_timeout.reason,
+        SourceLeaseReason::IdleExpired,
+        "source lease may rotate only after core reports true source idle"
+    );
+    assert_eq!(idle_after_timeout.generation, first.generation + 1);
+}
+
+#[test]
+fn source_lease_rotate_pins_by_source_not_target() {
+    let now = Arc::new(AtomicU64::new(1_000));
+    let s = source_lease_scheduler(now);
+    let cands = cands();
+    let source = Some("10.0.0.8");
+    let first = s
+        .schedule(
+            &cands,
+            &ctx_with_keys("flow-a", source, Some("api.example")),
+        )
+        .indices()[0];
+
+    for (idx, target) in ["cdn.example", "assets.example", "telemetry.example"]
+        .iter()
+        .enumerate()
+    {
+        let pick = s
+            .schedule(
+                &cands,
+                &ctx_with_keys(&format!("flow-target-{idx}"), source, Some(target)),
+            )
+            .indices()[0];
+        assert_eq!(pick, first, "source lease rotate must ignore target_key");
+    }
+}
+
+#[test]
+fn source_lease_rotate_spreads_distinct_sources() {
+    let now = Arc::new(AtomicU64::new(1_000));
+    let s = source_lease_scheduler(now);
+    let cands = cands();
+    let mut seen = std::collections::HashSet::new();
+    for i in 0..50 {
+        let source = format!("10.0.0.{i}");
+        let pick = s
+            .schedule(
+                &cands,
+                &ctx_with_keys("flow", Some(&source), Some("same.example")),
+            )
+            .indices()[0];
+        seen.insert(pick);
+    }
+
+    assert!(
+        seen.len() >= 2,
+        "source lease rotate must distribute different sources across exits"
     );
 }

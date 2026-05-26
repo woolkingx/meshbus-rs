@@ -49,6 +49,8 @@
         <tr><td><code>Wrr</code> / <code>Swrr</code></td><td>Mutable picker cursors for weighted distribution.</td></tr>
         <tr><td><code>ConsistentHash</code></td><td>Stable key-to-candidate projection over weighted rows.</td></tr>
         <tr><td><code>StickyTable</code></td><td>Per-key sticky candidate state with TTL and repick rules.</td></tr>
+        <tr><td><code>SourceLeaseRotate</code></td><td>Per-source lease state with idle expiry, max-age policy, generation, and cooldown.</td></tr>
+        <tr><td><code>SourceLeaseActivity</code></td><td>External source lifecycle evidence: absent means unknown/no evidence, active means active_flows&gt;0, true idle means active_flows=0 plus idle_since_ms. The half-idle shape active_flows=0 without idle_since_ms is invalid schema data and falls back to unknown in code.</td></tr>
       </table>
       <p>This module owns local algorithm state only. It owns no health evidence, dispatch runtime, scheduler plugin wiring, or network I/O.</p>
     </section>
@@ -57,7 +59,8 @@
       <h2>Fixture / Test Source</h2>
       <table>
         <tr><th>File</th><th>Proofs</th></tr>
-        <tr><td><a href="tests/lb.rs">tests/lb.rs</a></td><td>WRR/SWRR distribution, consistent hash stability, FxHash determinism, sticky TTL, candidate disappearance repick.</td></tr>
+        <tr><td><a href="tests/lb.rs">tests/lb.rs</a></td><td>WRR/SWRR distribution, consistent hash stability, FxHash determinism, sticky TTL, candidate disappearance repick, source lease idle/max-age/unhealthy transitions, and invalid half-idle fallback.</td></tr>
+        <tr><td><a href="tests/schema.rs">tests/schema.rs</a></td><td>Machine schema proof for candidate rows, source lease activity, source lease config, reasons, and decisions.</td></tr>
       </table>
     </section>
 
@@ -76,6 +79,8 @@
         <tr><td>Weighted distribution</td><td>Higher-weight candidates receive more picks over repeated samples.</td></tr>
         <tr><td>Hash stability</td><td>The same key and candidate set maps to the same candidate across rebuilt hashers.</td></tr>
         <tr><td>Sticky TTL</td><td>A key keeps its selected candidate until expiry.</td></tr>
+        <tr><td>Source lease rotation</td><td>A source keeps its lease until external source activity reports active_flows=0 plus idle expiry, or candidate disappearance, when max-age policy is off; explicit soft/hard max-age policies are separate rotation modes, and hard switches when an alternative exists.</td></tr>
+        <tr><td>Source activity shape</td><td><code>SourceLeaseActivity</code> accepts only active-source or true-idle data. Unknown activity uses lease last_seen fallback; invalid legacy half-idle input cannot block idle expiry forever.</td></tr>
         <tr><td>Candidate disappearance</td><td>Sticky state repicks when the previous candidate is no longer available.</td></tr>
         <tr><td>Empty input</td><td>Pickers return <code>None</code> when no usable candidate exists.</td></tr>
       </table>

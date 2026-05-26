@@ -62,7 +62,7 @@
         <tr><td>Upstream pool node</td><td>MeshPeerUdp ingress, MeshSec peer key, local egress capabilities, node-local policy, operator status.</td><td>Remote exit and optional direct client gateway. It is not a passive upstream socket; it is the same mesh-bus runtime with different enabled roles.</td></tr>
         <tr><td>Pool relation</td><td>peer_id, wan_id, groups, priority, health evidence, path labels.</td><td>Session-level selection first. Per-packet striping/reorder remains a later Mesh Protocol optimization.</td></tr>
       </table>
-      <p>The first Run 2 claim is <strong>multi-entry, multi-exit session fabric</strong>, not full automatic cluster routing. Private-lab proof has exercised one gateway across a five-node MeshSec pool with even round-robin distribution and zero gateway dispatch failures; daily-use mode returns to session-sticky selection to keep web sites on a stable exit. Dynamic discovery, cluster-wide topology control, remote mutation, and true multipath striping remain future work.</p>
+      <p>The first Run 2 claim is <strong>multi-entry, multi-exit session fabric</strong>, not full automatic cluster routing. Private-lab proof has exercised one gateway across a five-node MeshSec pool with even round-robin distribution and zero gateway dispatch failures. Daily-use mode is now <code>source-lease-rotate</code>: a source-scoped lease that rotates after core reports no active source flows and idle expiry, or after candidate loss; explicit max-age policies are validation/deliberate-distribution modes, not the daily default. Dynamic discovery, cluster-wide topology control, remote mutation, and true multipath striping remain future work.</p>
     </section>
 
     <section id="market-position">
@@ -161,6 +161,7 @@
 
     <section id="compatibility">
       <h2>Compatibility Boundary</h2>
+      <div class="flow">compatibility -> product slice -> owner boundary -> acceptance gate</div>
       <p>SOCKS5, HTTP CONNECT, DNS, VMess, XRAY, Shadowsocks-like protocols, and transparent capture adapters must decode only at the edge, project intent into session request fields, preserve close reasons and observation labels, and prove their own protocol compatibility.</p>
       <p>They must not put protocol parsers in core, claim native-path performance, or define the product skeleton.</p>
     </section>
@@ -219,7 +220,7 @@
         <tr><td>5 Compatibility completeness</td><td>Trust protocol plugins as edges.</td><td>SOCKS5 and HTTP CONNECT common deployment paths complete; future protocols remain adapter/plugin lines; compatibility compared against native direct baseline.</td><td>SOCKS5 and HTTP CONNECT functional MeshSec paths are green; two-node live smoke against <code>198.51.100.36</code> passed.</td></tr>
         <tr><td>6 Mesh peer performance</td><td>Optimize native encrypted event transport.</td><td>Secure UDP event envelopes, port-pool delivery, packet-loop matrix, path stats feeding scheduler evidence, WAN smoke with real remote exits/services.</td><td>MeshSec MeshPeerUdp is the MVP production substrate. Live 10.36 acceptance passed packet capture, fail-closed, operations fault, and before-optimization throughput gates. First optimization owner is L4 UDP packet loop; own QUIC remains protocol-library/reference evidence, not mesh peer completion.</td></tr>
         <tr><td>7 Operator plane</td><td>Make nodes inspectable, testable, configurable, and eventually remotely manageable.</td><td>API-first management surface; CLI/Web are clients; probes use normal data paths; writes are schema-checked and audited.</td><td>M0 local read-only Operator API is implemented and deployed on the live 10.36 node. Production acceptance now uses it for status and metrics evidence; probes, local writes, Web, remote admin, and cluster control remain future phases.</td></tr>
-        <tr><td>8 Run 2 multi-exit fabric</td><td>Replace a single upstream proxy chain with a mesh-bus gateway plus upstream exit pool.</td><td>One gateway can select among at least two MeshSec upstream exits; at least one upstream node can also serve as a direct SOCKS5 client entry; new sessions avoid a failed pool node; metrics show selected sink, peer id, route_group, and failure delta.</td><td><span class="ok">Private-lab pool proven for selection and movement.</span> Five MeshSec upstream exits accepted SOCKS5 traffic through the gateway with balanced selected-exit counters and zero gateway dispatch failures. Failover and long-run soak remain the next hardening gates.</td></tr>
+        <tr><td>8 Run 2 multi-exit fabric</td><td>Replace a single upstream proxy chain with a mesh-bus gateway plus upstream exit pool.</td><td>One gateway can select among at least two MeshSec upstream exits; at least one upstream node can also serve as a direct SOCKS5 client entry; source-scoped daily scheduling keeps related page traffic on one exit and reselects after core reports no active source flows plus idle expiry, or candidate loss; new sessions avoid a failed pool node; metrics show selected sink, peer id, route_group, lease reason, and failure delta.</td><td><span class="ok">Private-lab pool proven for selection and movement.</span> Five MeshSec upstream exits accepted SOCKS5 traffic through the gateway with balanced selected-exit counters and zero gateway dispatch failures. <code>source-lease-rotate</code> is local-green; live deployment, failover, and long-run soak remain the next hardening gates.</td></tr>
         <tr><td>9 Advanced mesh semantics</td><td>Add mesh-level event distribution after Run 2 pool behavior is measurable.</td><td>Multi-hop RouteAdvertise hardening, replicate, striping, SequenceReorder, migration, projection exchange, admin intent plane.</td><td>Projection exchange specified as read-only v1; striping, migration, and mutating AdminIntent remain future work.</td></tr>
         <tr><td>10 L7 HTTPX and gateway modes</td><td>Add semantic HTTP routing or transparent capture only after MVP proxy lanes are stable.</td><td>HTTPX owns HTTP/TLS semantics at the edge; TPROXY/TUN owns capture PCI; neither leaks protocol parsing into core.</td><td>Deferred product line.</td></tr>
         <tr><td>11 Web admin/dashboard</td><td>Turn the local Operator API into a human operations surface.</td><td>Dashboard uses Operator API resources for status, config explanation, probes, rules, metrics, peers, services, and audit trail. UI owns presentation only.</td><td>Read-only local dashboard first; write actions require local-write gates from <a href="operator-plane.html">operator plane</a>.</td></tr>
@@ -229,6 +230,7 @@
 
     <section id="first-slice">
       <h2>First Implementation Slice</h2>
+      <div class="flow">first-slice -> product slice -> owner boundary -> acceptance gate</div>
       <ol>
         <li>Define direct source schema for stream and datagram intent.</li>
         <li>Add direct stream source and direct datagram source to runtime config.</li>
@@ -237,11 +239,12 @@
         <li>Record throughput, close reason, timing, and metrics label differences.</li>
       </ol>
       <p><span class="ok">Functional status:</span> the direct stream source, direct datagram source, stream/datagram service sinks, route_group selection, SOCKS5 forward, HTTP CONNECT forward, and secure two-node product fixtures are proven by binary e2e. The live <code>198.51.100.36</code> service slice now has repeatable SOCKS5 HTTPS acceptance, Operator metrics delta, MeshSec packet capture/fail-closed proof, journal audit, operations fault probes, and a release throughput baseline. Fine-grained bus-internal timing, long-run soak, and optional HTTP CONNECT/UDP DNS live client probes remain measurement work.</p>
-      <p><span class="ok">Run 2 status:</span> private-lab live proof now covers gateway selection across five MeshPeerUdp exits, direct pool-node SOCKS5 entry, encrypted MeshSec movement, per-peer operator counters, and zero gateway dispatch failure during the observed run. The remaining gates are failed-peer avoidance for new sessions, health-aware sticky reselection, and long-run soak.</p>
+      <p><span class="ok">Run 2 status:</span> private-lab live proof now covers gateway selection across five MeshPeerUdp exits, direct pool-node SOCKS5 entry, encrypted MeshSec movement, per-peer operator counters, and zero gateway dispatch failure during the observed run. <code>source-lease-rotate</code> is local-green; the remaining gates are live deployment, failed-peer avoidance for new sessions, health-aware sticky reselection, and long-run soak.</p>
     </section>
 
     <section id="non-goals">
       <h2>Non-Goals</h2>
+      <div class="flow">non-goals -> product slice -> owner boundary -> acceptance gate</div>
       <p>Do not rename the product around direct proxy. Do not parse SOCKS5, VMess, XRAY, HTTP, DNS, or decrypted TLS in core. Do not treat QUIC connection state, UDP port, socket, or channel state as route truth or session truth. Do not claim production N:N from loopback-only tests.</p>
     </section>
   </main>

@@ -5,15 +5,15 @@ design-rule:
   - handbook defines topology and logic; this directory's schema.json defines owned data shape
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
-mesh-bus-scheduler-replicate governs:
+owned files:
   src/lib.rs — ReplicateScheduler
   tests/replicate.rs — scheduler decision and UDP datagram replicate demo
   tests/schema.rs — schema closure and generic candidate fan-out wording guard
 
-mesh-bus-scheduler-replicate depends_on:
+local dependencies:
   mesh-bus-core — SchedulerPlugin, ScheduleDecision
 
-mesh-bus-scheduler-replicate invariants:
+boundary rules:
   - scheduler decisions are metadata-only and never inspect Frame.payload
   - ReplicateScheduler is a forwarding primitive that fans out to all candidate egresses
   - datagram replicate demo proves fan-out plus PacketDedup without adding protocol knowledge to core

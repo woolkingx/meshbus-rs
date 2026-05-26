@@ -394,11 +394,4 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::base64_encode;
-
-    #[test]
-    fn base64_basic_vector() {
-        assert_eq!(base64_encode(b"alice:secret"), "YWxpY2U6c2VjcmV0");
-    }
-}
+mod lib_tests;

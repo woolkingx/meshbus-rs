@@ -66,7 +66,7 @@
     },
     "scheduler_context": {
       "type": "object",
-      "required": ["flow_id", "traffic_class", "deadline", "policy_ref", "schedule_hint", "flow_semantics", "return_semantics"],
+      "required": ["flow_id", "traffic_class", "deadline", "policy_ref", "schedule_hint", "flow_semantics", "return_semantics", "source_activity"],
       "properties": {
         "flow_id": {
           "type": "boolean",
@@ -102,6 +102,11 @@
           "type": "boolean",
           "const": true,
           "description": "Scheduler rank receives ReturnSemantics through RankContext."
+        },
+        "source_activity": {
+          "type": "boolean",
+          "const": true,
+          "description": "Scheduler rank receives optional core-owned SourceActivity through RankContext. None means unknown/no lifecycle evidence; Some is limited to active_flows>=1 or active_flows=0 with idle_since_ms by transport/forwarding/schema.json."
         }
       },
       "additionalProperties": false

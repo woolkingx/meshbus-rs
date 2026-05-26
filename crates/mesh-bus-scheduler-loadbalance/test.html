@@ -44,18 +44,18 @@
       <h2>Owned Data</h2>
       <table>
         <tr><th>Type</th><th>Contract</th></tr>
-        <tr><td><code>LoadBalanceMode</code></td><td>Dispatch strategy: round-robin, consistent-hashing, sticky-sessions.</td></tr>
-        <tr><td><code>LoadBalanceState</code></td><td>Per-instance mode state, RR state, sticky table, and candidate IDs.</td></tr>
+        <tr><td><code>LoadBalanceMode</code></td><td>Dispatch strategy: round-robin, consistent-hashing, sticky-sessions, source-lease-rotate.</td></tr>
+        <tr><td><code>LoadBalanceState</code></td><td>Per-instance mode state, RR state, sticky table, source lease table, and candidate IDs.</td></tr>
         <tr><td><code>weights</code></td><td>Optional exit weights for WRR/ordering influence.</td></tr>
       </table>
     </section>
 
     <section id="schema-source">
       <h2>Schema / Fixture Source</h2>
-      <p><a href="schema.json">schema.json</a> defines required <code>mode</code> with optional <code>sticky_ttl_ms</code> and <code>weights</code>.</p>
+      <p><a href="schema.json">schema.json</a> defines required <code>mode</code> with optional <code>sticky_ttl_ms</code>, <code>source_lease_rotate</code>, and <code>weights</code>.</p>
       <ul>
         <li><a href="tests/schema.rs">tests/schema.rs</a>: mode vocabulary and weights key constraint.</li>
-        <li><a href="tests/loadbalance.rs">tests/loadbalance.rs</a>: round-robin, weighted, hashing, and sticky session semantics.</li>
+        <li><a href="tests/loadbalance.rs">tests/loadbalance.rs</a>: round-robin, weighted, hashing, sticky session, and source lease rotate semantics.</li>
       </ul>
     </section>
 
@@ -77,6 +77,7 @@
         <tr><td>Weight semantics</td><td>Configured weights bias WRR in round-robin mode.</td></tr>
         <tr><td>Consistent hashing boundary</td><td>Stable for same target, ignores flow id when target_key present.</td></tr>
         <tr><td>Sticky pinning</td><td>Source/target hash pins until TTL expiry.</td></tr>
+        <tr><td>Source lease pinning</td><td>Source-only key pins across target changes and distributes distinct sources across exits.</td></tr>
         <tr><td>Injective keying</td><td>Opaque keys do not collide in sticky hash tuples.</td></tr>
       </table>
     </section>

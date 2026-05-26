@@ -9,6 +9,7 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 mb-endpoint = { path = "../../lib/mb-endpoint" }
 mb-proto-mesh = { path = "../../lib/mb-proto-mesh" }
+mb-reorder = { path = "../../lib/mb-reorder" }
 mesh-bus-core = { path = "../mesh-bus-core" }
 rand = { workspace = true }
 tokio = { workspace = true }

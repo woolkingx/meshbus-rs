@@ -92,6 +92,6 @@ mesh-bus perf-backlog:
   - P3 T2 XDP / T3 HW offload: research-only; needs route_group + capability metadata projected into BPF map shape first.
 
 mesh-bus decisions:
+  - 0.4.55 (2026-05-26): Coding structure gate is now release-prep owned: durable Rust tests live outside production logic, module `CLAUDE.md` files route to schema/test contracts instead of embedding long proof code, `tools/audit-coding-structure.mjs` guards inline-test and oversized-file drift, and `tools/flowgraph.mjs` emits boundary edges for data/control-flow readback.
   - 0.4.54 (2026-05-22): Public GitHub name is `meshbus-rs`; product family remains MeshBus, protocol is MeshBus Protocol, security layer is MeshSec, and current implemented CLI remains `mesh-bus`. GitHub Markdown files are landing/contribution gates only; handbook remains the architecture/spec truth.
   - 0.4.53 (2026-05-22): CLAUDE design-boundary guards are now mechanically enforced. Handbook gate R8 fails hard when any `crates/lib/tests/**/CLAUDE.md` lacks exactly one `design-rule:` block, so local boot cards cannot drift away from the handbook topology/schema ownership boundary silently.
-  - 0.4.52 (2026-05-22): CLAUDE design-boundary guards landed. Every module/guide CLAUDE.md carries the local rule that handbook owns topology/logic, schema owns data shape, and each directory may mutate only its owned PCI/data while carried SDU stays opaque.

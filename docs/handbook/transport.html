@@ -13,6 +13,7 @@
     h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
     code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
     table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
     .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
   </style>
 </head>
@@ -106,6 +107,7 @@
 
     <section id="meshsec">
       <h2>MeshSec Binding</h2>
+      <div class="flow">meshsec -> delivery unit -> transport binding -> path evidence gate</div>
       <ul>
         <li>Production WAN UDP uses encrypted event envelopes. Clear MeshEvents are loopback/debug only.</li>
         <li>The lightweight profile uses pairwise static keys from config, HKDF-SHA256 epoch derivation, per-sender traffic keys, XChaCha20-Poly1305, per-process boot_salt, envelope counters, and in-memory replay caches.</li>
@@ -120,6 +122,7 @@
 
     <section id="quic">
       <h2>QUIC Reference Binding</h2>
+      <div class="flow">quic -> delivery unit -> transport binding -> path evidence gate</div>
       <ul>
         <li>QUIC may carry Mesh Protocol events for reference, fallback, and benchmark purposes; it is not Mesh Protocol and not the native mesh transport target.</li>
         <li>The current compatibility path may map BusSession streams to QUIC streams, but endpoint reconstruction, reliability ownership, ordering, deduplication, and route truth remain mesh/session-owned.</li>
@@ -133,6 +136,7 @@
 
     <section id="raw-udp">
       <h2>Raw UDP Binding</h2>
+      <div class="flow">raw-udp -> delivery unit -> transport binding -> path evidence gate</div>
       <ul>
         <li>Raw UDP carries best-effort control, observation, and datagram messages for loopback/debug and packet-loop experiments.</li>
         <li>Raw UDP must reject reliable StreamOpen until an explicit reliable-UDP phase exists.</li>
@@ -155,12 +159,14 @@
 
     <section id="status">
       <h2>Status</h2>
+      <div class="flow">status -> delivery unit -> transport binding -> path evidence gate</div>
       <p><span class="ok">Local green:</span> own UDP substrate (UdpPacketLoop with sendmmsg/recvmmsg batch I/O, per-message GSO send-plan fallback, GRO probe-with-disable, software pacing, conservative PMTU guard, Linux cfg fallback), own real QUIC protocol library (mb-quic: packet protection, TLS handshake, recovery, congestion, streams, flow control, datagrams, close, timers, deterministic tests), Mesh Protocol codec, split raw UDP peer crates delegating to UdpPacketLoop, runtime topology schema, capability-preserving MeshPeerUdp runtime variants, local raw UDP datagram e2e, Secure UDP MeshSec AEAD/KDF/replay envelope with raw-UDP seal/open integration and a two-node secure datagram e2e proving packet-capture no-cleartext plus tamper/replay fail-closed (<code>mesh_peer_secure_udp_two_node_datagram_e2e</code>), and the env-gated release transport throughput matrix harness (<code>throughput_transport.rs</code>, seven rows, builds and skips clean).</p>
       <p><span class="warn">Remaining:</span> live WAN secure UDP traffic runs, reconnect/recovery hardening, and sustained multi-host release throughput evidence. MeshSec and native event-family reliability are proven at local two-node functional level; QUIC is a comparison baseline, not the target completion gate.</p>
     </section>
 
     <section id="gates">
       <h2>Acceptance Gates</h2>
+      <div class="flow">gates -> delivery unit -> transport binding -> path evidence gate</div>
       <ul>
         <li>Secure UDP carries encrypted MeshEvents and exposes no event family, session id, node id, route group, target, or payload in the outer envelope.</li>
         <li>Raw UDP is loopback/debug only unless protected by MeshSec.</li>

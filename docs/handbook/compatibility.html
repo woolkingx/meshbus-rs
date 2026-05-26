@@ -13,6 +13,7 @@
     h1,h2 { margin:0 0 10px; line-height:1.2; } p { margin:8px 0; } a { color:var(--accent); }
     code { padding:1px 4px; border-radius:4px; background:rgba(127,127,127,.15); }
     table { width:100%; border-collapse:collapse; margin-top:8px; } th,td { border:1px solid var(--line); padding:8px; text-align:left; vertical-align:top; } th { background:rgba(127,127,127,.10); }
+    .flow { white-space:pre-wrap; padding:12px; border-radius:8px; background:rgba(127,127,127,.12); overflow:auto; }
     .ok { color:var(--ok); font-weight:600; } .warn { color:var(--warn); font-weight:600; }
   </style>
 </head>
@@ -25,6 +26,7 @@
   <main>
     <section id="boundary">
       <h2>Boundary</h2>
+      <div class="flow">boundary -> edge protocol -> adapter boundary -> compatibility proof</div>
       <ul>
         <li>Protocol parsing belongs in codec libs or edge adapter crates.</li>
         <li>Core receives target, flow semantics, return semantics, route_group, policy metadata, and opaque payload.</li>
@@ -142,6 +144,7 @@
 
     <section id="readiness">
       <h2>Readiness Rule</h2>
+      <div class="flow">readiness -> edge protocol -> adapter boundary -> compatibility proof</div>
       <p><span class="ok">Local functional readiness</span> means codec, adapter, runtime, and binary e2e pass for the affected path. <span class="warn">Deployment readiness</span> also requires env-gated live WAN smoke and metrics showing the intended upstream or peer path.</p>
       <p>Compatibility completion is not declared by codec coverage alone. A path is ready only when the codec contract, adapter lifecycle, pipeline decision, session relay, observation, and boundary guard all agree.</p>
     </section>

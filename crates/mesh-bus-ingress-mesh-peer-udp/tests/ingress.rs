@@ -1,15 +1,19 @@
+use async_trait::async_trait;
 use bytes::{Bytes, BytesMut};
 use mb_endpoint::Endpoint;
 use mb_proto_mesh::{
     CloseReasonWire, FlowSemanticsWire, MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS,
     MESHSEC_REPLAY_WINDOW_BITS, MeshFrame, MeshSecOpenKey, MeshSecReplayCache, MeshSecSealContext,
-    NativeEventMode, ReturnSemanticsWire, StreamOpen, StreamOpenRejectReason, decode_frame,
-    encode_frame, meshsec_epoch_number, open_mesh_frame, seal_mesh_frame,
+    NativeEventMode, ReturnSemanticsWire, STEER_DELIVERY_POLICY_ID, StreamOpen,
+    StreamOpenRejectReason, decode_event, decode_frame, encode_event, encode_frame,
+    event_frame_payload, frame_event_meta, meshsec_epoch_number, open_bytes, open_mesh_frame,
+    seal_bytes, seal_mesh_frame, wrap_frame_event,
 };
 use mesh_bus_core::transport::udp_loop::UdpPacketLoop;
 use mesh_bus_core::{
-    BusBuilder, BusEvent, ExitId, ExitResult, IngressPlugin, ObserverPlugin, RankContext,
-    ScheduleDecision, SchedulerPlugin,
+    BusBuilder, BusEvent, BusSessionInfo, BusSessionRequest, Capabilities, DisconnectReason,
+    ExitId, ExitResult, IngressPlugin, ObserverPlugin, RankContext, ScheduleDecision,
+    SchedulerPlugin, StreamEgress, StreamRecvHalf, StreamSendHalf, StreamSession, TcpSpliceSession,
     kernel::observation::{EventEnvelope, EventTypeId, OBS_MESHSEC_DROP, OBS_NATIVE_DROP},
 };
 use mesh_bus_egress_tcp::TcpEgress;
@@ -19,6 +23,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, UdpSocket};
+
+#[path = "ingress/meshsec_cases.rs"]
+mod meshsec_cases;
 
 struct First;
 
@@ -32,6 +39,119 @@ impl SchedulerPlugin for First {
 
 struct DropRecorder {
     events: Arc<Mutex<Vec<EventEnvelope>>>,
+}
+
+struct BurstStreamEgress {
+    id: ExitId,
+    caps: Capabilities,
+    payload: Bytes,
+}
+
+impl BurstStreamEgress {
+    fn new(payload: Bytes) -> Self {
+        Self {
+            id: ExitId("burst".into()),
+            caps: Capabilities {
+                protocol: "burst-stream".into(),
+                supports_stream: true,
+                supports_datagram: false,
+                max_payload_bytes: None,
+                groups: Vec::new(),
+            },
+            payload,
+        }
+    }
+}
+
+#[async_trait]
+impl StreamEgress for BurstStreamEgress {
+    fn id(&self) -> &ExitId {
+        &self.id
+    }
+
+    fn capabilities(&self) -> &Capabilities {
+        &self.caps
+    }
+
+    async fn open_stream(
+        &self,
+        _request: &BusSessionRequest,
+        info: BusSessionInfo,
+    ) -> Result<Box<dyn StreamSession>, DisconnectReason> {
+        Ok(Box::new(BurstStreamSession {
+            info,
+            payload: Some(self.payload.clone()),
+            last_error: None,
+        }))
+    }
+}
+
+struct BurstStreamSession {
+    info: BusSessionInfo,
+    payload: Option<Bytes>,
+    last_error: Option<DisconnectReason>,
+}
+
+#[async_trait]
+impl StreamSession for BurstStreamSession {
+    async fn connect(&mut self) -> Result<&BusSessionInfo, DisconnectReason> {
+        Ok(&self.info)
+    }
+
+    fn into_tcp_splice(self: Box<Self>) -> Result<TcpSpliceSession, Box<dyn StreamSession>> {
+        Err(self)
+    }
+
+    fn split(self: Box<Self>) -> (Box<dyn StreamSendHalf>, Box<dyn StreamRecvHalf>) {
+        (
+            Box::new(BurstSendHalf),
+            Box::new(BurstRecvHalf {
+                payload: self.payload,
+                last_error: self.last_error,
+            }),
+        )
+    }
+
+    async fn abort(&mut self, reason: DisconnectReason) {
+        self.last_error = Some(reason);
+    }
+
+    fn info(&self) -> &BusSessionInfo {
+        &self.info
+    }
+
+    fn last_error(&self) -> Option<&DisconnectReason> {
+        self.last_error.as_ref()
+    }
+}
+
+struct BurstSendHalf;
+
+#[async_trait]
+impl StreamSendHalf for BurstSendHalf {
+    async fn send(&mut self, _payload: Bytes) -> Result<(), DisconnectReason> {
+        Ok(())
+    }
+
+    async fn shutdown_write(&mut self) {}
+
+    async fn abort(&mut self, _reason: DisconnectReason) {}
+}
+
+struct BurstRecvHalf {
+    payload: Option<Bytes>,
+    last_error: Option<DisconnectReason>,
+}
+
+#[async_trait]
+impl StreamRecvHalf for BurstRecvHalf {
+    async fn recv(&mut self) -> Option<Bytes> {
+        self.payload.take()
+    }
+
+    fn last_error(&self) -> Option<&DisconnectReason> {
+        self.last_error.as_ref()
+    }
 }
 
 impl ObserverPlugin for DropRecorder {
@@ -175,7 +295,7 @@ async fn datagram_send_reenters_bus_and_returns_source_endpoint() {
         returned,
         MeshFrame::DatagramReturn {
             session_id: "remote-d-1".into(),
-            seq: 0,
+            seq: 1,
             source: target,
             payload: Bytes::from_static(b"hello"),
         }
@@ -334,6 +454,33 @@ fn seal_as_node_a(frame: &MeshFrame, key: [u8; 32], counter: u64) -> Vec<u8> {
     seal_mesh_frame(frame, &ctx, meshsec_epoch_number(now_secs()), counter).expect("seal frame")
 }
 
+/// Seal a native MeshEvent as remote sender `node-a` toward receiver `node-b`.
+fn seal_native_as_node_a(frame: &MeshFrame, key: [u8; 32], counter: u64) -> Vec<u8> {
+    let ctx = MeshSecSealContext {
+        local_node_id: "node-a".into(),
+        remote_node_id: "node-b".into(),
+        static_key: key,
+        boot_salt: [9, 8, 7, 6],
+    };
+    let frame_clear = encode_frame(frame).expect("encode frame");
+    let (family_id, seq, semantic) = frame_event_meta(frame);
+    let event = wrap_frame_event(
+        family_id,
+        seq,
+        semantic,
+        STEER_DELIVERY_POLICY_ID,
+        &frame_clear,
+    );
+    let event_bytes = encode_event(&event).expect("encode event");
+    seal_bytes(
+        &event_bytes,
+        &ctx,
+        meshsec_epoch_number(now_secs()),
+        counter,
+    )
+    .expect("seal native event")
+}
+
 /// Open a reverse reply sealed by the ingress (`node-b` sender).
 fn open_reverse_reply(packet: &[u8]) -> MeshFrame {
     let keys = vec![MeshSecOpenKey {
@@ -355,6 +502,29 @@ fn open_reverse_reply(packet: &[u8]) -> MeshFrame {
     frame
 }
 
+/// Open a reverse native MeshEvent reply sealed by the ingress (`node-b` sender).
+fn open_reverse_native_reply(packet: &[u8]) -> MeshFrame {
+    let keys = vec![MeshSecOpenKey {
+        peer_id: "peer-b".into(),
+        remote_node_id: "node-b".into(),
+        static_key: TEST_KEY,
+    }];
+    let mut replay = MeshSecReplayCache::new(MESHSEC_REPLAY_WINDOW_BITS);
+    let epoch = meshsec_epoch_number(now_secs());
+    let (_, clear) = open_bytes(
+        packet,
+        &keys,
+        "node-a",
+        epoch.saturating_sub(MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS)
+            ..=epoch + MESHSEC_ACCEPTED_EPOCH_SKEW_SLOTS,
+        &mut replay,
+    )
+    .expect("open reverse native reply");
+    let event = decode_event(&mut BytesMut::from(&clear[..])).expect("decode reverse event");
+    let payload = event_frame_payload(&event).expect("reverse event payload");
+    decode_frame(&mut BytesMut::from(payload)).expect("decode reverse frame")
+}
+
 async fn spawn_keyed_ingress(port: mesh_bus_core::BusPort) -> std::net::SocketAddr {
     let ingress_loop = UdpPacketLoop::bind("127.0.0.1:0".parse().expect("ingress bind addr"))
         .await
@@ -374,224 +544,21 @@ async fn spawn_keyed_ingress(port: mesh_bus_core::BusPort) -> std::net::SocketAd
     ingress_addr
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn meshsec_sealed_datagram_reenters_bus_and_seals_return() {
-    let echo_port = spawn_udp_echo().await;
-    let bus = BusBuilder::new()
-        .scheduler(Box::new(First))
-        .add_datagram_egress(Box::new(UdpEgress::new(
-            ExitId("udp".into()),
-            Duration::from_millis(500),
-        )))
-        .build()
-        .await;
-    let port = bus.port();
-    let _handle = bus.spawn();
-    let ingress_addr = spawn_keyed_ingress(port).await;
-
-    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
-    let target = endpoint("127.0.0.1", echo_port);
-
-    let open = seal_as_node_a(
-        &MeshFrame::DatagramOpen(mb_proto_mesh::DatagramOpen {
-            session_id: "sec-d-1".into(),
-            fixed_target: Some(target.clone()),
-            max_datagram_bytes: 1200,
-        }),
-        TEST_KEY,
-        1,
-    );
-    peer.send_to(&open, ingress_addr).await.expect("send open");
-
-    let send = seal_as_node_a(
-        &MeshFrame::DatagramSend {
-            session_id: "sec-d-1".into(),
-            seq: 7,
-            target: target.clone(),
-            payload: Bytes::from_static(b"hello"),
-        },
-        TEST_KEY,
-        2,
-    );
-    peer.send_to(&send, ingress_addr)
-        .await
-        .expect("send datagram");
-
-    let mut buf = vec![0u8; 2048];
-    let (n, _) = peer.recv_from(&mut buf).await.expect("recv sealed return");
-    // The wire bytes must not be a clear Mesh frame.
-    assert!(
-        decode_frame(&mut BytesMut::from(&buf[..n])).is_err(),
-        "DatagramReturn must travel sealed, not in clear"
-    );
-    let returned = open_reverse_reply(&buf[..n]);
-    assert_eq!(
-        returned,
-        MeshFrame::DatagramReturn {
-            session_id: "sec-d-1".into(),
-            seq: 0,
-            source: target,
-            payload: Bytes::from_static(b"hello"),
-        }
-    );
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn meshsec_clear_and_wrong_key_packets_are_dropped() {
-    let echo_port = spawn_udp_echo().await;
-    let bus = BusBuilder::new()
-        .scheduler(Box::new(First))
-        .add_datagram_egress(Box::new(UdpEgress::new(
-            ExitId("udp".into()),
-            Duration::from_millis(500),
-        )))
-        .build()
-        .await;
-    let port = bus.port();
-    let _handle = bus.spawn();
-    let ingress_addr = spawn_keyed_ingress(port).await;
-
-    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
-    let target = endpoint("127.0.0.1", echo_port);
-
-    // Clear (unsealed) frames must be dropped when MeshSec keys are configured.
-    let clear_open = encode_frame(&MeshFrame::DatagramOpen(mb_proto_mesh::DatagramOpen {
-        session_id: "clear-1".into(),
-        fixed_target: Some(target.clone()),
-        max_datagram_bytes: 1200,
-    }))
-    .expect("encode clear open");
-    peer.send_to(&clear_open, ingress_addr)
-        .await
-        .expect("send clear open");
-    let clear_send = encode_frame(&MeshFrame::DatagramSend {
-        session_id: "clear-1".into(),
-        seq: 1,
-        target: target.clone(),
-        payload: Bytes::from_static(b"clear"),
-    })
-    .expect("encode clear send");
-    peer.send_to(&clear_send, ingress_addr)
-        .await
-        .expect("send clear send");
-
-    // Wrong-key sealed frames must never open a bus session.
-    let wrong = seal_as_node_a(
-        &MeshFrame::DatagramOpen(mb_proto_mesh::DatagramOpen {
-            session_id: "wrong-1".into(),
-            fixed_target: Some(target.clone()),
-            max_datagram_bytes: 1200,
-        }),
-        [1u8; 32],
-        1,
-    );
-    peer.send_to(&wrong, ingress_addr)
-        .await
-        .expect("send wrong-key open");
-
-    let mut buf = vec![0u8; 2048];
-    let quiet = tokio::time::timeout(Duration::from_millis(300), peer.recv_from(&mut buf)).await;
-    assert!(
-        quiet.is_err(),
-        "clear and wrong-key packets must not produce any datagram return"
-    );
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn meshsec_wrong_key_and_replay_publish_drop_events_without_sessions() {
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let bus = BusBuilder::new()
-        .scheduler(Box::new(First))
-        .add_datagram_egress(Box::new(UdpEgress::new(
-            ExitId("udp".into()),
-            Duration::from_millis(500),
-        )))
-        .add_observer(Box::new(DropRecorder {
-            events: events.clone(),
-        }))
-        .build()
-        .await;
-    let port = bus.port();
-    let handle = bus.spawn();
-    let ingress_addr = spawn_keyed_ingress(port).await;
-
-    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
-    let target = endpoint("127.0.0.1", spawn_udp_echo().await);
-    let wrong = seal_as_node_a(
-        &MeshFrame::DatagramOpen(mb_proto_mesh::DatagramOpen {
-            session_id: "wrong-obs".into(),
-            fixed_target: Some(target),
-            max_datagram_bytes: 1200,
-        }),
-        [1u8; 32],
-        44,
-    );
-    peer.send_to(&wrong, ingress_addr)
-        .await
-        .expect("send wrong-key open");
-    let auth = wait_for_drop_reason(&events, OBS_MESHSEC_DROP, "auth").await;
-    assert_eq!(auth.payload.0.secure, Some(true));
-
-    let port_open = seal_as_node_a(
-        &MeshFrame::PortOpen(mb_proto_mesh::ReceiverMouth {
-            mouth_id: "mouth-a".into(),
-            udp_addr: "127.0.0.1:19000".into(),
-            family_filter: vec!["control".into()],
-            advertised_capacity: 1,
-            epoch: 1,
-        }),
-        TEST_KEY,
-        45,
-    );
-    peer.send_to(&port_open, ingress_addr)
-        .await
-        .expect("send port open");
-    peer.send_to(&port_open, ingress_addr)
-        .await
-        .expect("send replayed port open");
-    let replay = wait_for_drop_reason(&events, OBS_MESHSEC_DROP, "replay").await;
-    assert_eq!(replay.payload.0.source_addr.is_some(), true);
-
-    let snapshot = handle.snapshot().await;
-    assert_eq!(snapshot.dispatch_success, 0);
-    assert_eq!(snapshot.dispatch_failure, 0);
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn malformed_native_packet_publishes_native_drop_without_session() {
-    let events = Arc::new(Mutex::new(Vec::new()));
-    let bus = BusBuilder::new()
-        .scheduler(Box::new(First))
-        .add_datagram_egress(Box::new(UdpEgress::new(
-            ExitId("udp".into()),
-            Duration::from_millis(500),
-        )))
-        .add_observer(Box::new(DropRecorder {
-            events: events.clone(),
-        }))
-        .build()
-        .await;
-    let port = bus.port();
-    let handle = bus.spawn();
-
+async fn spawn_keyed_native_ingress(port: mesh_bus_core::BusPort) -> std::net::SocketAddr {
     let ingress_loop = UdpPacketLoop::bind("127.0.0.1:0".parse().expect("ingress bind addr"))
         .await
         .expect("bind mesh ingress");
     let ingress_addr = ingress_loop.local_addr().expect("ingress addr");
+    let keys = vec![MeshSecOpenKey {
+        peer_id: "peer-a".into(),
+        remote_node_id: "node-a".into(),
+        static_key: TEST_KEY,
+    }];
     let ingress = MeshPeerUdpIngress::new(ingress_loop)
-        .with_native_event_mode(NativeEventMode::SecureUdpNative);
+        .with_native_event_mode(NativeEventMode::SecureUdpNative)
+        .with_meshsec_keys("node-b".into(), keys);
     tokio::spawn(async move {
         let _ = Box::new(ingress).run(port).await;
     });
-
-    let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
-    peer.send_to(b"not-a-native-event", ingress_addr)
-        .await
-        .expect("send malformed native packet");
-    let event = wait_for_drop_reason(&events, OBS_NATIVE_DROP, "event_decode").await;
-    assert_eq!(event.payload.0.secure, Some(false));
-
-    let snapshot = handle.snapshot().await;
-    assert_eq!(snapshot.dispatch_success, 0);
-    assert_eq!(snapshot.dispatch_failure, 0);
+    ingress_addr
 }

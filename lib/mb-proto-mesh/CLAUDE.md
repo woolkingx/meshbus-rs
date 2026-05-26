@@ -14,18 +14,18 @@ design-rule:
   - this directory may mutate only its owned PCI/data; carried SDU/payload from other layers stays opaque unless this CLAUDE.md names the owner boundary
   - new behavior starts by naming owner data, boundary, and proof gate; do not add cross-layer shortcuts
 
-mb-proto-mesh governs:
+owned files:
   src/lib.rs — MeshFrame, control/data message types, versioned envelope encode/decode
   schema.json — MeshSec envelope wire contract, profile constants, and crypto invariants
   tests/codec.rs — envelope, Hello, StreamOpen ack/reject re-entry, datagram source preservation
 
-mb-proto-mesh depends_on:
+local dependencies:
   bytes — Bytes/BytesMut buffer handling
   mb-endpoint — Endpoint wire projection for target/source endpoints
   serde + bincode — production binary payload encoding inside the Mesh Protocol envelope
   thiserror — CodecError derive
 
-mb-proto-mesh invariants:
+boundary rules:
   - Codec scope only; no sockets, Tokio, runtime config, scheduler, or mesh-bus-core dependency.
   - Mesh Protocol frame payload stays opaque to core; mesh-peer adapters translate frames into BusSessionRequest.
   - Raw UDP binding may carry stream, datagram, control, and observation frames; stream open success is explicit (`StreamOpenAccepted`) and reliability remains Mesh Protocol event-family state, not a QUIC channel.

@@ -7,6 +7,9 @@ const env = process.env;
 const remoteSsh = required("MESH_BUS_REMOTE_SSH");
 const remoteSocks5 = required("MESH_BUS_REMOTE_SOCKS5");
 const remoteOperator = required("MESH_BUS_REMOTE_OPERATOR");
+const remoteService = env.MESH_BUS_REMOTE_SERVICE || "mesh-bus.service";
+const remoteBin = env.MESH_BUS_REMOTE_BIN || "/opt/mesh-bus/bin/mesh-bus";
+const remoteAdminBin = env.MESH_BUS_REMOTE_ADMIN_BIN || remoteBin;
 const soakSeconds = numberEnv("MESH_BUS_SOAK_SECONDS", 120);
 const intervalSeconds = numberEnv("MESH_BUS_SOAK_INTERVAL_SECONDS", 10);
 const curlMaxTimeSeconds = numberEnv("MESH_BUS_SOAK_CURL_MAX_TIME_SECONDS", 30);
@@ -18,6 +21,9 @@ const result = {
   remote_ssh: remoteSsh,
   remote_socks5: remoteSocks5,
   remote_operator: remoteOperator,
+  remote_service: remoteService,
+  remote_bin: remoteBin,
+  remote_admin_bin: remoteAdminBin,
   target,
   soak_seconds: soakSeconds,
   interval_seconds: intervalSeconds,
@@ -89,12 +95,12 @@ function numberEnv(name, fallback) {
 }
 
 async function assertActive(label) {
-  const active = (await ssh("systemctl is-active mesh-bus.service")).trim();
-  if (active !== "active") throw new Error(`mesh-bus.service not active ${label}: ${active}`);
+  const active = (await ssh(`systemctl is-active ${q(remoteService)}`)).trim();
+  if (active !== "active") throw new Error(`${remoteService} not active ${label}: ${active}`);
 }
 
 async function remoteAdminJson(command) {
-  const out = await ssh(`/opt/mesh-bus/bin/mesh-bus admin ${command} --api ${q(remoteOperator)}`);
+  const out = await ssh(`${q(remoteAdminBin)} admin ${command} --api ${q(remoteOperator)}`);
   try {
     return JSON.parse(out);
   } catch (err) {
@@ -107,7 +113,8 @@ async function remoteAdminJson(command) {
 async function remoteProcessSnapshot() {
   const script = [
     "set -e",
-    "pid=$(pidof mesh-bus)",
+    `pid=$(systemctl show ${q(remoteService)} -p MainPID --value)`,
+    'test "$pid" != "0"',
     "rss=$(awk '/^VmRSS:/ {print $2}' /proc/$pid/status)",
     "threads=$(awk '/^Threads:/ {print $2}' /proc/$pid/status)",
     "fds=$(ls /proc/$pid/fd | wc -l)",

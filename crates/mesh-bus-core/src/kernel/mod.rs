@@ -21,11 +21,9 @@ pub mod port;
 mod registry;
 mod runtime;
 pub mod session_handle;
+mod source_activity;
 pub mod types;
 pub(crate) mod verdict;
-
-#[cfg(test)]
-mod tests;
 
 pub use data_handle::{
     AuthMeta, Bus, BusBuilder, BusHandle, BusPort, BusSnapshotClient, CompiledPipelineSet, Event,
@@ -37,3 +35,6 @@ pub use data_handle::{
 };
 pub use health_snapshot::{HealthPublisher, HealthSnapshot};
 pub use types::*;
+
+#[cfg(test)]
+mod tests;

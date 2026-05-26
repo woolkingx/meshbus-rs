@@ -61,7 +61,7 @@
       "sdu": "L5 PDU (opaque session-framed bytes)",
       "pci": {
         "flow_id": "identity born at first successful Open",
-        "rank_context": "{ packet_id, flow_id, session_id, target, traffic_class, policy_ref, deadline_ms, schedule_hint, flow_semantics, return_semantics, source_key, target_key }",
+        "rank_context": "{ packet_id, flow_id, session_id, target, traffic_class, policy_ref, deadline_ms, schedule_hint, flow_semantics, return_semantics, source_key, target_key, source_activity }",
         "traffic_class": "Interactive | Bulk | Control | Probe",
         "flow_semantics": "ByteStream | Datagram | Message",
         "return_semantics": "Direct | PacketDedup | SequenceReorder",
@@ -72,7 +72,8 @@
         "exit_result": "{ exit_id, success, rtt_ms, local_endpoint }",
         "path_trace": "running list of L4-selected exits for the flow (authored here by dispatch; L5 only re-exposes it inside bus_session_info)",
         "close_reason": "flow termination cause (TtlExpired, NoUsableExit, UpstreamEof, ReaderClosed, ConnectionReset, ...)",
-        "flow_pin": "L4-stored exit affinity (cross-layer: stored in L4 PCI, value supplied by the L7 pipeline)"
+        "flow_pin": "L4-stored exit affinity (cross-layer: stored in L4 PCI, value supplied by the L7 pipeline)",
+        "source_activity": "core-owned source lifecycle projection exposed to schedulers as None for no lifecycle evidence, active-source for active_flows>=1, or true-idle for active_flows=0 plus idle_since_ms"
       },
       "boundary": "routes on flow-native PCI only; must not read any L7 naming atom (host/SNI/URL/intent); the L5 PDU is opaque SDU"
     },
