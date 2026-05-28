@@ -69,7 +69,7 @@
         <tr><td><code>tests/live-diagnose-bundle.mjs</code></td><td>Deployed service diagnose runner for redacted Operator status, metrics, config, systemd, process, socket, and journal evidence.</td></tr>
         <tr><td><code>tests/live-observe-hooks-profile.mjs</code></td><td>Deployed observe/hooks profiler that drives Operator probes through the normal ingress, hook, scheduler, and egress path, then explains movement from observer projection deltas.</td></tr>
         <tr><td><code>tests/live-observe-syscall-profile.mjs</code></td><td>Deployed phase profiler that keeps Operator/observer deltas as primary evidence while adding idle and active <code>strace -c</code> syscall rates to catch CPU churn such as mmap/munmap storms.</td></tr>
-        <tr><td><code>tests/live-run2-pool-validation.mjs</code></td><td>Run2 gateway-to-pool live validation runner for SOCKS5 probes, per-exit deltas, MeshSec/native drop deltas, and optional explicit service-mutation failover.</td></tr>
+        <tr><td><code>tests/live-run2-pool-validation.mjs</code></td><td>Run2 live validation runner. Default <code>mesh</code> mode proves gateway-to-pool SOCKS5 probes, per-exit deltas, MeshSec/native drop deltas, and optional explicit service-mutation failover. <code>socks-upstream</code> mode maps the Run2 HTTP target into the direct upstream SOCKS5 control path without MeshPeerUdp pool probes.</td></tr>
         <tr><td><code>tests/live-run2-stream-validation.mjs</code></td><td>Run2 long-stream validation runner for temporary systemd-owned video-like origin streams or external progressive video URLs through the gateway SOCKS5 path.</td></tr>
       </table>
     </section>
@@ -89,7 +89,7 @@
         <tr><td><code>node tests/live-diagnose-bundle.mjs</code></td><td>Live diagnose gate; requires remote SSH and Operator API env.</td></tr>
         <tr><td><code>node tests/live-observe-hooks-profile.mjs</code></td><td>Live observe/hooks profile gate; requires remote SSH and Operator API env.</td></tr>
         <tr><td><code>node tests/live-observe-syscall-profile.mjs</code></td><td>Live observe/syscall profile gate; requires remote SSH, Operator API env, and <code>strace</code> on the target.</td></tr>
-        <tr><td><code>node tests/live-run2-pool-validation.mjs</code></td><td>Live Run2 pool gate; requires gateway SSH, gateway SOCKS5, and gateway Operator API env.</td></tr>
+        <tr><td><code>node tests/live-run2-pool-validation.mjs</code></td><td>Live Run2 gate; <code>MESH_BUS_RUN2_VALIDATION_MODE=mesh</code> requires gateway SSH, gateway SOCKS5, and gateway Operator API env; <code>MESH_BUS_RUN2_VALIDATION_MODE=socks-upstream</code> requires <code>MESH_BUS_LIVE_SOCKS5_UPSTREAMS</code>.</td></tr>
         <tr><td><code>node tests/live-run2-stream-validation.mjs</code></td><td>Live Run2 stream gate; requires gateway SSH, gateway SOCKS5, gateway Operator API env, and Python 3 on the gateway for the default temporary origin.</td></tr>
       </table>
     </section>

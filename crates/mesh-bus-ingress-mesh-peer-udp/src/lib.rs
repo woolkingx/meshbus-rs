@@ -586,6 +586,17 @@ impl IngressPlugin for MeshPeerUdpIngress {
                                     }
                                     FamilyPushOutcome::WindowOverflow(_) => {
                                         drop_native(&port, peer, NativeDropReason::QueueOverflow);
+                                        if matches!(event.semantic, EventSemantic::Stream) {
+                                            let _ = control_reply_tx.try_send(ControlReply {
+                                                peer,
+                                                native_event_mode,
+                                                seal: reply_seal.clone(),
+                                                frame: MeshFrame::StreamClose {
+                                                    session_id: event.family_id.clone(),
+                                                    close_reason: CloseReasonWire::ProtocolError,
+                                                },
+                                            });
+                                        }
                                         family_states.remove(&fam_key);
                                         continue;
                                     }

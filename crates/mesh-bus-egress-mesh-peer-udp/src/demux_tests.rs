@@ -5,6 +5,18 @@ use mesh_bus_core::transport::udp_loop::UdpPacketLoop;
 use std::net::{IpAddr, Ipv4Addr};
 use tokio::net::UdpSocket;
 
+#[test]
+fn protocol_error_close_maps_to_stream_error() {
+    use crate::wire_close_to_disconnect;
+    use mb_proto_mesh::CloseReasonWire;
+    use mesh_bus_core::DisconnectReason;
+
+    assert_eq!(
+        wire_close_to_disconnect(CloseReasonWire::ProtocolError),
+        DisconnectReason::Other("ProtocolError".into())
+    );
+}
+
 async fn bind_loop() -> (Arc<UdpPacketLoop>, SocketAddr) {
     let peer = UdpSocket::bind("127.0.0.1:0").await.expect("bind peer");
     let peer_addr = peer.local_addr().expect("peer addr");

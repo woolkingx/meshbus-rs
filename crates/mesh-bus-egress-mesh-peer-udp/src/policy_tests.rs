@@ -74,6 +74,31 @@ fn repair_remembers_only_data_seqs_and_retransmits_missing_ranges() {
 }
 
 #[test]
+fn steer_does_not_repair_missing_stream_seq_but_repair_does() {
+    let ack = AckNack {
+        family_id: "stream-session".into(),
+        cumulative_seq: 1,
+        received_bitmap: "0".repeat(32),
+        missing_ranges: vec![SeqRange { start: 1, end: 1 }],
+    };
+
+    let steer = EgressPolicy::new(DeliveryMode::Steer, 1, 0);
+    steer.remember(1, b"stream-seq-1");
+    assert!(
+        steer.to_retransmit(&ack).is_empty(),
+        "steer must not pretend to repair an ordered stream gap"
+    );
+
+    let repair = EgressPolicy::new(DeliveryMode::Repair, 1, 0);
+    repair.remember(1, b"stream-seq-1");
+    assert_eq!(
+        repair.to_retransmit(&ack),
+        vec![b"stream-seq-1".to_vec()],
+        "repair must retain stream data packages for AckNack retransmit"
+    );
+}
+
+#[test]
 fn probe_budget_caps_low_rate_samples() {
     let policy = EgressPolicy::new(DeliveryMode::Probe, 2, 3);
     assert!(policy.take_probe_token(), "1st probe within budget");

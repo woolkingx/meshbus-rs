@@ -63,13 +63,23 @@
     },
     "control_reply_worker": {
       "type": "object",
-      "description": "Ingress-local control feedback worker. FamilyReorderState Gap outcomes enqueue AckNack replies here; the receive/reorder loop must not await packet_loop.flush.",
+      "description": "Ingress-local control feedback worker. FamilyReorderState Gap outcomes enqueue AckNack replies here; native stream WindowOverflow enqueues terminal StreamClose replies here. The receive/reorder loop must not await packet_loop.flush.",
       "additionalProperties": false,
       "properties": {
         "owner_layer": { "const": "L5/L4-control" },
         "ack_intent_bound": { "type": "integer", "minimum": 1 },
-        "input": { "const": "FamilyPushOutcome::Gap" },
-        "output": { "const": "MeshFrame::AckNack" }
+        "input": {
+          "enum": [
+            "FamilyPushOutcome::Gap",
+            "FamilyPushOutcome::WindowOverflow"
+          ]
+        },
+        "output": {
+          "enum": [
+            "MeshFrame::AckNack",
+            "MeshFrame::StreamClose"
+          ]
+        }
       },
       "required": ["owner_layer", "ack_intent_bound", "input", "output"]
     }

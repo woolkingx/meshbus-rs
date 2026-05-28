@@ -1,5 +1,5 @@
 use super::*;
-use crate::kernel::observation::{EventPayload, EventPayloadInner};
+use crate::kernel::observation::{EventPayload, EventPayloadInner, OBS_NATIVE_DROP};
 use mb_health::HealthPolicy;
 
 fn strict_policy() -> HealthPolicy {
@@ -70,5 +70,36 @@ async fn success_recovers_exit() {
     assert!(
         !publisher.load().unhealthy.contains("e1"),
         "e1 should recover after success"
+    );
+}
+
+#[tokio::test]
+async fn health_observer_does_not_treat_local_native_drop_as_exit_failure() {
+    let publisher = Arc::new(HealthPublisher::new());
+    let obs = ExitHealthObserver::new(
+        publisher.clone(),
+        HealthPolicy {
+            failure_threshold: 1,
+            recovery_window_ms: 60_000,
+            probe_after_ms: 60_000,
+        },
+        vec!["mesh22".into()],
+    );
+
+    obs.on_core_event(&EventEnvelope {
+        type_id: OBS_NATIVE_DROP,
+        payload: EventPayload(Arc::new(EventPayloadInner {
+            exit_id: Some("mesh22".into()),
+            reason: Some("queue_overflow".into()),
+            at_ms: 1,
+            ..EventPayloadInner::default()
+        })),
+        at_ns: 1_000_000,
+    });
+    obs.flush_for_test().await;
+
+    assert!(
+        !publisher.load().unhealthy.contains("mesh22"),
+        "health must be driven by core lifecycle/path failures, not metrics-only native drops"
     );
 }

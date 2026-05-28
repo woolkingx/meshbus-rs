@@ -63,6 +63,7 @@
         <tr><td>Pool relation</td><td>peer_id, wan_id, groups, priority, health evidence, path labels.</td><td>Session-level selection first. Per-packet striping/reorder remains a later Mesh Protocol optimization.</td></tr>
       </table>
       <p>The first Run 2 claim is <strong>multi-entry, multi-exit session fabric</strong>, not full automatic cluster routing. Private-lab proof has exercised one gateway across a five-node MeshSec pool with even round-robin distribution and zero gateway dispatch failures. Daily-use mode is now <code>source-lease-rotate</code>: a source-scoped lease that rotates after core reports no active source flows and idle expiry, or after candidate loss; explicit max-age policies are validation/deliberate-distribution modes, not the daily default. Dynamic discovery, cluster-wide topology control, remote mutation, and true multipath striping remain future work.</p>
+      <p><span class="warn">Run 2 validation split:</span> gateway scheduling and source-lease behavior must first pass a SOCKS-upstream control path that excludes MeshPeerUdp. Mesh upstream acceptance is a second gate that adds MeshPeerUdp, MeshSec, native family repair, and remote bus re-entry.</p>
     </section>
 
     <section id="market-position">

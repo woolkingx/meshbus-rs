@@ -99,3 +99,28 @@ fn bounded_window_overflow_closes_family_protocol_error() {
         FamilyPushOutcome::WindowOverflow(_)
     ));
 }
+
+#[test]
+fn family_window_overflows_when_frontier_gap_exceeds_window() {
+    let mut state = FamilyReorderState::new("session-a".into(), 1, 64, 0);
+
+    assert!(matches!(state.push_package(pkg(2)), FamilyPushOutcome::Gap(_)));
+
+    for seq in 3..65 {
+        assert!(
+            matches!(
+                state.push_package(pkg(seq)),
+                FamilyPushOutcome::Buffered | FamilyPushOutcome::Gap(_)
+            ),
+            "seq {seq} should remain inside the reorder window"
+        );
+    }
+
+    assert!(
+        matches!(
+            state.push_package(pkg(65)),
+            FamilyPushOutcome::WindowOverflow(_)
+        ),
+        "seq 65 is 64 ahead of missing seq 1 and must close the family"
+    );
+}

@@ -125,6 +125,7 @@
         <tr><td>Observation</td><td>Metrics and logs must expose selected sink, peer_id, route_group, close reason, bytes/datagrams, and failure delta without inspecting payload.</td><td>Payload-derived route evidence.</td></tr>
       </table>
       <p>This is the modern Squid-like cluster shape, but lower-layer and protocol-neutral: parent/sibling composition without HTTP cache ownership, and MeshSec encrypted events instead of proxy-specific upstream sockets.</p>
+      <p><span class="warn">Observation gate:</span> source-lease failover claims require lease reason readback plus remote path failure evidence. A pool node native drop counter alone is not sufficient unless the gateway candidate-health set reflects the degraded peer.</p>
       <h3>Source Lease Rotate Scheduler</h3>
       <p><span class="ok">Status:</span> source implementation and owner tests are local-green; live deployment and observation label projection remain. The owner is <code>mesh-bus-scheduler-loadbalance</code>. Core still filters candidates by capability, <code>route_group</code>, target sink, and health before the scheduler runs.</p>
 <pre class="topology">source_key

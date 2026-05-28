@@ -95,14 +95,14 @@ tests/live gates = completion evidence</div>
         </tr>
         <tr>
           <td>5.4</td>
-          <td><a href="../plan/2026-05-26-coding-structure-systematic-optimization.md">Coding structure systematic optimization</a></td>
+          <td><code>2026-05-26 coding structure systematic optimization</code></td>
           <td><a href="documentation-architecture.html">documentation architecture</a>, <a href="testing-gates.html">testing gates</a>, <a href="testing-index.html">testing index</a></td>
           <td><span class="ok">Complete.</span> Production logic and durable proof bodies were split back into owner-local files, and structural drift is now mechanically visible through repository tooling.</td>
           <td>Gate passed: <code>node tools/audit-coding-structure.mjs --fail</code> reports inline test bodies 0, oversized source files 0, oversized test files 0, and contract coverage issues 0; <code>node tools/extract-inline-rust-tests.mjs --dry-run</code> reports 0 extracted modules; workspace lib and affected integration tests passed during plan closure.</td>
         </tr>
         <tr>
           <td>5.5</td>
-          <td><a href="../plan/2026-05-26-handbook-consistency-fix-plan.md">Handbook consistency fix plan</a></td>
+          <td><code>2026-05-26 handbook consistency fix plan</code></td>
           <td><a href="documentation-architecture.html">documentation architecture</a>, <a href="system-architecture.html">system architecture</a>, <a href="mesh-protocol.html">Mesh Protocol</a>, <a href="testing-gates.html">testing gates</a></td>
           <td><span class="ok">Complete.</span> Hard handbook drift is fixed, stale test projection was regenerated, flowgraph now emits the machine-readable boundary edge projection, act-rule graph headings were normalized, and every handbook section has a table/flow/svg coordinate surface.</td>
           <td>Gate passed: <code>node docs/handbook/handbook-gate.mjs</code> hard=0 advisory=0, <code>node tools/audit-coding-structure.mjs --fail</code> clean, <code>node tools/flowgraph.mjs --out-dir artifacts/flowgraph</code> findings none, <code>python3 tools/validate-schema-instances.py</code> validates the data/control matrix, and <code>git diff --check</code> passes.</td>

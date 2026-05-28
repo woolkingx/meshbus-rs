@@ -4,14 +4,20 @@ import fs from "node:fs";
 import path from "node:path";
 
 const env = process.env;
-const gatewaySsh = required("MESH_BUS_RUN2_GATEWAY_SSH");
-const gatewaySocks5 = required("MESH_BUS_RUN2_GATEWAY_SOCKS5");
-const gatewayOperator = required("MESH_BUS_RUN2_GATEWAY_OPERATOR");
+const validationMode = env.MESH_BUS_RUN2_VALIDATION_MODE || "mesh";
+const allowedValidationModes = new Set(["socks-upstream", "mesh"]);
+if (!allowedValidationModes.has(validationMode)) {
+  throw new Error(`MESH_BUS_RUN2_VALIDATION_MODE must be socks-upstream or mesh, got ${validationMode}`);
+}
+const meshValidation = validationMode === "mesh";
+const gatewaySsh = meshValidation ? required("MESH_BUS_RUN2_GATEWAY_SSH") : env.MESH_BUS_RUN2_GATEWAY_SSH || "";
+const gatewaySocks5 = meshValidation ? required("MESH_BUS_RUN2_GATEWAY_SOCKS5") : env.MESH_BUS_RUN2_GATEWAY_SOCKS5 || "";
+const gatewayOperator = meshValidation ? required("MESH_BUS_RUN2_GATEWAY_OPERATOR") : env.MESH_BUS_RUN2_GATEWAY_OPERATOR || "";
 const gatewayService = env.MESH_BUS_RUN2_GATEWAY_SERVICE || "mesh-bus-run2.service";
 const gatewayBin = env.MESH_BUS_RUN2_GATEWAY_BIN || "/opt/mesh-bus/bin/mesh-bus-run2";
 const gatewayAdminBin = env.MESH_BUS_RUN2_GATEWAY_ADMIN_BIN || gatewayBin;
 const gatewayConfig = env.MESH_BUS_RUN2_GATEWAY_CONFIG || "/etc/mesh-bus/run2.yaml";
-const target = env.MESH_BUS_RUN2_TARGET || "https://example.com";
+const target = env.MESH_BUS_RUN2_TARGET || (validationMode === "socks-upstream" ? "http://example.com:80" : "https://example.com");
 const probes = numberEnv("MESH_BUS_RUN2_PROBES", 10);
 const curlMaxTimeSeconds = numberEnv("MESH_BUS_RUN2_CURL_MAX_TIME_SECONDS", 30);
 const journalLines = numberEnv("MESH_BUS_RUN2_JOURNAL_LINES", 160);
@@ -25,6 +31,7 @@ const failoverStoppedExitSendLimit = numberEnv("MESH_BUS_RUN2_FAILOVER_STOPPED_E
 
 const result = {
   kind: "mesh_bus.live_run2_pool_validation",
+  validation_mode: validationMode,
   gateway_ssh: gatewaySsh,
   gateway_socks5: gatewaySocks5,
   gateway_operator: gatewayOperator,
@@ -50,45 +57,52 @@ const result = {
 };
 
 try {
-  result.diagnostics.before = await assertGatewayService("before");
-  result.status_before = await gatewayAdminJson("status");
-  result.metrics_before = await gatewayAdminJson("metrics-snapshot");
-  assertRun2Shape(result.status_before);
+  if (validationMode === "socks-upstream") {
+    result.control_path = await runSocksUpstreamControl();
+  } else {
+    result.diagnostics.before = await assertGatewayService("before");
+    result.status_before = await gatewayAdminJson("status");
+    result.metrics_before = await gatewayAdminJson("metrics-snapshot");
+    assertRun2Shape(result.status_before);
 
-  for (let i = 1; i <= probes; i += 1) {
-    const sample = {
-      iteration: i,
-      diagnostics_before: await collectGatewaySample(`probe-${i}-before`),
-    };
-    try {
-      sample.curl = await socks5Curl();
-      sample.metrics = summarizeMetrics(await gatewayAdminJson("metrics-snapshot"));
-      sample.diagnostics_after = await collectGatewaySample(`probe-${i}-after`);
-      result.samples.push(sample);
-    } catch (err) {
-      sample.error = err.message;
-      sample.diagnostics_after = await collectGatewayFull(`probe-${i}-failed`);
-      result.samples.push(sample);
-      throw err;
+    for (let i = 1; i <= probes; i += 1) {
+      const sample = {
+        iteration: i,
+        diagnostics_before: await collectGatewaySample(`probe-${i}-before`),
+      };
+      try {
+        sample.curl = await socks5Curl();
+        sample.metrics = summarizeMetrics(await gatewayAdminJson("metrics-snapshot"));
+        sample.diagnostics_after = await collectGatewaySample(`probe-${i}-after`);
+        result.samples.push(sample);
+      } catch (err) {
+        sample.error = err.message;
+        sample.diagnostics_after = await collectGatewayFull(`probe-${i}-failed`);
+        result.samples.push(sample);
+        throw err;
+      }
     }
-  }
 
-  result.metrics_after = await gatewayAdminJson("metrics-snapshot");
-  result.delta = metricsDelta(result.metrics_before, result.metrics_after);
-  assertNormalPoolMovement(result);
+    result.metrics_after = await gatewayAdminJson("metrics-snapshot");
+    result.delta = metricsDelta(result.metrics_before, result.metrics_after);
+    assertNormalPoolMovement(result);
 
-  if (failoverPeerSsh || failoverExit) {
-    result.failover = await runFailoverProbe();
+    if (failoverPeerSsh || failoverExit) {
+      result.failover = await runFailoverProbe();
+    }
+
+    result.diagnostics.after = await collectGatewayFull("after");
   }
 
   result.status = "ok";
-  result.diagnostics.after = await collectGatewayFull("after");
   result.artifact = writeArtifact(result);
   console.log(JSON.stringify(result, null, 2));
 } catch (err) {
   result.status = "failed";
   result.error = err.message;
-  result.diagnostics.failure = await collectGatewayFull("failure");
+  if (meshValidation) {
+    result.diagnostics.failure = await collectGatewayFull("failure");
+  }
   result.artifact = writeArtifact(result);
   console.error(`LIVE_RUN2_POOL_VALIDATION failed: ${err.message}`);
   console.error(`artifact=${result.artifact}`);
@@ -275,6 +289,55 @@ async function socks5Curl() {
   return parsed;
 }
 
+async function runSocksUpstreamControl() {
+  const upstreams = env.MESH_BUS_LIVE_SOCKS5_UPSTREAMS || "";
+  if (!upstreams.trim()) {
+    throw new Error("MESH_BUS_LIVE_SOCKS5_UPSTREAMS is required for socks-upstream validation mode");
+  }
+  const liveTarget = liveHttpTarget(target);
+  const args = [
+    "test",
+    "-p",
+    "mesh-bus-bin",
+    "binary_socks5_live_upstream_relays_real_http_response",
+    "--",
+    "--nocapture",
+  ];
+  const stdout = await run("cargo", args, {
+    env: {
+      ...process.env,
+      MESH_BUS_LIVE_SOCKS5_UPSTREAMS: upstreams,
+      MESH_BUS_LIVE_TARGET_HOST: liveTarget.host,
+      MESH_BUS_LIVE_TARGET_PORT: liveTarget.port,
+    },
+  });
+  return {
+    kind: "socks_upstream_control",
+    command: `cargo ${args.join(" ")}`,
+    upstream_count: upstreams.split(",").filter((part) => part.trim()).length,
+    target_host: liveTarget.host,
+    target_port: Number(liveTarget.port),
+    stdout,
+  };
+}
+
+function liveHttpTarget(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch (err) {
+    throw new Error(`MESH_BUS_RUN2_TARGET must be an absolute URL for socks-upstream mode: ${err.message}`);
+  }
+  if (url.protocol !== "http:") {
+    throw new Error(`socks-upstream mode uses the Rust HTTP live smoke; MESH_BUS_RUN2_TARGET must use http:, got ${url.protocol}`);
+  }
+  if (url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("socks-upstream mode target must be an HTTP origin URL without path/query/fragment");
+  }
+  const port = url.port || "80";
+  return { host: url.hostname, port };
+}
+
 function summarizeMetrics(metrics) {
   return {
     dispatch_success: metrics.dispatch_success,
@@ -419,9 +482,12 @@ async function sshMaybe(host, command) {
   }
 }
 
-function run(command, args) {
+function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: options.env || process.env,
+    });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk.toString("utf8"); });

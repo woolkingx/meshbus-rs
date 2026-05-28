@@ -59,6 +59,7 @@
         <li>StreamOpen re-entry into local bus and failure mapping to StreamOpenReject.</li>
         <li>Datagram open/return behavior.</li>
         <li>Peer endpoint/source preservation and MeshSec fail-closed cases.</li>
+        <li>Native stream family gap feedback and terminal overflow close replies.</li>
         <li>Session stop/ejection behavior under scheduler eviction.</li>
       </ul>
     </section>
@@ -77,6 +78,7 @@
         <tr><th>Proof</th><th>Required assertion</th></tr>
         <tr><td>Ingress shape</td><td>Accepts stream and datagram Mesh Protocol events; stream opens re-enter the local bus and datagrams preserve endpoint identity.</td></tr>
         <tr><td>Decode ownership</td><td>Two-layer decode and family routing preserve packet identity.</td></tr>
+        <tr><td>Native family feedback</td><td>Stream gaps enqueue AckNack feedback; stream family overflow enqueues terminal <code>StreamClose(ProtocolError)</code>; datagram overflow remains fail-closed local drop.</td></tr>
         <tr><td>MeshSec policy</td><td>Malformed and tampered packets fail closed without creating sessions.</td></tr>
       </table>
     </section>

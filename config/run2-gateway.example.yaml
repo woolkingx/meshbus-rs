@@ -72,28 +72,38 @@ egresses:
     peer_id: pool-20
     peer: 192.0.2.20:2080
     groups: [default]
+    native_event_mode: secure_udp_native
+    delivery_mode: repair
     timeout_ms: 3000
   - kind: MeshPeerUdp
     id: mesh21
     peer_id: pool-21
     peer: 192.0.2.21:2080
     groups: [default]
+    native_event_mode: secure_udp_native
+    delivery_mode: repair
     timeout_ms: 3000
   - kind: MeshPeerUdp
     id: mesh22
     peer_id: pool-22
     peer: 192.0.2.22:2080
     groups: [default]
+    native_event_mode: secure_udp_native
+    delivery_mode: repair
     timeout_ms: 3000
   - kind: MeshPeerUdp
     id: mesh23
     peer_id: pool-23
     peer: 192.0.2.23:2080
     groups: [default]
+    native_event_mode: secure_udp_native
+    delivery_mode: repair
     timeout_ms: 3000
   - kind: MeshPeerUdp
     id: mesh24
     peer_id: pool-24
     peer: 192.0.2.24:2080
     groups: [default]
+    native_event_mode: secure_udp_native
+    delivery_mode: repair
     timeout_ms: 3000
